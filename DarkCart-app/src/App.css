@@ -1,0 +1,249 @@
+.hide-scrollbar {
+    scrollbar-width: none; /* Firefox */
+    -ms-overflow-style: none; /* IE and Edge */
+  }
+  
+  .hide-scrollbar::-webkit-scrollbar {
+    display: none; /* Chrome, Safari, Opera */
+  }
+  @keyframes glow {
+    0%, 100% {
+      text-shadow: 0 0 5px rgba(255, 255, 255, 0.6), 0 0 10px rgba(255, 255, 255, 0.4);
+    }
+    50% {
+      text-shadow: 0 0 20px rgba(255, 255, 255, 0.8), 0 0 30px rgba(255, 255, 255, 0.6);
+    }
+  }
+  
+  .glow {
+    animation: glow 1.5s ease-in-out infinite;
+  }
+  
+  /* 3D rotation effect */
+  .rotate-3d {
+    transform: perspective(500px) rotateY(20deg);
+  }
+  
+  /* Custom responsive breakpoint for 1284px */
+@media (max-width: 1284px) and (min-width: 1280px) {
+  .header-container {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+  
+  .header-actions {
+    gap: 0.5rem !important;
+  }
+  
+  .cart-button {
+    padding-left: 0.75rem !important;
+    padding-right: 0.75rem !important;
+  }
+}
+
+/* Fix collision at 1024-1279px resolution with mobile-style layout */
+@media (min-width: 1024px) and (max-width: 1279.98px) {
+  /* Adjust the user display at this specific breakpoint */
+  .user-name-display {
+    display: none !important;
+  }
+  
+  /* Add more spacing between header items */
+  .header-actions {
+    gap: 0.75rem !important;
+  }
+  
+  /* Make cart button more compact */
+  .cart-button {
+    padding-left: 0.5rem !important;
+    padding-right: 0.5rem !important;
+  }
+
+  /* Reduce padding for account menu trigger */
+  .account-menu-trigger {
+    padding-left: 0.5rem !important;
+    padding-right: 0.5rem !important;
+  }
+  
+  /* Adjust search bar width for this breakpoint */
+  .mid-desktop-search {
+    max-width: 45% !important;
+  }
+  
+  /* Keep some spacing between elements */
+  .mid-desktop-spacing {
+    gap: 0.75rem !important;
+  }
+  
+  /* Increase mobile header icon size slightly */
+  .mobile-header-icons svg {
+    width: 24px !important;
+    height: 24px !important;
+  }
+  
+  /* Adjust avatar size in mid-desktop */
+  .mobile-header-icons img {
+    width: 28px !important;
+    height: 28px !important;
+  }
+  
+  /* Show more of the username */
+  .mobile-username {
+    max-width: 120px !important;
+    display: inline-block !important;
+  }
+  
+  /* Layout adjustments */
+  .header-container {
+    padding-left: 1.5rem !important;
+    padding-right: 1.5rem !important;
+  }
+}
+
+/* User name display in header */
+@media (min-width: 768px) and (max-width: 1023px) {
+  .user-name-display {
+    max-width: 60px !important;
+  }
+}
+
+@media (min-width: 1024px) and (max-width: 1280px) {
+  .user-name-display {
+    max-width: 80px !important;
+  }
+}
+
+@media (min-width: 1281px) {
+  .user-name-display {
+    max-width: 120px !important;
+  }
+}
+
+/* More granular breakpoints for desktop resolutions */
+@media (min-width: 1280px) and (max-width: 1439px) {
+  .header-actions {
+    gap: 1rem !important;
+  }
+  
+  .cart-button {
+    padding-left: 0.75rem !important;
+    padding-right: 0.75rem !important;
+  }
+  
+  .user-name-display {
+    max-width: 100px !important;
+  }
+}
+
+@media (min-width: 1440px) {
+  .header-actions {
+    gap: 2rem !important;
+  }
+  
+  .user-name-display {
+    max-width: 150px !important;
+  }
+}
+
+/* Mobile responsive improvements */
+@media (max-width: 767px) {
+  .header-container {
+    padding-left: 0.5rem;
+    padding-right: 0.5rem;
+  }
+  
+  .mobile-username {
+    max-width: 0;
+    opacity: 0;
+  }
+}
+
+@media (min-width: 576px) and (max-width: 767px) {
+  .mobile-username {
+    max-width: 70px;
+    opacity: 1;
+  }
+}
+
+@media (min-width: 768px) and (max-width: 1023px) {
+  .mobile-username {
+    max-width: 100px;
+    opacity: 1;
+  }
+}
+
+/* Better spacing for mobile header elements */
+@media (max-width: 640px) {
+  .mobile-header-spacing {
+    gap: 0.5rem !important;
+  }
+  
+  .header-logo-text {
+    font-size: 0.875rem !important;
+  }
+  
+  .header-logo-subtitle {
+    font-size: 0.65rem !important;
+  }
+}
+
+/* Mobile cart icon specific styles */
+.mobile-cart-icon {
+  position: relative;
+}
+
+.mobile-cart-count {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  background: #e53e3e;
+  border-radius: 50%;
+  width: 16px;
+  height: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: bold;
+  color: white;
+}
+
+/* Further responsive tweaks */
+@media (max-width: 360px) {
+  .header-logo-text {
+    font-size: 0.7rem !important;
+    letter-spacing: 0.01rem;
+  }
+  
+  .header-logo-subtitle {
+    font-size: 0.55rem !important;
+  }
+  
+  .mobile-header-icons button,
+  .mobile-header-icons a {
+    padding: 0.25rem !important;
+  }
+}
+
+/* Special handling for exactly 1024px */
+@media (width: 1024px) {
+  .mobile-header-icons {
+    gap: 0.75rem !important; 
+  }
+  
+  .mobile-username {
+    max-width: 100px !important;
+    opacity: 1;
+  }
+  
+  /* Make all buttons a bit larger at this exact breakpoint */
+  .mobile-header-icons svg {
+    width: 26px !important;
+    height: 26px !important;
+  }
+  
+  .mobile-header-icons img {
+    width: 30px !important;
+    height: 30px !important;
+  }
+}
