@@ -152,10 +152,13 @@ export async function loginController(req, res) {
     const accessToken = await generatedAccessToken(user._id);
     const refreshToken = await generatedRefreshToken(user._id)
 
+
+    const isProd = process.env.NODE_ENV === "production";
+
     const cookieOption = {
         httpOnly : true,
-        secure : true,
-        sameSite : "None"
+        secure : isProd,            
+        sameSite : isProd ? "None" : "Lax"
     }
 
     res.cookie('accessToken',accessToken,cookieOption)

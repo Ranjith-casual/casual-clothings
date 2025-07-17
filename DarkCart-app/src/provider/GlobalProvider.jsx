@@ -8,8 +8,8 @@ import toast from "react-hot-toast";
 import { pricewithDiscount } from "../utils/PriceWithDiscount.js";
 import { handleAddAddress } from "../store/addressSlice.js";
 import { setOrders } from "../store/orderSlice.js";
-import { setWishlistItems, addWishlistItem, removeWishlistItem, setWishlistLoading } from "../store/wishlistSlice.js";
-
+import { setWishlistItems, removeWishlistItem, setWishlistLoading } from "../store/wishlistSlice.js";
+import PropTypes from 'prop-types';
 export const GlobalContext = createContext(null);
 
 export const useGlobalContext = () => useContext(GlobalContext);
@@ -24,7 +24,7 @@ const GlobalProvider = ({ children }) => {
   const [refreshingOrders, setRefreshingOrders] = useState(false);
   const [openCartSection, setOpenCartSection] = useState(false);
   
-  // Function to fetch user orders
+
   const fetchOrders = async () => {
     try {
       setRefreshingOrders(true);
@@ -38,7 +38,7 @@ const GlobalProvider = ({ children }) => {
       }
     } catch (error) {
       console.error("Error fetching orders:", error);
-      // AxiosTostError(error);
+    
     } finally {
       setRefreshingOrders(false);
     }
@@ -58,7 +58,7 @@ const GlobalProvider = ({ children }) => {
       }
     } catch (error) {
       console.error("Error fetching all orders:", error);
-      // AxiosTostError(error);
+     
     } finally {
       setRefreshingOrders(false);
     }
@@ -90,14 +90,14 @@ const GlobalProvider = ({ children }) => {
           });
         });
         
-        // The backend now cleans up invalid items, but add a safety check
+     
         const validCartItems = responseData.data.filter(item => 
           (item.productId && item.productId._id) || (item.bundleId && item.bundleId._id)
         );
         
         console.log('Valid cart items after filtering:', validCartItems);
         
-        // Only log warning if there are actually invalid items (should be rare now)
+      
         if (validCartItems.length !== responseData.data.length) {
           console.warn(`Removed ${responseData.data.length - validCartItems.length} invalid cart items from frontend`);
         }
@@ -122,12 +122,12 @@ const GlobalProvider = ({ children }) => {
       const { data: responseData } = response;
 
       if (responseData.success) {
-        // toast.success(responseData.message)
+   
         fetchCartItems();
         return responseData;
       }
     } catch (error) {
-      // AxiosTostError(error);
+    
       return error;
     }
   };
@@ -146,11 +146,11 @@ const GlobalProvider = ({ children }) => {
         fetchCartItems();
       }
     } catch (error) {
-      // AxiosTostError(error);
+   
+      console.log(error);
     }
   };
 
-  // Function to update order status (for both admin and user views)
   const updateOrderStatus = async (orderId, newStatus) => {
     try {
       const response = await Axios({
@@ -160,23 +160,23 @@ const GlobalProvider = ({ children }) => {
       });
       
       if (response.data.success) {
-        // Don't show toast here - let the component handle it
+       
         
-        // Refresh orders to get the updated status
+    
         if (handleOrder) {
           handleOrder();
         } else {
-          // Fallback if handleOrder is not defined yet (due to user being null)
+
           user?.role?.toUpperCase() === "ADMIN" ? fetchAllOrders() : fetchOrders();
         }
         return true;
       } else {
-        // Just log the error but don't show toast as the component will handle it
+      
         console.error("API returned error:", response.data);
         return false;
       }
     } catch (error) {
-      // Just log the error but don't show toast as the component will handle it
+
       console.error("Error updating order status:", error);
       return false;
     }
@@ -184,16 +184,22 @@ const GlobalProvider = ({ children }) => {
 
   const handleOrder = user?.role === "ADMIN" ? fetchAllOrders : fetchOrders;
 
-  const handleLoggout = () => {
-    localStorage.clear();
-    dispatch(handleAddItemCart([]));
-  };
+  // // Clear tokens only if the user is actually logged-out
+  // const handleLoggout = () => {
+  //   if(!user?._id){
+  //     localStorage.removeItem("accessToken");
+  //     localStorage.removeItem("refreshToken");
+  //     dispatch(handleAddItemCart([]));
+  //   }
+  // };
 
+  // Fetch data when user info becomes available
   useEffect(() => {
-    handleLoggout();
-    fetchCartItems();
-    fetchAddress();
-    handleOrder();
+    if(user?._id){
+      fetchCartItems();
+      fetchAddress();
+      handleOrder();
+    }
   }, [user]);
 
   useEffect(() => {
@@ -252,6 +258,7 @@ const GlobalProvider = ({ children }) => {
         dispatch(handleAddAddress(responseData.data));
       }    
     } catch (error) {
+      console.log(error);
       // AxiosTostError(error);
     }
   }
@@ -359,6 +366,10 @@ const GlobalProvider = ({ children }) => {
       {children}
     </GlobalContext.Provider>
   );
+};
+
+GlobalProvider.propTypes = {
+  children: PropTypes.node.isRequired,   
 };
 
 export default GlobalProvider;
