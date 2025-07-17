@@ -56,7 +56,7 @@ function UserManagement() {
         try {
             const response = await Axios({
                 ...SummaryApi.toggleUserStatus,
-                data: { userId, status: currentStatus === 'active' ? 'blocked' : 'active' }
+                data: { userId, status: currentStatus === 'Active' ? 'Blocked' : 'Active' }
             })
 
             if (response.data.success) {
@@ -104,7 +104,7 @@ function UserManagement() {
     }
 
     const getStatusColor = (status) => {
-        return status === 'active' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+        return status === 'Active' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
     }
 
     return (
@@ -258,10 +258,10 @@ function UserManagement() {
                                                     </button>
                                                     <button
                                                         onClick={() => handleStatusToggle(user._id, user.status)}
-                                                        className={user.status === 'active' ? 'text-red-600 hover:text-red-900' : 'text-green-600 hover:text-green-900'}
-                                                        title={user.status === 'active' ? 'Block User' : 'Unblock User'}
+                                                        className={user.status === 'Active' ? 'text-red-600 hover:text-red-900' : 'text-green-600 hover:text-green-900'}
+                                                        title={user.status === 'Active' ? 'Block User' : 'Unblock User'}
                                                     >
-                                                        {user.status === 'active' ? <FaBan /> : <FaCheck />}
+                                                        {user.status === 'Active' ? <FaBan /> : <FaCheck />}
                                                     </button>
                                                 </div>
                                             </td>
