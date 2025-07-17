@@ -4,7 +4,7 @@ import { validURLConvert } from "../utils/validURLConvert";
 import { Link, useLocation } from "react-router-dom";
 import { pricewithDiscount } from "../utils/PriceWithDiscount";
 import { useGlobalContext } from "../provider/GlobalProvider";
-import { FaHeart, FaRegHeart, FaShoppingCart } from "react-icons/fa";
+import {  FaShoppingCart } from "react-icons/fa";
 
 // Component to display product name with search highlighting
 const ProductNameWithHighlight = ({ name, searchTerm }) => {
@@ -28,7 +28,7 @@ const ProductNameWithHighlight = ({ name, searchTerm }) => {
   );
 };
 
-function CardProduct({ data }) {
+function CardProduct({ data, hideProductInfo = false }) {
   // Early return if data is not available
   if (!data || !data._id) {
     return (
@@ -135,15 +135,19 @@ function CardProduct({ data }) {
   const createdAt = data.createdAt || new Date();
 
   return (
-    <div className="w-full">
+    <div className="w-full h-full">
       <Link
         to={url}
-        className="bg-white rounded-lg overflow-hidden group flex flex-col h-[400px] w-full relative"
+        className={`bg-white rounded-lg overflow-hidden group flex flex-col w-full relative ${
+          hideProductInfo ? 'h-full' : 'h-[400px]'
+        }`}
         onMouseEnter={() => setShowQuickActions(true)}
         onMouseLeave={() => setShowQuickActions(false)}
       >
-        {/* Product Image Container - Fixed Height */}
-        <div className="relative bg-gray-50 h-[240px] overflow-hidden">
+        {/* Product Image Container - Flexible Height */}
+        <div className={`relative bg-gray-50 overflow-hidden ${
+          hideProductInfo ? 'h-full' : 'h-[240px]'
+        }`}>
           {/* Top Badges */}
           <div className="absolute top-3 left-3 right-3 z-20 flex justify-between items-start">
             {/* Stock Status Badge */}
@@ -152,8 +156,6 @@ function CardProduct({ data }) {
             </span>
 
             {/* Wishlist Button */}
-          
-           
           </div>
 
           
@@ -199,35 +201,37 @@ function CardProduct({ data }) {
           </div> */}
         </div>
 
-        {/* Product Info - Fixed Height */}
-        <div className="p-5 flex flex-col h-[160px] justify-center">
-          {/* Category */}
-          <div className="text-xs text-gray-400 uppercase tracking-wider font-medium mb-3 text-center">
-            {categoryName}
-          </div>
-
-          {/* Product Name */}
-          <div className="font-medium text-gray-900 text-sm leading-tight text-center mb-4 h-10 flex items-center justify-center">
-            <ProductNameWithHighlight name={productName} searchTerm={searchTerm} />
-          </div>
-
-          {/* Price Section */}
-          <div className="flex flex-row items-center justify-center gap-2 flex-wrap">
-            {discount > 0 && (
-              <span className="text-sm text-gray-400 line-through">
-                {DisplayPriceInRupees(price)}
-              </span>
-            )}
-            <div className="font-semibold text-gray-900 text-lg">
-              {DisplayPriceInRupees(discountedPrice)}
+        {/* Product Info - Show only if not hidden */}
+        {!hideProductInfo && (
+          <div className="p-5 flex flex-col h-[160px] justify-center">
+            {/* Category */}
+            <div className="text-xs text-gray-400 uppercase tracking-wider font-medium mb-3 text-center">
+              {categoryName}
             </div>
-            {discount > 0 && (
-              <span className="text-xs text-red-500  px-2 py-1 rounded font-medium">
-                {discount}% OFF
-              </span>
-            )}
+
+            {/* Product Name */}
+            <div className="font-medium text-gray-900 text-sm leading-tight text-center mb-4 h-10 flex items-center justify-center">
+              <ProductNameWithHighlight name={productName} searchTerm={searchTerm} />
+            </div>
+
+            {/* Price Section */}
+            <div className="flex flex-row items-center justify-center gap-2 flex-wrap">
+              {discount > 0 && (
+                <span className="text-sm text-gray-400 line-through">
+                  {DisplayPriceInRupees(price)}
+                </span>
+              )}
+              <div className="font-semibold text-gray-900 text-lg">
+                {DisplayPriceInRupees(discountedPrice)}
+              </div>
+              {discount > 0 && (
+                <span className="text-xs text-red-500  px-2 py-1 rounded font-medium">
+                  {discount}% OFF
+                </span>
+              )}
+            </div>
           </div>
-        </div>
+        )}
       </Link>
     </div>
   );

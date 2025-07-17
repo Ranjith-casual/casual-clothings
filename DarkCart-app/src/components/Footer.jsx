@@ -170,18 +170,7 @@ function Footer() {
               ))}
             </div>
           </div>
-          <div className="mt-4 pt-4 border-t border-gray-200 text-center">
-            <div className="flex justify-center space-x-3">
-              {[
-                { src: "https://cdn-icons-png.flaticon.com/512/196/196566.png", alt: "Visa" },
-                { src: "https://cdn-icons-png.flaticon.com/512/196/196561.png", alt: "Mastercard" },
-                { src: "https://cdn-icons-png.flaticon.com/512/196/196565.png", alt: "PayPal" },
-                { src: "https://cdn-icons-png.flaticon.com/512/196/196539.png", alt: "Apple Pay" },
-              ].map(({ src, alt }, idx) => (
-                <img key={idx} src={src} alt={alt} className="h-6 w-auto opacity-50 hover:opacity-100 transition-opacity" />
-              ))}
-            </div>
-          </div>
+        
         </div>
       </div>
     </footer>
