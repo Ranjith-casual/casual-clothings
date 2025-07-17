@@ -45,8 +45,14 @@ export default function App() {
   const dispatch = useDispatch();
 
   const fetchUser = async () => {
-    const userData = await fetchUserDetails();
-    dispatch(setUserDetails(userData.data));
+    // Only fetch user data if there's an access token
+    const accessToken = localStorage.getItem("accessToken");
+    if (accessToken) {
+      const userData = await fetchUserDetails();
+      if (userData?.data) {
+        dispatch(setUserDetails(userData.data));
+      }
+    }
   };
 
   const fetchCategory = async () => {

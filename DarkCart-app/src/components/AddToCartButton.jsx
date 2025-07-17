@@ -164,6 +164,7 @@ const AddToCartButton = ({ data, isBundle = false, cartItemId = null, currentQty
       setLoading(true);
       
       if (qty <= 1) {
+        // When quantity is 1 and we're decreasing to 0, we should remove the item
         const response = await deleteCartItem(cartItemDetails._id);
         if (response.success) {
           setQty(0);
@@ -172,6 +173,9 @@ const AddToCartButton = ({ data, isBundle = false, cartItemId = null, currentQty
           toast.success("Item removed");
           // Fetch cart items to ensure global state is updated
           setTimeout(() => fetchCartItems(), 100);
+        } else {
+          // If API call failed but we don't have specific error info
+          console.error("Error removing item:", response);
         }
       } else {
         const response = await updateCartItem(cartItemDetails._id, qty - 1);
@@ -183,7 +187,11 @@ const AddToCartButton = ({ data, isBundle = false, cartItemId = null, currentQty
         }
       }
     } catch (error) {
-      toast.error("Failed to update quantity");
+      console.error("Error in decreaseQty:", error);
+      // Only show error toast if it's not related to removing item when qty is 1
+      if (qty > 1) {
+        toast.error("Failed to update quantity");
+      }
     } finally {
       setLoading(false);
     }

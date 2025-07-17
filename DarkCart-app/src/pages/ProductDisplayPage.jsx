@@ -7,9 +7,6 @@ import { FaAngleRight, FaAngleLeft, FaRegHeart, FaHeart, FaShare, FaStar, FaArro
 import { FaShoppingCart } from "react-icons/fa";
 import { DisplayPriceInRupees } from '../utils/DisplayPriceInRupees'
 import Divider from '../components/Divider'
-import image1 from '../assets/productDescriptionImages/In no time-rafiki.png'
-import image2 from '../assets/productDescriptionImages/Online world-amico.png'
-import image3 from '../assets/productDescriptionImages/World Press Freedom Day-cuate.png'
 import { pricewithDiscount } from '../utils/PriceWithDiscount'
 import AddToCartButton from '../components/AddToCartButton.jsx'
 import { useSelector } from 'react-redux'
@@ -17,91 +14,30 @@ import { useGlobalContext } from '../provider/GlobalProvider'
 import toast from 'react-hot-toast'
 
 // Simple Product Card component for Similar Styles and Recently Viewed sections
-const SimpleProductCard = ({ product }) => {
+  const SimpleProductCard = ({ product }) => {
   const navigate = useNavigate();
-  const { addToWishlist, removeFromWishlist, checkWishlistItem } = useGlobalContext();
-  const [isWishlisted, setIsWishlisted] = useState(false);
   const [imageLoaded, setImageLoaded] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const user = useSelector((state) => state.user);
   
-  useEffect(() => {
-    const checkWishlist = async () => {
-      if (product._id && user?._id) {
-        try {
-          console.log("SimpleProductCard: Checking wishlist for", product._id);
-          const isInWishlist = await checkWishlistItem(product._id);
-          console.log("SimpleProductCard: Is in wishlist:", isInWishlist);
-          setIsWishlisted(isInWishlist);
-        } catch (error) {
-          console.error("Error checking wishlist in SimpleProductCard:", error);
-        }
-      }
-    };
-    
-    checkWishlist();
-  }, [product._id, user?._id, checkWishlistItem]);
-  
-  const handleWishlist = async (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    
-    if (!user?._id) {
-      toast.error("Please login to add items to wishlist");
-      navigate("/login");
-      return;
-    }
-    
-    try {
-      setLoading(true);
-      console.log("SimpleProductCard: Updating wishlist for", product._id, "Current status:", isWishlisted);
-      if (isWishlisted) {
-        const result = await removeFromWishlist(product._id);
-        console.log("SimpleProductCard: Remove from wishlist result:", result);
-        if (result && result.success) {
-          setIsWishlisted(false);
-          toast.success("Removed from wishlist");
-        } else {
-          toast.error("Failed to remove from wishlist");
-        }
-      } else {
-        const result = await addToWishlist(product._id);
-        console.log("SimpleProductCard: Add to wishlist result:", result);
-        if (result && result.success) {
-          setIsWishlisted(true);
-          toast.success("Added to wishlist");
-        } else {
-          toast.error("Failed to add to wishlist");
-        }
-      }
-    } catch (error) {
-      console.error("Error updating wishlist:", error);
-      toast.error("Something went wrong");
-    } finally {
-      setLoading(false);
-    }
-  };
   
   const handleImageLoad = () => {
     setImageLoaded(true);
   };
   
+  // Extract product information
   const price = product.price || 0;
   const discount = product.discount || 0;
   const discountedPrice = pricewithDiscount(price, discount);
   const productImage = product.image?.[0] || '';
   const productName = product.name || 'Product';
   const categoryName = product.category?.[0]?.name || product.category?.name || 'Fashion';
-  const productId = product._id;
-  
-  return (
+  const productId = product._id;  return (
     <div className="relative">
       <Link 
         to={`/product/${productName?.toLowerCase().replace(/ /g, '-')}-${productId}`} 
         className="block group"
       >
         {/* Product Image */}
-        <div className="aspect-square border border-gray-200 p-2 overflow-hidden bg-white relative mb-3">
+        <div className="aspect-square border border-gray-200 overflow-hidden bg-gray-50 rounded-md relative mb-4 transition-all duration-300 group-hover:shadow-lg group-hover:-translate-y-1">
           {!imageLoaded && (
             <div className="absolute inset-0 bg-gray-100 animate-pulse"></div>
           )}
@@ -109,7 +45,7 @@ const SimpleProductCard = ({ product }) => {
             <img 
               src={productImage} 
               alt={productName} 
-              className={`w-full h-full object-contain transition-all duration-300 group-hover:scale-105 ${
+              className={`w-full h-full object-contain p-3 transition-all duration-500 group-hover:scale-105 ${
                 imageLoaded ? 'opacity-100' : 'opacity-0'
               }`}
               onLoad={handleImageLoad}
@@ -122,19 +58,19 @@ const SimpleProductCard = ({ product }) => {
         </div>
         
         {/* Product Info */}
-        <div className="text-center">
-          <div className="uppercase text-xs font-medium text-gray-600 mb-1">{categoryName}</div>
-          <div className="font-medium text-sm mb-1 line-clamp-2 h-10">{productName}</div>
+        <div className="text-center px-2">
+          <div className="uppercase text-xs tracking-wider font-medium text-gray-500 mb-2 font-['Poppins']">{categoryName}</div>
+          <div className="font-medium text-sm mb-2 line-clamp-2 h-10 group-hover:text-black transition-colors font-['Poppins']">{productName}</div>
           <div className="flex justify-center items-center gap-2">
-            <span className="font-bold">
+            <span className="font-bold text-gray-900 font-['Poppins']">
               {DisplayPriceInRupees(discountedPrice)}
             </span>
             {discount > 0 && (
               <>
-                <span className="text-xs text-gray-500 line-through">
+                <span className="text-xs text-gray-400 line-through font-['Poppins']">
                   {DisplayPriceInRupees(price)}
                 </span>
-                <span className="text-xs text-green-600">
+                <span className="text-xs font-medium text-green-600 font-['Poppins']">
                   ({discount}% OFF)
                 </span>
               </>
@@ -142,24 +78,6 @@ const SimpleProductCard = ({ product }) => {
           </div>
         </div>
       </Link>
-      
-      {/* Wishlist Button */}
-      { loading ? (
-        <div className="absolute top-2 right-2 p-1.5 bg-white/90 rounded-full shadow-sm z-10">
-          <FaSpinner className="animate-spin text-gray-600 w-3.5 h-3.5" />
-        </div>
-      ) : (
-        <button 
-          onClick={handleWishlist}
-          className="absolute top-2 right-2 p-1.5 bg-white/90 rounded-full shadow-sm z-10"
-        >
-          {isWishlisted ? (
-          <FaHeart className="text-red-500 w-3.5 h-3.5" />
-        ) : (
-          <FaRegHeart className="text-gray-600 w-3.5 h-3.5 group-hover:text-red-500" />
-        )}
-        </button>
-      )}
     </div>
   );
 };
@@ -521,9 +439,9 @@ const ProductDisplayPage = () => {
   // Create a component for product details to avoid duplication
   const ProductDetails = ({ className = "" }) => {
     return (
-      <div className={`bg-white rounded-lg shadow-sm border border-gray-200 p-6 ${className}`}>
+      <div className={`bg-white rounded-lg shadow-sm border border-gray-100 p-6 hover:shadow-md transition-shadow duration-300 ${className}`}>
         <div className="flex items-center gap-2 mb-4">
-          {/* ... existing code ... */}
+          <h3 className="font-light text-sm uppercase tracking-[0.15em] text-gray-600 font-['Poppins']">Product Specifications</h3>
         </div>
         
         <div className="animate-fadeIn">
@@ -535,32 +453,34 @@ const ProductDisplayPage = () => {
             </div>
             */}
             
-            <div className="grid grid-cols-2 border-b border-gray-200">
-              <div className="py-3 px-4 font-medium text-gray-700 bg-gray-50 border-r border-gray-200">Wash Care</div>
-              <div className="py-3 px-4 text-gray-800">{data.washCare || 'Machine wash'}</div>
+
+            
+            <div className="grid grid-cols-2 border-b border-gray-100">
+              <div className="py-3.5 px-4 font-medium text-gray-600 bg-gray-50 border-r border-gray-100 font-['Poppins']">Wash Care</div>
+              <div className="py-3.5 px-4 text-gray-800 font-light font-['Poppins']">{data.washCare || 'Machine wash'}</div>
             </div>
             
-            <div className="grid grid-cols-2 border-b border-gray-200">
-              <div className="py-3 px-4 font-medium text-gray-700 bg-gray-50 border-r border-gray-200">Package Contains</div>
-              <div className="py-3 px-4 text-gray-800">Package contains: 1 {data.name}</div>
+            <div className="grid grid-cols-2 border-b border-gray-100">
+              <div className="py-3.5 px-4 font-medium text-gray-600 bg-gray-50 border-r border-gray-100 font-['Poppins']">Package Contains</div>
+              <div className="py-3.5 px-4 text-gray-800 font-light font-['Poppins']">Package contains: 1 {data.name}</div>
             </div>
             
-            <div className="grid grid-cols-2 border-b border-gray-200">
-              <div className="py-3 px-4 font-medium text-gray-700 bg-gray-50 border-r border-gray-200">Size worn by Model</div>
-              <div className="py-3 px-4 text-gray-800">{data.sizeModel || '32'}</div>
+            <div className="grid grid-cols-2 border-b border-gray-100">
+              <div className="py-3.5 px-4 font-medium text-gray-600 bg-gray-50 border-r border-gray-100 font-['Poppins']">Size worn by Model</div>
+              <div className="py-3.5 px-4 text-gray-800 font-light font-['Poppins']">{data.sizeModel || '32'}</div>
             </div>
             
-            <div className="grid grid-cols-2 border-b border-gray-200">
-              <div className="py-3 px-4 font-medium text-gray-700 bg-gray-50 border-r border-gray-200">Fabric</div>
-              <div className="py-3 px-4 text-gray-800">{data.fabric || '80% cotton, 19% polyester, 1% elastane'}</div>
+            <div className="grid grid-cols-2 border-b border-gray-100">
+              <div className="py-3.5 px-4 font-medium text-gray-600 bg-gray-50 border-r border-gray-100 font-['Poppins']">Fabric</div>
+              <div className="py-3.5 px-4 text-gray-800 font-light font-['Poppins']">{data.fabric || '80% cotton, 19% polyester, 1% elastane'}</div>
             </div>
           </div>
           
           {/* Product description */}
           {data.description && (
-            <div className="mt-6">
-              <h3 className="font-medium text-gray-900 mb-3">Description</h3>
-              <p className='text-base text-gray-600 leading-relaxed'>{data.description}</p>
+            <div className="mt-8">
+              <h3 className="font-light text-sm uppercase tracking-[0.15em] text-gray-600 mb-4 font-['Poppins']">Description</h3>
+              <p className='text-base text-gray-700 leading-relaxed font-light font-["Poppins"]'>{data.description}</p>
             </div>
           )}
           
@@ -572,8 +492,8 @@ const ProductDisplayPage = () => {
               </div>
               
               <div className="flex">
-                <div className="font-medium text-gray-600 w-32">Marketed By</div>
-                <div className="text-gray-800">
+                <div className="font-medium text-gray-600 w-32 font-['Poppins']">Marketed By</div>
+                <div className="text-gray-800 font-['Poppins']">
                   : {data.marketedBy || "Casual Clothings (India) Pvt. Ltd."}
                 </div>
               </div>
@@ -581,20 +501,20 @@ const ProductDisplayPage = () => {
              
               
               <div className="flex">
-                <div className="font-medium text-gray-600 w-32">Imported By</div>
-                <div className="text-gray-800">
+                <div className="font-medium text-gray-600 w-32 font-['Poppins']">Imported By</div>
+                <div className="text-gray-800 font-['Poppins']">
                   : {data.importedBy || "DarkCart Trading (India) Pvt. Ltd."}
                 </div>
               </div>
               
               <div className="flex">
-                <div className="font-medium text-gray-600 w-32">Country of Origin</div>
-                <div className="text-gray-800">: {data.countryOfOrigin || "India"}</div>
+                <div className="font-medium text-gray-600 w-32 font-['Poppins']">Country of Origin</div>
+                <div className="text-gray-800 font-['Poppins']">: {data.countryOfOrigin || "India"}</div>
               </div>
               
               <div className="flex">
-                <div className="font-medium text-gray-600 w-32">Customer Care Address</div>
-                <div className="text-gray-800">
+                <div className="font-medium text-gray-600 w-32 font-['Poppins']">Customer Care Address</div>
+                <div className="text-gray-800 font-['Poppins']">
                   : Tower-B, 7th Floor, DarkCart Office, Knowledge Park, Main Road, Bengaluru, Karnataka - 560029
                 </div>
               </div>
@@ -607,8 +527,8 @@ const ProductDisplayPage = () => {
               <h3 className="font-medium text-gray-900 mb-2">Additional Details</h3>
               {Object.keys(data?.more_details).map((element, index) => (
                 <div key={`details-${element}-${index}`} className="flex py-2 border-b border-gray-100">
-                  <p className='font-medium text-gray-900 w-1/3'>{element}</p>
-                  <p className='text-base text-gray-600 w-2/3'>{data?.more_details[element]}</p>
+                  <p className='font-medium text-gray-900 w-1/3 font-["Poppins"]'>{element}</p>
+                  <p className='text-base text-gray-600 w-2/3 font-["Poppins"]'>{data?.more_details[element]}</p>
                 </div>
               ))}
             </div>
@@ -619,24 +539,26 @@ const ProductDisplayPage = () => {
   }
 
   return (
-    <section className='bg-white min-h-screen py-6'>
-      <div className='container mx-auto p-4'>
+    <section className='bg-gradient-to-b from-gray-50 to-white min-h-screen py-8'>
+      <div className='container mx-auto px-4 lg:px-10'>
         {loading ? (
           <div className='flex justify-center items-center min-h-[60vh]'>
             <div className='animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-black'></div>
           </div>
         ) : (
           <>
-            {/* Breadcrumb navigation */}
-            <div className="flex items-center text-sm text-gray-500 mb-4">
-              <Link to="/" className="hover:text-black transition-colors">Home</Link>
+            {/* Breadcrumb navigation - Styled like HomePage */}
+              <div className="flex items-center text-sm text-gray-500 mb-6 font-['Poppins']">
+              <Link to="/" className="hover:text-black transition-colors font-medium tracking-wide">Home</Link>
               <span className="mx-2">/</span>
-              <Link to="/men" className="hover:text-black transition-colors">Men</Link>
+              <Link to="/products" className="hover:text-black transition-colors font-medium tracking-wide">Shop</Link>
               <span className="mx-2">/</span>
-           
-              <span className="text-gray-800 truncate max-w-[200px]">
+              <span className="text-gray-800 truncate max-w-[200px] font-medium">
                 {data.name}
               </span>
+            </div>            {/* Page introduction - Matches HomePage styling */}
+            <div className="mb-8">
+              <h2 className="font-light text-sm uppercase tracking-[0.2em] text-gray-500 mb-2 font-['Poppins']">PRODUCT DETAILS</h2>
             </div>
         
             <div className='grid lg:grid-cols-2 gap-6 lg:gap-10 mb-10'>
@@ -741,106 +663,104 @@ const ProductDisplayPage = () => {
               {/* Right Side - Product Information */}
               <div>
                 {/* Brand/Category name */}
-                <h1 className="text-2xl font-bold text-gray-800 uppercase mb-1">
+                <h1 className="text-sm font-light uppercase tracking-[0.15em] text-gray-500 mb-2 font-['Poppins']">
                   {data.category?.name || "DARK CART"}
                 </h1>
                 
                 {/* Product name */}
-                <h2 className='text-2xl font-bold text-gray-900 mb-4'>{data.name}</h2>
+                <h2 className='text-3xl md:text-4xl font-medium text-gray-900 mb-5 leading-tight font-["Playfair_Display"]'>{data.name}</h2>
                 
-                {/* Ratings */}
-                <div className="flex items-center gap-2 mb-4">
-                  <div className="bg-green-600 text-white px-2 py-1 rounded-sm text-sm font-bold flex items-center gap-1">
-                 
-                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
-                    </svg>
-                  </div>
-                  <span className="text-sm text-gray-600">{Math.floor(Math.random() * 500) + 100} Ratings</span>
-                </div>
+
                 
-                {/* Price section */}
-                <div className="mb-6">
-                  <div className="flex items-center gap-3 mb-1">
-                    <span className="text-2xl font-bold">
+                {/* Price section - Styled like HomePage */}
+                <div className="mb-8 border-t border-b border-gray-100 py-6">
+                  <div className="flex items-center gap-4 mb-2">
+                    <span className="text-2xl md:text-3xl font-medium font-['Poppins']">
                       {DisplayPriceInRupees(pricewithDiscount(data.price, data.discount))}
                     </span>
                     {data.discount > 0 && (
                       <>
-                        <span className="text-gray-500 line-through">
+                        <span className="text-gray-500 line-through text-lg font-['Poppins']">
                           {DisplayPriceInRupees(data.price)}
                         </span>
-                        <span className="text-green-600 font-semibold">
-                          ({data.discount}% OFF)
+                        <span className="bg-black text-white px-2 py-0.5 text-xs font-medium tracking-wide font-['Poppins']">
+                          {data.discount}% OFF
                         </span>
                       </>
                     )}
                   </div>
-                  <p className="text-sm text-gray-600">Price inclusive of all taxes</p>
+                  <p className="text-sm text-gray-600 font-light font-['Poppins']">Price inclusive of all taxes</p>
+                  
+                  {/* Stock Availability - Refined styling */}
+                  <div className="mt-3 flex items-center gap-2">
+                    <span className="text-sm font-medium text-gray-600 font-['Poppins']">Availability:</span>
+                    <span className={`text-sm ${data.stock > 10 ? 'text-green-600 font-medium' : data.stock > 0 ? 'text-orange-500 font-medium' : 'text-red-500 font-medium'} font-['Poppins']`}>
+                      {data.stock > 10 ? 'In Stock' : data.stock > 0 ? `Only ${data.stock} left` : 'Out of Stock'}
+                    </span>
+                  </div>
+                  
                 </div>
 
-                {/* Offer section */}
-                <div className="border border-gray-200 rounded-sm p-4 mb-6 bg-gray-50">
-                  <div className="flex items-center gap-2 text-sm">
-                    <Link to="/search" className="text-blue-600 underline">View All Products</Link>
+                {/* Offer section - Premium styling */}
+                <div className="bg-gradient-to-r from-gray-50 via-white to-gray-50 border border-gray-200 rounded-md p-5 mb-8 shadow-sm hover:shadow-md transition-shadow duration-300">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="bg-black rounded-full p-2.5">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
+                        </svg>
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-gray-800 font-['Poppins']">Premium Collection</p>
+                        <p className="text-xs text-gray-600 font-['Poppins']">Exclusive high-quality products</p>
+                      </div>
+                    </div>
+                    <Link to="/search" className="text-sm text-black font-medium border-b border-black hover:border-transparent transition-colors font-['Poppins']">
+                      View All
+                    </Link>
                   </div>
                 </div>
 
-                {/* Add to Bag button */}
-                <div className="mb-6">
+                {/* Add to Bag button - Premium styling */}
+                <div className="mb-8">
                   {data.stock === 0 ? (
-                    <button disabled className="w-full bg-gray-300 text-gray-600 py-3 font-bold text-lg uppercase cursor-not-allowed">
+                    <button disabled className="w-full bg-gray-200 text-gray-500 py-3.5 font-medium tracking-wide text-lg uppercase cursor-not-allowed transition-all duration-300 border border-gray-300 rounded-md">
                       Out of Stock
                     </button>
                   ) : (
-                    <AddToCartButton data={data} large={true} />
+                    <div className="relative overflow-hidden group">
+                      <div className="absolute inset-0 w-full h-full bg-gradient-to-r from-transparent via-white/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700 transform translate-x-[-100%] group-hover:translate-x-full"></div>
+                      <AddToCartButton data={data} large={true} />
+                    </div>
                   )}
                 </div>
 
-                {/* Save to wishlist button */}
-                <div className="mb-6">
-                  <button 
-                    onClick={handleWishlist}
-                    className="w-full border border-gray-300 hover:border-gray-500 flex items-center justify-center gap-2 py-3 text-gray-700 hover:text-black transition-colors font-semibold text-lg"
-                  >
-                    {isWishlisted ? (
-                      <>
-                        <FaHeart className="text-red-500" />
-                        Remove from Wishlist
-                      </>
-                    ) : (
-                      <>
-                        <FaRegHeart />
-                        Save to Wishlist
-                      </>
-                    )}
-                  </button>
-                </div>
+            
                 
                 {/* Product details section - Mobile view */}
                 <ProductDetails className="lg:hidden" />
               </div>
             </div>
 
-            {/* Similar Styles Section - Matching the screenshot */}
-            <div className="my-12 border-t border-b border-gray-200 py-8">
-              <h2 className="text-xl font-bold text-center mb-8">
-                {data.category?.name ? `More ${data.category.name} Products` : 
-                 (Array.isArray(data.category) && data.category[0]?.name) ? 
-                 `More ${data.category[0].name} Products` : "Similar Styles"}
-              </h2>
-              
-              <div className="flex justify-center mb-4">
+            {/* Similar Styles Section - Premium styling like HomePage */}
+            <div className="my-16 py-12">
+                <div className="text-center mb-10">
+                <h2 className="font-light text-sm uppercase tracking-[0.2em] text-gray-500 mb-2 font-['Poppins']">EXPLORE MORE</h2>
+                <h1 className="text-3xl md:text-4xl font-medium text-gray-900 mb-4 font-['Playfair_Display']">
+                  {data.category?.name ? `More ${data.category.name} Products` : 
+                   (Array.isArray(data.category) && data.category[0]?.name) ? 
+                   `More ${data.category[0].name} Products` : "Similar Styles"}
+                </h1>
+              </div>              <div className="flex justify-center mb-8">
                 <Link 
-                
                   to={`/category/${data.category?._id || (Array.isArray(data.category) && data.category[0]?._id) || ''}`}
-                  className="text-sm text-blue-600 hover:underline"
+                  className="inline-block px-6 py-2 border-2 border-black bg-white text-black hover:bg-black hover:text-white transition-colors duration-300 text-sm font-medium tracking-wider uppercase font-['Poppins']"
                 >
-                  View all in this category
+                  View All Products
                 </Link>
               </div>
               
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 md:gap-8">
                 {similarStyles.length > 0 ? 
                   similarStyles.map(product => (
                     <SimpleProductCard key={product._id} product={product} />
@@ -855,97 +775,9 @@ const ProductDisplayPage = () => {
               </div>
             </div>
 
-            {/* Recently Viewed Section */}
-            <div className="my-12">
-              <h2 className="text-xl font-bold text-center mb-8">Recently Viewed</h2>
-              <div className="flex justify-center">
-                <Link to={`/product/${data.name?.toLowerCase().replace(/ /g, '-')}-${data._id}`} className="max-w-xs">
-                  <div className="aspect-square overflow-hidden mb-3 border border-gray-200">
-                    <img 
-                      src={data.image?.[0]} 
-                      alt={data.name} 
-                      className="w-full h-full object-contain"
-                    />
-                  </div>
-                  <div className="text-center">
-                    <div className="uppercase text-xs font-medium text-gray-600 mb-1">
-                      {data.category?.name || "DARK CART"}
-                    </div>
-                    <div className="font-medium text-sm mb-1 line-clamp-2">{data.name}</div>
-                    <div className="flex justify-center items-center gap-2">
-                      <span className="font-bold">
-                        {DisplayPriceInRupees(pricewithDiscount(data.price, data.discount))}
-                      </span>
-                      {data.discount > 0 && (
-                        <>
-                          <span className="text-xs text-gray-500 line-through">
-                            {DisplayPriceInRupees(data.price)}
-                          </span>
-                          <span className="text-xs text-green-600">
-                            ({data.discount}% OFF)
-                          </span>
-                        </>
-                      )}
-                    </div>
-                  </div>
-                </Link>
-              </div>
-            </div>
+            {/* Recently Viewed section removed */}
 
-            {/* Product details section - styled like in Levi's */}
-            <div className="mt-10 border-t border-gray-200 pt-6 lg:hidden">
-              <h2 className="text-xl font-bold text-gray-900 mb-4">Product Details</h2>
-              <div className="grid grid-cols-1 gap-6">
-                <div>
-                  <h3 className="font-bold mb-2">Wash Care</h3>
-                  <p>{data.washCare || 'Machine wash'}</p>
-                </div>
-                <div>
-                  <h3 className="font-bold mb-2">Fabric</h3>
-                  <p>{data.fabric || '80% cotton, 19% polyester, 1% elastane'}</p>
-                </div>
-                <div>
-                  <h3 className="font-bold mb-2">Package Contains</h3>
-                  <p>1 {data.name}</p>
-                </div>
-                <div>
-                  <h3 className="font-bold mb-2">Size worn by Model</h3>
-                  <p>{data.sizeModel || '32'}</p>
-                </div>
-              </div>
-            </div>
-
-            {/* Regulatory information section */}
-            <div className="mt-10 border-t border-gray-200 pt-6 lg:hidden">
-              <h2 className="text-xl font-bold text-gray-900 mb-4">Regulatory Information</h2>
-              <div className="grid grid-cols-1 gap-4">
-                <div className="flex">
-                  <div className="font-bold text-gray-700 w-36">MRP</div>
-                  <div className="text-gray-800">
-                    : {DisplayPriceInRupees(data.price)} (inclusive of all taxes)
-                  </div>
-                </div>
-                
-                <div className="flex">
-                  <div className="font-bold text-gray-700 w-36">Marketed By</div>
-                  <div className="text-gray-800">
-                    : {data.marketedBy || "DarkCart Trading (India) Pvt. Ltd."}
-                  </div>
-                </div>
-                
-                <div className="flex">
-                  <div className="font-bold text-gray-700 w-36">Imported By</div>
-                  <div className="text-gray-800">
-                    : {data.importedBy || "DarkCart Trading (India) Pvt. Ltd."}
-                  </div>
-                </div>
-                
-                <div className="flex">
-                  <div className="font-bold text-gray-700 w-36">Country of Origin</div>
-                  <div className="text-gray-800">: {data.countryOfOrigin || "Bangladesh"}</div>
-                </div>
-              </div>
-            </div>
+            {/* Product details and regulatory information sections removed for mobile since they're already shown in ProductDetails component */}
           </>
         )}
       </div>

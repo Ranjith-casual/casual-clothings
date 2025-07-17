@@ -5,6 +5,7 @@ import Divider from './Divider'
 import Axios from '../utils/Axios'
 import SummaryApi from '../common/SummaryApi'
 import { logout } from '../store/userSlice'
+import { clearCart } from '../store/cartProduct'
 import toast from 'react-hot-toast'
 import AxiosTostError from '../utils/AxiosTostError'
 import isAdmin from '../utils/isAdmin'
@@ -25,6 +26,7 @@ function UserMenue({close}) {
                 }
                 toast.success("Logged out successfully")
                 dispatch(logout())
+                dispatch(clearCart())
                 localStorage.clear()
                 navigate("/")
             }
