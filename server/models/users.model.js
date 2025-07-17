@@ -36,8 +36,8 @@ const UserSchema = mongoose.Schema({
     },
     status : {
         type: String,
-        enum: ["active","blocked","deleted"],
-        default :"active"
+        enum: ["Active","Blocked","Deleted"],
+        default :"Active"
     },
     address_details :[ {
         type : mongoose.Schema.ObjectId,
