@@ -41,6 +41,11 @@ const cartSlice = createSlice({
         removeFromSelection: (state, action) => {
             const itemId = action.payload;
             state.selectedItems = state.selectedItems.filter(id => id !== itemId);
+        },
+        // Clear cart and selected items completely (for logout)
+        clearCart: (state) => {
+            state.cart = [];
+            state.selectedItems = [];
         }
     }
 })
@@ -51,7 +56,8 @@ export const {
     selectAllItems, 
     deselectAllItems, 
     setSelectedItems,
-    removeFromSelection 
+    removeFromSelection,
+    clearCart
 } = cartSlice.actions;
 
 export default cartSlice.reducer;

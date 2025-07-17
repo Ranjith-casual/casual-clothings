@@ -4,13 +4,15 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { FaUserCircle, FaGift, FaPercentage, FaFire, FaLeaf, FaTshirt, FaFemale, FaChild, FaGem, FaRegHeart, FaRupeeSign } from "react-icons/fa";
 import useMobile from "../hooks/useMobile";
 import { BsCartCheckFill } from "react-icons/bs";
-import { useSelector } from "react-redux";
+import { useSelector, useDispatch } from "react-redux";
 import { GoTriangleDown, GoTriangleUp } from "react-icons/go";
 import UserMenue from "./UserMenue";
 import { DisplayPriceInRupees } from "../utils/DisplayPriceInRupees";
 import { useGlobalContext } from "../provider/GlobalProvider";
 import DisplayCartItem from "./DisplayCartItem";
 import isAdmin from "../utils/isAdmin";
+import { logout } from "../store/userSlice";
+import { handleAddItemCart } from "../store/cartProduct";
 import "../App.css";
 import logo from "../assets/logo.png";
 
@@ -23,10 +25,19 @@ const FashionLogo = () => {
         className="w-8 h-8 xs:w-9 xs:h-9 sm:w-10 sm:h-10 md:w-11 md:h-11 lg:w-12 lg:h-12 xl:w-14 xl:h-14 object-contain"
       />
       <div className="flex flex-col min-w-0">
-        <span className="text-sm xs:text-base sm:text-lg md:text-lg lg:text-lg xl:text-xl font-bold text-black font-serif tracking-wide leading-tight truncate">
+        <span 
+          className="text-sm xs:text-base sm:text-lg md:text-lg lg:text-lg xl:text-xl text-black tracking-wider leading-tight truncate"
+          style={{ 
+            fontFamily: "'Inter', sans-serif",
+            fontWeight: '300',
+            letterSpacing: '0.08em',
+          }}
+        >
           CASUAL CLOTHINGS
         </span>
-        <span className="text-[8px] xs:text-[9px] sm:text-[10px] md:text-xs lg:text-sm text-gray-500 tracking-widest uppercase truncate">
+        <span className="text-[8px] xs:text-[9px] sm:text-[10px] md:text-xs lg:text-sm text-gray-500 tracking-widest uppercase truncate"
+          style={{ fontFamily: "'Inter', sans-serif" }}
+        >
           Fashion
         </span>
       </div>
@@ -39,6 +50,7 @@ function Header() {
   const location = useLocation();
   const isSearch = location.pathname === "/search";
   const navigate = useNavigate();
+  const dispatch = useDispatch();
   const [showUserMenue, setShowUserMenue] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [showPrimeDealsDropdown, setShowPrimeDealsDropdown] = useState(false);
@@ -180,25 +192,26 @@ function Header() {
   return (
     <>
       <header className="sticky top-0 z-40 w-full bg-white shadow-sm border-b border-gray-100">
-        {/* Animated Top Banner with Modern Icons */}
-        <div className="bg-gradient-to-r from-black via-gray-800 to-black text-white overflow-hidden w-full">
-          <div className="animate-marquee whitespace-nowrap py-1.5 md:py-2 w-full">
-            <span className="mx-4 text-xs sm:text-sm inline-flex items-center">
-              <svg className="w-3.5 h-3.5 mr-1.5 text-white" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+        {/* Premium Top Banner with Modern Icons */}
+        <div className="bg-black text-white overflow-hidden w-full relative">
+          <div className="absolute inset-0 bg-gradient-to-r from-gray-900/30 to-black/40 backdrop-blur-[0.5px]"></div>
+          <div className="animate-marquee whitespace-nowrap py-1.5 md:py-2 w-full relative z-10">
+            <span className="mx-6 text-xs sm:text-sm inline-flex items-center tracking-wider" style={{ fontFamily: "'Inter', sans-serif", fontWeight: '300' }}>
+              <svg className="w-3.5 h-3.5 mr-2 text-white/80" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
                 <path d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
               </svg>
               Free shipping on orders over ₹2,499
             </span>
-            <span className="mx-4 text-xs sm:text-sm inline-flex items-center">
-              <FaGift className="mr-1.5 text-white" size={14} />
+            <span className="mx-6 text-xs sm:text-sm inline-flex items-center tracking-wider" style={{ fontFamily: "'Inter', sans-serif", fontWeight: '300' }}>
+              <FaGift className="mr-2 text-white/80" size={14} />
               Easy 30-day returns
             </span>
-            <span className="mx-4 text-xs sm:text-sm inline-flex items-center">
-              <FaFire className="mr-1.5 text-white" size={14} />
+            <span className="mx-6 text-xs sm:text-sm inline-flex items-center tracking-wider" style={{ fontFamily: "'Inter', sans-serif", fontWeight: '300' }}>
+              <FaFire className="mr-2 text-white/80" size={14} />
               New arrivals every week
             </span>
-            <span className="mx-4 text-xs sm:text-sm inline-flex items-center">
-              <svg className="w-3.5 h-3.5 mr-1.5 text-white" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+            <span className="mx-6 text-xs sm:text-sm inline-flex items-center tracking-wider" style={{ fontFamily: "'Inter', sans-serif", fontWeight: '300' }}>
+              <svg className="w-3.5 h-3.5 mr-2 text-white/80" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
                 <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118l-2.8-2.034c-.784-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
               </svg>
               Exclusive member discounts
@@ -208,16 +221,16 @@ function Header() {
 
         <div className="w-full px-2 xs:px-3 sm:px-4 md:px-6 lg:px-8 xl:px-10">
           <nav className="flex items-center justify-between w-full">
-            {/* Logo Area with Glass Effect */}
+            {/* Premium Logo Area with Subtle Hover Effect */}
             <Link 
               to="/" 
-              className="flex-shrink-0 py-2 md:py-3 lg:py-4 group relative"
+              className="flex-shrink-0 py-2 md:py-3 lg:py-4 group relative overflow-hidden"
               onMouseEnter={() => {
                 setShowPrimeDealsDropdown(false);
                 setShowFashionDropdown(false);
               }}
             >
-              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 rounded-lg"></div>
+              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent opacity-0 group-hover:opacity-100 transition-all duration-700 rounded-lg transform translate-x-full group-hover:translate-x-0"></div>
               <FashionLogo />
             </Link>
 
@@ -226,7 +239,12 @@ function Header() {
               {/* Prime Deals Dropdown */}
               <div className="relative" ref={primeDealsRef}>
                 <button
-                  className="nav-link py-2 border-b-2 border-transparent hover:border-black text-gray-800 hover:text-black font-medium text-sm xl:text-base whitespace-nowrap transition-all duration-300 flex items-center prime-deals-trigger group"
+                  className="nav-link py-2 px-1 border-b border-transparent hover:border-black text-gray-800 hover:text-black text-sm xl:text-base whitespace-nowrap transition-all duration-300 flex items-center prime-deals-trigger group"
+                  style={{ 
+                    fontFamily: "'Inter', sans-serif",
+                    fontWeight: '300',
+                    letterSpacing: '0.08em',
+                  }}
                   onMouseEnter={() => {
                     setShowPrimeDealsDropdown(true);
                     setShowFashionDropdown(false);
@@ -239,27 +257,55 @@ function Header() {
                     PRIME DEALS
                   </span>
                   <svg className={`w-4 h-4 ml-1 transition-transform duration-200 ${showPrimeDealsDropdown ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path>
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M19 9l-7 7-7-7"></path>
                   </svg>
                 </button>
                 
-                {/* Prime Deals Dropdown Menu */}
+                {/* Premium Styled Prime Deals Dropdown Menu */}
                 {showPrimeDealsDropdown && (
                   <div 
-                    className="absolute top-full left-0 mt-1 bg-white/97 backdrop-blur-md shadow-2xl rounded-lg w-60 py-3 z-50 border border-gray-100 animate-fadeIn"
+                    className="absolute top-full left-0 mt-1 bg-white shadow-2xl rounded-lg w-60 py-4 z-50 border border-gray-100 animate-fadeIn"
+                    style={{ backdropFilter: 'blur(10px)' }}
                     onMouseEnter={() => setShowPrimeDealsDropdown(true)}
                     onMouseLeave={() => setShowPrimeDealsDropdown(false)}
                     role="menu"
                   >
-                    <div className="px-4 py-2">
-                      <h3 className="text-sm font-semibold text-gray-800 border-b border-gray-100 pb-2 mb-2">More Offers</h3>
+                    <div className="px-5 py-2">
+                      <h3 
+                        className="text-sm border-b border-gray-100 pb-2 mb-2 tracking-wider"
+                        style={{ 
+                          fontFamily: "'Inter', sans-serif",
+                          fontWeight: '400',
+                          letterSpacing: '0.05em',
+                        }}
+                      >
+                        MORE OFFERS
+                      </h3>
                     </div>
 
-                    <Link to="/bundle-offers" className="flex items-center px-4 py-2.5 text-gray-700 hover:bg-gray-50/80 hover:text-black text-sm transition-all duration-200 group">
-                      <span className="group-hover:translate-x-0.5 transition-transform duration-200">Bundle Offers</span>
+                    <Link to="/bundle-offers" className="flex items-center px-5 py-2.5 text-gray-700 hover:bg-black hover:text-white text-sm transition-all duration-300 group">
+                      <span 
+                        className="group-hover:translate-x-0.5 transition-transform duration-300"
+                        style={{ 
+                          fontFamily: "'Inter', sans-serif",
+                          fontWeight: '300',
+                          letterSpacing: '0.03em',
+                        }}
+                      >
+                        Bundle Offers
+                      </span>
                     </Link>
-                    <Link to="/seasonal-sale" className="flex items-center px-4 py-2.5 text-gray-700 hover:bg-gray-50/80 hover:text-black text-sm transition-all duration-200 group">
-                      <span className="group-hover:translate-x-0.5 transition-transform duration-200">Seasonal Sale</span>
+                    <Link to="/seasonal-sale" className="flex items-center px-5 py-2.5 text-gray-700 hover:bg-black hover:text-white text-sm transition-all duration-300 group">
+                      <span 
+                        className="group-hover:translate-x-0.5 transition-transform duration-300"
+                        style={{ 
+                          fontFamily: "'Inter', sans-serif",
+                          fontWeight: '300',
+                          letterSpacing: '0.03em',
+                        }}
+                      >
+                        Seasonal Sale
+                      </span>
                     </Link>
                   </div>
                 )}
@@ -268,7 +314,12 @@ function Header() {
               {/* Fashion Dropdown */}
               <div className="relative" ref={fashionMenuRef}>
                 <button
-                  className="nav-link py-2 border-b-2 border-transparent hover:border-black text-gray-800 hover:text-black font-medium text-sm xl:text-base whitespace-nowrap transition-all duration-300 flex items-center fashion-menu-trigger group"
+                  className="nav-link py-2 px-1 border-b border-transparent hover:border-black text-gray-800 hover:text-black text-sm xl:text-base whitespace-nowrap transition-all duration-300 flex items-center fashion-menu-trigger group"
+                  style={{ 
+                    fontFamily: "'Inter', sans-serif",
+                    fontWeight: '300',
+                    letterSpacing: '0.08em',
+                  }}
                   onMouseEnter={() => {
                     setShowFashionDropdown(true);
                     setShowPrimeDealsDropdown(false);
@@ -281,46 +332,103 @@ function Header() {
                     FASHION
                   </span>
                   <svg className={`w-4 h-4 ml-1 transition-transform duration-200 ${showFashionDropdown ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path>
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M19 9l-7 7-7-7"></path>
                   </svg>
                 </button>
                 
-                {/* Fashion Dropdown Menu */}
+                {/* Premium Fashion Dropdown Menu */}
                 {showFashionDropdown && (
                   <div 
-                    className="absolute top-full left-0 mt-1 bg-white/97 backdrop-blur-md shadow-2xl rounded-lg py-3 z-50 border border-gray-100 animate-fadeIn overflow-hidden w-72"
+                    className="absolute top-full left-0 mt-1 bg-white shadow-2xl rounded-lg py-4 z-50 border border-gray-100 animate-fadeIn overflow-hidden w-72"
+                    style={{ backdropFilter: 'blur(10px)' }}
                     onMouseEnter={() => setShowFashionDropdown(true)}
                     onMouseLeave={() => setShowFashionDropdown(false)}
                     role="menu"
                   >
-                    <div className="px-4 py-2">
-                      <h3 className="text-sm font-semibold text-gray-800 border-b border-gray-100 pb-2 mb-2">Shop by Category</h3>
+                    <div className="px-5 py-2">
+                      <h3 
+                        className="text-sm border-b border-gray-100 pb-2 mb-2 tracking-wider"
+                        style={{ 
+                          fontFamily: "'Inter', sans-serif",
+                          fontWeight: '400',
+                          letterSpacing: '0.05em',
+                        }}
+                      >
+                        SHOP BY CATEGORY
+                      </h3>
                     </div>
-                    <div className="px-4 py-2 grid grid-cols-3 gap-2">
-                      <Link to="/search?gender=Men" className="flex flex-col items-center gap-2 p-2 rounded-lg hover:bg-gray-50 transition-colors group">
-                        <div className="w-16 h-16 rounded-full overflow-hidden border-2 border-gray-100 group-hover:border-gray-300 transition-colors">
-                          <img src="https://images.unsplash.com/photo-1617137968427-85924c800a22?ixlib=rb-1.2.1&ixid=MnwxMjA3fDB8MHxzZWFyY2h8M3x8bWVuJTIwZmFzaGlvbnxlbnwwfHwwfHw%3D&w=200&q=80" alt="Men" className="w-full h-full object-cover" />
+                    <div className="px-5 py-2 grid grid-cols-3 gap-2">
+                      <Link to="/search?gender=Men" className="flex flex-col items-center gap-2 p-2 rounded-lg hover:bg-black/5 transition-all duration-300 group">
+                        <div className="w-16 h-16 overflow-hidden transition-transform duration-500 group-hover:scale-105">
+                          <img 
+                            src="https://images.unsplash.com/photo-1617137968427-85924c800a22?ixlib=rb-1.2.1&ixid=MnwxMjA3fDB8MHxzZWFyY2h8M3x8bWVuJTIwZmFzaGlvbnxlbnwwfHwwfHw%3D&w=200&q=80" 
+                            alt="Men" 
+                            className="w-full h-full object-cover filter grayscale hover:grayscale-0 transition-all duration-500" 
+                          />
                         </div>
-                        <span className="text-sm font-medium text-gray-700 group-hover:text-black transition-colors">Men</span>
+                        <span 
+                          className="text-sm text-gray-700 group-hover:text-black transition-all duration-300"
+                          style={{ 
+                            fontFamily: "'Inter', sans-serif",
+                            fontWeight: '300',
+                            letterSpacing: '0.03em',
+                          }}
+                        >
+                          Men
+                        </span>
                       </Link>
-                      <Link to="/search?gender=Women" className="flex flex-col items-center gap-2 p-2 rounded-lg hover:bg-gray-50 transition-colors group">
-                        <div className="w-16 h-16 rounded-full overflow-hidden border-2 border-gray-100 group-hover:border-gray-300 transition-colors">
-                          <img src="https://images.unsplash.com/photo-1618244972963-dbad64b98bad?ixlib=rb-1.2.1&ixid=MnwxMjA3fDB8MHxzZWFyY2h8NXx8d29tZW4lMjBmYXNoaW9ufGVufDB8fDB8fA%3D%3D&w=200&q=80" alt="Women" className="w-full h-full object-cover" />
+                      <Link to="/search?gender=Women" className="flex flex-col items-center gap-2 p-2 rounded-lg hover:bg-black/5 transition-all duration-300 group">
+                        <div className="w-16 h-16 overflow-hidden transition-transform duration-500 group-hover:scale-105">
+                          <img 
+                            src="https://images.unsplash.com/photo-1618244972963-dbad64b98bad?ixlib=rb-1.2.1&ixid=MnwxMjA3fDB8MHxzZWFyY2h8NXx8d29tZW4lMjBmYXNoaW9ufGVufDB8fDB8fA%3D%3D&w=200&q=80" 
+                            alt="Women" 
+                            className="w-full h-full object-cover filter grayscale hover:grayscale-0 transition-all duration-500" 
+                          />
                         </div>
-                        <span className="text-sm font-medium text-gray-700 group-hover:text-black transition-colors">Women</span>
+                        <span 
+                          className="text-sm text-gray-700 group-hover:text-black transition-all duration-300"
+                          style={{ 
+                            fontFamily: "'Inter', sans-serif",
+                            fontWeight: '300',
+                            letterSpacing: '0.03em',
+                          }}
+                        >
+                          Women
+                        </span>
                       </Link>
-                      <Link to="/search?gender=Kids" className="flex flex-col items-center gap-2 p-2 rounded-lg hover:bg-gray-50 transition-colors group">
-                        <div className="w-16 h-16 rounded-full overflow-hidden border-2 border-gray-100 group-hover:border-gray-300 transition-colors">
-                          <img src="https://images.unsplash.com/photo-1622290291468-a28f7a7dc6a8?ixlib=rb-1.2.1&ixid=MnwxMjA3fDB8MHxzZWFyY2h8M3x8a2lkcyUyMGZhc2hpb258ZW58MHx8MHx8&w=200&q=80" alt="Kids" className="w-full h-full object-cover" />
+                      <Link to="/search?gender=Kids" className="flex flex-col items-center gap-2 p-2 rounded-lg hover:bg-black/5 transition-all duration-300 group">
+                        <div className="w-16 h-16 overflow-hidden transition-transform duration-500 group-hover:scale-105">
+                          <img 
+                            src="https://images.unsplash.com/photo-1622290291468-a28f7a7dc6a8?ixlib=rb-1.2.1&ixid=MnwxMjA3fDB8MHxzZWFyY2h8M3x8a2lkcyUyMGZhc2hpb258ZW58MHx8MHx8&w=200&q=80" 
+                            alt="Kids" 
+                            className="w-full h-full object-cover filter grayscale hover:grayscale-0 transition-all duration-500" 
+                          />
                         </div>
-                        <span className="text-sm font-medium text-gray-700 group-hover:text-black transition-colors">Kids</span>
+                        <span 
+                          className="text-sm text-gray-700 group-hover:text-black transition-all duration-300"
+                          style={{ 
+                            fontFamily: "'Inter', sans-serif",
+                            fontWeight: '300',
+                            letterSpacing: '0.03em',
+                          }}
+                        >
+                          Kids
+                        </span>
                       </Link>
                     </div>
-                    <div className="mt-2 bg-gray-50 px-4 py-2">
-                      <Link to="/all-fashion" className="text-xs flex justify-between items-center text-gray-500 hover:text-black">
-                        <span>View all collections</span>
+                    <div className="mt-3 bg-black/5 px-5 py-2.5">
+                      <Link to="/all-fashion" className="text-xs flex justify-between items-center text-gray-600 hover:text-black transition-colors duration-300">
+                        <span 
+                          style={{ 
+                            fontFamily: "'Inter', sans-serif",
+                            fontWeight: '300',
+                            letterSpacing: '0.05em',
+                          }}
+                        >
+                          VIEW ALL COLLECTIONS
+                        </span>
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7"></path>
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M9 5l7 7-7 7"></path>
                         </svg>
                       </Link>
                     </div>
@@ -330,7 +438,12 @@ function Header() {
               
               <Link
                 to="/about"
-                className="nav-link py-2 border-b-2 border-transparent hover:border-black text-gray-800 hover:text-black font-medium text-sm xl:text-base whitespace-nowrap transition-all duration-300 group"
+                className="nav-link py-2 px-1 border-b border-transparent hover:border-black text-gray-800 hover:text-black text-sm xl:text-base whitespace-nowrap transition-all duration-300 group"
+                style={{ 
+                  fontFamily: "'Inter', sans-serif",
+                  fontWeight: '300',
+                  letterSpacing: '0.08em',
+                }}
                 onMouseEnter={() => {
                   setShowPrimeDealsDropdown(false);
                   setShowFashionDropdown(false);
@@ -349,9 +462,9 @@ function Header() {
               }}
             >
               <div className="search-container relative w-full">
-                <div className="absolute inset-0 bg-gradient-to-r from-gray-50/80 via-white/90 to-gray-50/80 rounded-full backdrop-blur-md opacity-90"></div>
-                <div className="absolute inset-0 border border-gray-200 rounded-full shadow-sm"></div>
-                <div className="absolute inset-[-1px] bg-gradient-to-r from-transparent via-white to-transparent opacity-0 search-highlight rounded-full"></div>
+                <div className="absolute inset-0 bg-white rounded-full opacity-90"></div>
+                <div className="absolute inset-0 border border-gray-200 hover:border-black transition-colors duration-300 rounded-full shadow-sm"></div>
+                <div className="absolute inset-[-1px] bg-gradient-to-r from-transparent via-black/5 to-transparent opacity-0 hover:opacity-100 transition-opacity duration-500 search-highlight rounded-full"></div>
                 <div className="relative z-10">
                   <Search />
                 </div>
@@ -368,24 +481,29 @@ function Header() {
             >
               {/* Mobile & Tablet Actions - Icon Only for Cleaner Layout (visible up to xl breakpoint) */}
               <div className="xl:hidden flex items-center gap-2.5 sm:gap-3 md:gap-3.5">
-                {/* Cart Button for Mobile/Tablet - Icon Only */}
-                <button
-                  className="relative p-2.5 flex items-center justify-center border border-gray-200 hover:border-gray-300 transition-all duration-200 rounded-full"
-                  onClick={() => setOpenCartSection(true)}
-                  aria-label="Cart"
-                >
-                  <BsCartCheckFill className="w-5 h-5 text-gray-700" />
-                  {cartItem.length > 0 && (
-                    <span className="absolute -top-1 -right-1 bg-black text-white text-[8px] w-4 h-4 rounded-full flex items-center justify-center font-medium">
-                      {cartItem.length}
-                    </span>
-                  )}
-                </button>
+                {/* Cart Button for Mobile/Tablet - Premium Styled */}
+                {user?._id && (
+                  <button
+                    className="relative p-2.5 flex items-center justify-center border border-gray-200 hover:border-black hover:bg-black transition-all duration-300 rounded-full group"
+                    onClick={() => setOpenCartSection(true)}
+                    aria-label="Cart"
+                  >
+                    <BsCartCheckFill className="w-5 h-5 text-gray-800 group-hover:text-white transition-colors duration-300" />
+                    {cartItem.length > 0 && (
+                      <span 
+                        className="absolute -top-1 -right-1 bg-black text-white text-[8px] w-4 h-4 rounded-full flex items-center justify-center"
+                        style={{ fontFamily: "'Inter', sans-serif" }}
+                      >
+                        {cartItem.length}
+                      </span>
+                    )}
+                  </button>
+                )}
 
                 {/* Menu Toggle for Mobile */}
                 <div className="relative">
                   <button 
-                    className="p-2.5 rounded-full border border-gray-200 hover:border-gray-300 transition-all duration-200 mobile-menu-trigger"
+                    className="p-2.5 rounded-full border border-gray-200 hover:border-black hover:bg-black transition-all duration-300 mobile-menu-trigger group"
                     onClick={(e) => {
                       e.stopPropagation();
                       e.preventDefault();
@@ -395,20 +513,20 @@ function Header() {
                     aria-controls="mobile-menu"
                   >
                     {mobileMenuOpen ? (
-                      <svg className="w-5 h-5 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      <svg className="w-5 h-5 text-gray-800 group-hover:text-white transition-colors duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M6 18L18 6M6 6l12 12" />
                       </svg>
                     ) : (
-                      <svg className="w-5 h-5 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                      <svg className="w-5 h-5 text-gray-800 group-hover:text-white transition-colors duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 6h16M4 12h16M4 18h16" />
                       </svg>
                     )}
                   </button>
                   
-                  {/* Mobile Menu Dropdown with premium styling */}
+                  {/* Premium Mobile Menu Dropdown */}
                   <div 
                     ref={mobileMenuRef}
-                    className={`absolute top-full right-0 mt-2 bg-white/97 backdrop-blur-lg shadow-2xl border border-gray-100 rounded-xl py-1 z-50 min-w-[260px] transition-all duration-300 overflow-hidden ${
+                    className={`absolute top-full right-0 mt-2 bg-white shadow-2xl border border-gray-100 rounded-lg py-2 z-50 min-w-[280px] transition-all duration-300 overflow-hidden ${
                       mobileMenuOpen 
                         ? 'opacity-100 translate-y-0 pointer-events-auto scale-100' 
                         : 'opacity-0 -translate-y-2 pointer-events-none scale-95'
@@ -417,36 +535,51 @@ function Header() {
                       visibility: mobileMenuOpen ? 'visible' : 'hidden',
                       transitionDelay: mobileMenuOpen ? '50ms' : '0ms',
                       transformOrigin: 'top right',
+                      backdropFilter: 'blur(10px)',
                     }}
                   >
-                    <div className="py-1.5 px-4 border-b border-gray-100 mb-1">
-                      <p className="text-xs text-gray-400 uppercase tracking-wider font-medium">Navigation</p>
+                    <div className="py-2 px-5 border-b border-gray-100 mb-1">
+                      <p 
+                        className="text-xs text-gray-500 uppercase tracking-wider"
+                        style={{ 
+                          fontFamily: "'Inter', sans-serif",
+                          fontWeight: '400',
+                          letterSpacing: '0.08em',
+                        }}
+                      >
+                        Navigation
+                      </p>
                     </div>
 
-                    {/* Profile & Wishlist Section - Mobile */}
-                    <div className="px-2 py-1">
+                    {/* Profile & Wishlist Section - Mobile with Premium Styling */}
+                    <div className="px-3 py-2">
                       {user?.name ? (
                         <Link
                           to="/dashboard/profile"
-                          className="flex items-center text-gray-700 hover:text-black hover:bg-gray-50 px-3 py-3 text-sm font-medium transition-colors rounded-md"
+                          className="flex items-center text-gray-700 hover:text-black hover:bg-black/5 px-4 py-3 text-sm transition-all duration-300 rounded-md group"
                           onClick={() => setTimeout(() => setMobileMenuOpen(false), 200)}
+                          style={{ 
+                            fontFamily: "'Inter', sans-serif",
+                            fontWeight: '300',
+                            letterSpacing: '0.03em',
+                          }}
                         >
-                          <div className="flex items-center gap-3">
+                          <div className="flex items-center gap-3 w-full">
                             {user?.avatar ? (
                               <img 
                                 src={user.avatar} 
                                 alt={user.name} 
-                                className="w-6 h-6 rounded-full object-cover"
+                                className="w-6 h-6 rounded-full object-cover group-hover:scale-105 transition-transform duration-300"
                               />
                             ) : (
-                              <div className="bg-gradient-to-br from-gray-500 to-gray-700 flex items-center justify-center w-6 h-6 rounded-full">
-                                <span className="text-white font-semibold text-xs uppercase">
+                              <div className="bg-black flex items-center justify-center w-6 h-6 rounded-full group-hover:scale-105 transition-transform duration-300">
+                                <span className="text-white text-xs uppercase">
                                   {user.name.charAt(0)}
                                 </span>
                               </div>
                             )}
                             <div className="flex flex-col">
-                              <span className="font-medium">{user.name}</span>
+                              <span className="tracking-wide">{user.name}</span>
                               <span className="text-xs text-gray-500">My Profile</span>
                             </div>
                           </div>
@@ -454,47 +587,85 @@ function Header() {
                       ) : (
                         <Link
                           to="/login"
-                          className="flex items-center text-gray-700 hover:text-black hover:bg-gray-50 px-3 py-3 text-sm font-medium transition-colors rounded-md"
+                          className="flex items-center text-gray-700 hover:text-black hover:bg-black/5 px-4 py-3 text-sm transition-all duration-300 rounded-md group"
                           onClick={() => setTimeout(() => setMobileMenuOpen(false), 200)}
+                          style={{ 
+                            fontFamily: "'Inter', sans-serif",
+                            fontWeight: '300',
+                            letterSpacing: '0.03em',
+                          }}
                         >
-                          <div className="flex items-center gap-3">
-                            <FaUserCircle className="w-6 h-6 text-gray-600" />
-                            <span>Sign In</span>
+                          <div className="flex items-center gap-3 w-full">
+                            <FaUserCircle className="w-6 h-6 text-gray-800 group-hover:scale-105 transition-transform duration-300" />
+                            <span className="tracking-wide">Sign In</span>
                           </div>
                         </Link>
                       )}
                       
-                      {/* Wishlist - Mobile (only when logged in) */}
+                      {/* Wishlist - Mobile (only when logged in) with Premium Styling */}
                       {user?.name && (
                         <Link
                           to="/dashboard/wishlist"
-                          className="flex items-center text-gray-700 hover:text-black hover:bg-gray-50 px-3 py-3 text-sm font-medium transition-colors rounded-md"
+                          className="flex items-center text-gray-700 hover:text-black hover:bg-black/5 px-4 py-3 text-sm transition-all duration-300 rounded-md group"
                           onClick={() => setTimeout(() => setMobileMenuOpen(false), 200)}
+                          style={{ 
+                            fontFamily: "'Inter', sans-serif",
+                            fontWeight: '300',
+                            letterSpacing: '0.03em',
+                          }}
                         >
-                          <div className="flex items-center gap-3">
-                            <FaRegHeart className="w-6 h-6 text-gray-600" />
-                            <span>My Wishlist</span>
+                          <div className="flex items-center gap-3 w-full">
+                            <FaRegHeart className="w-5 h-5 text-gray-800 group-hover:scale-110 transition-transform duration-300" />
+                            <span className="tracking-wide">My Wishlist</span>
                           </div>
                         </Link>
                       )}
 
-                      {/* Admin Dashboard - Mobile (only for admin users) */}
+                      {/* Admin Dashboard - Mobile (only for admin users) with Premium Styling */}
                       {user?.name && isAdmin(user.role) && (
                         <Link
                           to="/dashboard/admin"
-                          className="flex items-center text-gray-700 hover:text-black hover:bg-gray-50 px-3 py-3 text-sm font-medium transition-colors rounded-md"
+                          className="flex items-center text-gray-700 hover:text-black hover:bg-black/5 px-4 py-3 text-sm transition-all duration-300 rounded-md group"
                           onClick={() => setTimeout(() => setMobileMenuOpen(false), 200)}
+                          style={{ 
+                            fontFamily: "'Inter', sans-serif",
+                            fontWeight: '300',
+                            letterSpacing: '0.03em',
+                          }}
                         >
-                          <div className="flex items-center gap-3">
-                            <svg className="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                          <div className="flex items-center gap-3 w-full">
+                            <svg className="w-5 h-5 text-gray-800 group-hover:scale-110 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
                             </svg>
                             <div className="flex flex-col">
-                              <span className="font-medium">Admin Dashboard</span>
+                              <span className="tracking-wide">Admin Dashboard</span>
                               <span className="text-xs text-gray-500">Manage your store</span>
                             </div>
                           </div>
                         </Link>
+                      )}
+                      
+                      {/* Logout Button - Mobile (when user is logged in) */}
+                      {user?.name && (
+                        <button
+                          className="flex items-center text-gray-700 hover:text-black hover:bg-black/5 px-4 py-3 text-sm transition-all duration-300 rounded-md group w-full"
+                          onClick={() => {
+                            dispatch(logout());
+                            setTimeout(() => setMobileMenuOpen(false), 200);
+                          }}
+                          style={{ 
+                            fontFamily: "'Inter', sans-serif",
+                            fontWeight: '300',
+                            letterSpacing: '0.03em',
+                          }}
+                        >
+                          <div className="flex items-center gap-3 w-full">
+                            <svg className="w-5 h-5 text-gray-800 group-hover:scale-110 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                            </svg>
+                            <span className="tracking-wide">Logout</span>
+                          </div>
+                        </button>
                       )}
                     </div>
 
@@ -503,24 +674,29 @@ function Header() {
                     {/* Prime Deals Section - Mobile */}
                     <div className="flex flex-col">
                       <button
-                        className="flex items-center justify-between text-gray-700 hover:text-black hover:bg-gray-50 px-5 py-3 text-sm font-medium transition-colors"
+                        className="flex items-center justify-between text-gray-700 hover:text-black hover:bg-black/5 px-5 py-3 text-sm transition-all duration-300"
                         onClick={() => setShowPrimeDealsDropdown(!showPrimeDealsDropdown)}
                         aria-expanded={showPrimeDealsDropdown}
+                        style={{ 
+                          fontFamily: "'Inter', sans-serif",
+                          fontWeight: '300',
+                          letterSpacing: '0.05em',
+                        }}
                       >
                         <div className="flex items-center">
                           <span className="w-1.5 h-1.5 bg-amber-500 rounded-full mr-3"></span>
-                          <div className="flex items-center">
-                            Prime Deals
+                          <div className="flex items-center tracking-wide">
+                            PRIME DEALS
                           </div>
                         </div>
                         <svg 
-                          className={`w-4 h-4 transition-transform duration-200 ${showPrimeDealsDropdown ? 'rotate-180' : ''}`} 
+                          className={`w-4 h-4 transition-transform duration-300 ${showPrimeDealsDropdown ? 'rotate-180' : ''}`} 
                           fill="none" 
                           stroke="currentColor" 
                           viewBox="0 0 24 24" 
                           xmlns="http://www.w3.org/2000/svg"
                         >
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path>
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M19 9l-7 7-7-7"></path>
                         </svg>
                       </button>
                       
@@ -534,15 +710,25 @@ function Header() {
 
                         <Link
                           to="/bundle-offers"
-                          className="flex items-center text-gray-600 hover:text-black hover:bg-gray-50 pl-10 pr-5 py-2.5 text-sm transition-colors"
+                          className="flex items-center text-gray-600 hover:text-black hover:bg-black/5 pl-10 pr-5 py-2.5 text-sm transition-all duration-300"
                           onClick={() => setTimeout(() => setMobileMenuOpen(false), 200)}
+                          style={{ 
+                            fontFamily: "'Inter', sans-serif",
+                            fontWeight: '300',
+                            letterSpacing: '0.03em',
+                          }}
                         >
                           Bundle Offers
                         </Link>
                         <Link
                           to="/seasonal-sale"
-                          className="flex items-center text-gray-600 hover:text-black hover:bg-gray-50 pl-10 pr-5 py-2.5 text-sm transition-colors"
+                          className="flex items-center text-gray-600 hover:text-black hover:bg-black/5 pl-10 pr-5 py-2.5 text-sm transition-all duration-300"
                           onClick={() => setTimeout(() => setMobileMenuOpen(false), 200)}
+                          style={{ 
+                            fontFamily: "'Inter', sans-serif",
+                            fontWeight: '300',
+                            letterSpacing: '0.03em',
+                          }}
                         >
                           Seasonal Sale
                         </Link>
@@ -552,25 +738,30 @@ function Header() {
                     {/* Fashion Section - Mobile */}
                     <div className="flex flex-col">
                       <button
-                        className="flex items-center justify-between text-gray-700 hover:text-black hover:bg-gray-50 px-5 py-3 text-sm font-medium transition-colors"
+                        className="flex items-center justify-between text-gray-700 hover:text-black hover:bg-black/5 px-5 py-3 text-sm transition-all duration-300"
                         onClick={() => setShowFashionDropdown(!showFashionDropdown)}
                         aria-expanded={showFashionDropdown}
+                        style={{ 
+                          fontFamily: "'Inter', sans-serif",
+                          fontWeight: '300',
+                          letterSpacing: '0.05em',
+                        }}
                       >
                         <div className="flex items-center">
                           <span className="w-1.5 h-1.5 bg-black rounded-full mr-3"></span>
-                          <div className="flex items-center">
+                          <div className="flex items-center tracking-wide">
                             <FaTshirt className="mr-1.5 text-black" size={16} />
-                            Fashion
+                            FASHION
                           </div>
                         </div>
                         <svg 
-                          className={`w-4 h-4 transition-transform duration-200 ${showFashionDropdown ? 'rotate-180' : ''}`} 
+                          className={`w-4 h-4 transition-transform duration-300 ${showFashionDropdown ? 'rotate-180' : ''}`} 
                           fill="none" 
                           stroke="currentColor" 
                           viewBox="0 0 24 24" 
                           xmlns="http://www.w3.org/2000/svg"
                         >
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path>
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M19 9l-7 7-7-7"></path>
                         </svg>
                       </button>
                       
@@ -584,33 +775,72 @@ function Header() {
                         <div className="grid grid-cols-3 gap-2 px-5 py-3">
                           <Link
                             to="/search?gender=Men"
-                            className="flex flex-col items-center hover:opacity-80 transition-opacity"
+                            className="flex flex-col items-center transition-all duration-300 group"
                             onClick={() => setTimeout(() => setMobileMenuOpen(false), 200)}
                           >
-                            <div className="w-12 h-12 rounded-full overflow-hidden border border-gray-100 bg-gray-50">
-                              <img src="https://images.unsplash.com/photo-1617137968427-85924c800a22?ixlib=rb-1.2.1&ixid=MnwxMjA3fDB8MHxzZWFyY2h8M3x8bWVuJTIwZmFzaGlvbnxlbnwwfHwwfHw%3D&w=200&q=80" alt="Men" className="w-full h-full object-cover" />
+                            <div className="w-12 h-12 overflow-hidden transition-transform duration-500 group-hover:scale-105">
+                              <img 
+                                src="https://images.unsplash.com/photo-1617137968427-85924c800a22?ixlib=rb-1.2.1&ixid=MnwxMjA3fDB8MHxzZWFyY2h8M3x8bWVuJTIwZmFzaGlvbnxlbnwwfHwwfHw%3D&w=200&q=80" 
+                                alt="Men" 
+                                className="w-full h-full object-cover filter grayscale hover:grayscale-0 transition-all duration-500" 
+                              />
                             </div>
-                            <span className="text-xs text-gray-700 mt-1">Men</span>
+                            <span 
+                              className="text-xs text-gray-700 mt-1 group-hover:text-black transition-all duration-300"
+                              style={{ 
+                                fontFamily: "'Inter', sans-serif",
+                                fontWeight: '300',
+                                letterSpacing: '0.03em',
+                              }}
+                            >
+                              Men
+                            </span>
                           </Link>
                           <Link
                             to="/search?gender=Women"
-                            className="flex flex-col items-center hover:opacity-80 transition-opacity"
+                            className="flex flex-col items-center transition-all duration-300 group"
                             onClick={() => setTimeout(() => setMobileMenuOpen(false), 200)}
                           >
-                            <div className="w-12 h-12 rounded-full overflow-hidden border border-gray-100 bg-gray-50">
-                              <img src="https://images.unsplash.com/photo-1618244972963-dbad64b98bad?ixlib=rb-1.2.1&ixid=MnwxMjA3fDB8MHxzZWFyY2h8NXx8d29tZW4lMjBmYXNoaW9ufGVufDB8fDB8fA%3D%3D&w=200&q=80" alt="Women" className="w-full h-full object-cover" />
+                            <div className="w-12 h-12 overflow-hidden transition-transform duration-500 group-hover:scale-105">
+                              <img 
+                                src="https://images.unsplash.com/photo-1618244972963-dbad64b98bad?ixlib=rb-1.2.1&ixid=MnwxMjA3fDB8MHxzZWFyY2h8NXx8d29tZW4lMjBmYXNoaW9ufGVufDB8fDB8fA%3D%3D&w=200&q=80" 
+                                alt="Women" 
+                                className="w-full h-full object-cover filter grayscale hover:grayscale-0 transition-all duration-500" 
+                              />
                             </div>
-                            <span className="text-xs text-gray-700 mt-1">Women</span>
+                            <span 
+                              className="text-xs text-gray-700 mt-1 group-hover:text-black transition-all duration-300"
+                              style={{ 
+                                fontFamily: "'Inter', sans-serif",
+                                fontWeight: '300',
+                                letterSpacing: '0.03em',
+                              }}
+                            >
+                              Women
+                            </span>
                           </Link>
                           <Link
                             to="/search?gender=Kids"
-                            className="flex flex-col items-center hover:opacity-80 transition-opacity"
+                            className="flex flex-col items-center transition-all duration-300 group"
                             onClick={() => setTimeout(() => setMobileMenuOpen(false), 200)}
                           >
-                            <div className="w-12 h-12 rounded-full overflow-hidden border border-gray-100 bg-gray-50">
-                              <img src="https://images.unsplash.com/photo-1622290291468-a28f7a7dc6a8?ixlib=rb-1.2.1&ixid=MnwxMjA3fDB8MHxzZWFyY2h8M3x8a2lkcyUyMGZhc2hpb258ZW58MHx8MHx8&w=200&q=80" alt="Kids" className="w-full h-full object-cover" />
+                            <div className="w-12 h-12 overflow-hidden transition-transform duration-500 group-hover:scale-105">
+                              <img 
+                                src="https://images.unsplash.com/photo-1622290291468-a28f7a7dc6a8?ixlib=rb-1.2.1&ixid=MnwxMjA3fDB8MHxzZWFyY2h8M3x8a2lkcyUyMGZhc2hpb258ZW58MHx8MHx8&w=200&q=80" 
+                                alt="Kids" 
+                                className="w-full h-full object-cover filter grayscale hover:grayscale-0 transition-all duration-500" 
+                              />
                             </div>
-                            <span className="text-xs text-gray-700 mt-1">Kids</span>
+                            <span 
+                              className="text-xs text-gray-700 mt-1 group-hover:text-black transition-all duration-300"
+                              style={{ 
+                                fontFamily: "'Inter', sans-serif",
+                                fontWeight: '300',
+                                letterSpacing: '0.03em',
+                              }}
+                            >
+                              Kids
+                            </span>
                           </Link>
                         </div>
                       </div>
@@ -618,14 +848,19 @@ function Header() {
 
                     <Link
                       to="/about"
-                      className="flex items-center text-gray-700 hover:text-black hover:bg-gray-50 px-5 py-3 text-sm font-medium transition-colors"
+                      className="flex items-center text-gray-700 hover:text-black hover:bg-black/5 px-5 py-3 text-sm transition-all duration-300"
                       onClick={(e) => {
                         e.stopPropagation();
                         setTimeout(() => setMobileMenuOpen(false), 200);
                       }}
+                      style={{ 
+                        fontFamily: "'Inter', sans-serif",
+                        fontWeight: '300',
+                        letterSpacing: '0.05em',
+                      }}
                     >
                       <span className="w-1.5 h-1.5 bg-black rounded-full mr-3"></span>
-                      About
+                      ABOUT
                     </Link>
                   </div>
                 </div>
@@ -705,35 +940,40 @@ function Header() {
                 {user?.name && (
                   <Link
                     to="/dashboard/wishlist"
-                    className="relative p-2.5 flex items-center justify-center border border-gray-200 hover:border-gray-300 transition-all duration-200 rounded-full"
+                    className="relative p-2.5 flex items-center justify-center border border-gray-200 hover:border-black hover:bg-black transition-all duration-300 rounded-full group"
                     aria-label="Wishlist"
                   >
-                    <FaRegHeart className="w-5 h-5 text-gray-700" />
+                    <FaRegHeart className="w-5 h-5 text-gray-800 group-hover:text-white transition-colors duration-300" />
                   </Link>
                 )}
 
-                <button
-                  className="relative p-2.5 flex items-center justify-center border border-gray-200 hover:border-gray-300 transition-all duration-200 rounded-full"
-                  onClick={() => setOpenCartSection(true)}
-                  aria-label="Cart"
-                >
-                  <BsCartCheckFill className="w-5 h-5 text-gray-700" />
-                  {cartItem.length > 0 && (
-                    <span className="absolute -top-1 -right-1 bg-black text-white text-[8px] w-4 h-4 rounded-full flex items-center justify-center font-medium">
-                      {cartItem.length}
-                    </span>
-                  )}
-                </button>
+                {user?._id && (
+                  <button
+                    className="relative p-2.5 flex items-center justify-center border border-gray-200 hover:border-black hover:bg-black transition-all duration-300 rounded-full group"
+                    onClick={() => setOpenCartSection(true)}
+                    aria-label="Cart"
+                  >
+                    <BsCartCheckFill className="w-5 h-5 text-gray-800 group-hover:text-white transition-colors duration-300" />
+                    {cartItem.length > 0 && (
+                      <span 
+                        className="absolute -top-1 -right-1 bg-black text-white text-[8px] w-4 h-4 rounded-full flex items-center justify-center"
+                        style={{ fontFamily: "'Inter', sans-serif" }}
+                      >
+                        {cartItem.length}
+                      </span>
+                    )}
+                  </button>
+                )}
               </div>
             </div>
           </nav>
 
-          {/* Mobile/Tablet Search with Innovative Design - Shown on everything below xl */}
+          {/* Mobile/Tablet Search with Premium Styling - Shown on everything below xl */}
           <div className="xl:hidden pb-3 w-full">
             <div className="search-container-mobile relative w-full">
-              <div className="absolute inset-0 bg-gradient-to-r from-gray-50/80 via-white/90 to-gray-50/80 rounded-full backdrop-blur-md opacity-90"></div>
-              <div className="absolute inset-0 border border-gray-200 rounded-full shadow-sm"></div>
-              <div className="absolute inset-[-1px] bg-gradient-to-r from-transparent via-white to-transparent opacity-0 search-highlight-mobile rounded-full"></div>
+              <div className="absolute inset-0 bg-white rounded-full opacity-90"></div>
+              <div className="absolute inset-0 border border-gray-200 hover:border-black transition-colors duration-300 rounded-full shadow-sm"></div>
+              <div className="absolute inset-[-1px] bg-gradient-to-r from-transparent via-black/5 to-transparent opacity-0 hover:opacity-100 transition-opacity duration-500 search-highlight-mobile rounded-full"></div>
               <div className="relative z-10 w-full">
                 <Search />
               </div>
@@ -743,7 +983,7 @@ function Header() {
       </header>
 
       {/* Cart Sidebar with Enhanced Animation */}
-      {openCartSection && (
+      {openCartSection && user?._id && (
         <DisplayCartItem close={() => setOpenCartSection(false)} />
       )}
 

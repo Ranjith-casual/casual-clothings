@@ -155,8 +155,18 @@ const BagPage = () => {
     
     // Check if it's a bundle
     if (item.itemType === 'bundle' && item.bundleId) {
+      // Check if bundle exists and has an ID
+      if (!item.bundleId._id) {
+        return false;
+      }
+      
+      // Check if bundle is active
+      if (item.bundleId.isActive === false) {
+        return false;
+      }
+      
       // Check bundle stock
-      if (item.bundleId.stock !== undefined && item.bundleId.stock <= 0) {
+      if (item.bundleId.stock !== undefined && item.bundleId.stock < item.quantity) {
         return false;
       }
       
@@ -176,15 +186,25 @@ const BagPage = () => {
     
     // Check if it's a product
     if (item.itemType === 'product' && item.productId) {
+      // Check if product exists and has an ID
+      if (!item.productId._id) {
+        return false;
+      }
+      
+      // Check if product is published (instead of isActive)
+      if (item.productId.publish === false) {
+        return false;
+      }
+      
       // Check product stock
-      if (item.productId.stock !== undefined && item.productId.stock <= 0) {
+      if (item.productId.stock !== undefined && item.productId.stock < item.quantity) {
         return false;
       }
       
       return true;
     }
     
-    return true; // Default to available if we can't determine
+    return false; // Invalid item type or missing data
   };
 
   // Auto-select all available items when cart loads initially
@@ -225,10 +245,16 @@ const BagPage = () => {
     let hasExpiredTimeLimitedBundles = false;
     let hasOutOfStockItems = false;
     let hasFutureStartDate = false;
+    let hasInactiveItems = false;
     
     cartItemsList.forEach(item => {
       // Check bundles
       if (item.bundleId && item.bundleId._id) {
+        // Check if bundle is active
+        if (item.bundleId.isActive === false) {
+          hasInactiveItems = true;
+        }
+        
         // Check time-limited bundles
         if (item.bundleId.isTimeLimited) {
           const now = new Date();
@@ -243,20 +269,32 @@ const BagPage = () => {
         }
         
         // Check stock
-        if (item.bundleId.stock !== undefined && item.bundleId.stock === 0) {
+        if (item.bundleId.stock !== undefined && item.bundleId.stock < item.quantity) {
           hasOutOfStockItems = true;
         }
       }
       
       // Check products
       if (item.productId && item.productId._id) {
-        if (item.productId.stock !== undefined && item.productId.stock === 0) {
+        // Check if product is published (active)
+        if (item.productId.publish === false) {
+          hasInactiveItems = true;
+        }
+        
+        if (item.productId.stock !== undefined && item.productId.stock < item.quantity) {
           hasOutOfStockItems = true;
         }
       }
     });
     
     // Display alerts to user
+    if (hasInactiveItems) {
+      toast.error("Some items in your cart are no longer available. Please remove them before checkout.", {
+        duration: 6000,
+        id: "inactive-items-warning"
+      });
+    }
+    
     if (hasExpiredTimeLimitedBundles) {
       toast.error("Some time-limited bundles in your cart have expired. Please remove them before checkout.", {
         duration: 6000,
@@ -408,9 +446,31 @@ const BagPage = () => {
       
       toast.error(errorMessage);
       
-      // If there are specific items that caused the error, log them
+      // If there are specific items that caused the error, log them and show more details
       if (error.response?.data?.invalidItems) {
         console.log("Invalid items:", error.response.data.invalidItems);
+        
+        // Show specific error messages for invalid items
+        const invalidItems = error.response.data.invalidItems;
+        invalidItems.forEach((invalidItem, index) => {
+          setTimeout(() => {
+            const itemName = invalidItem.productName || invalidItem.bundleTitle || 'Unknown item';
+            toast.error(`${itemName}: ${invalidItem.reason}`, {
+              duration: 5000,
+              id: `invalid-item-${index}`
+            });
+          }, (index + 1) * 1000); // Stagger the error messages
+        });
+        
+        // Automatically deselect invalid items
+        const invalidCartItemIds = invalidItems.map(item => item.cartItemId);
+        const validSelectedItems = selectedItems.filter(id => !invalidCartItemIds.includes(id));
+        if (validSelectedItems.length !== selectedItems.length) {
+          dispatch(setSelectedItems(validSelectedItems));
+          setTimeout(() => {
+            toast.info(`${invalidCartItemIds.length} invalid item(s) have been deselected.`);
+          }, invalidItems.length * 1000 + 500);
+        }
       }
       
       // Refresh cart to update availability
@@ -656,11 +716,28 @@ const BagPage = () => {
                               </div>
                             )}
                             
+                            {/* Inactive product/bundle warning */}
+                            {((item.bundleId && item.bundleId.isActive === false) || (item.productId && item.productId.publish === false)) && (
+                              <div className="text-xs font-medium text-red-600 flex items-center mt-1">
+                                <span className="inline-block w-2 h-2 rounded-full bg-red-600 mr-1"></span>
+                                Item is no longer available
+                              </div>
+                            )}
+                            
                             {/* Stock warning for bundles */}
                             {item.bundleId && item.bundleId.stock !== undefined && item.bundleId.stock < 10 && item.bundleId.stock > 0 && (
                               <div className="text-xs font-medium text-orange-600 flex items-center mt-1">
                                 <span className="inline-block w-2 h-2 rounded-full bg-orange-600 mr-1"></span>
                                 Only {item.bundleId.stock} left in stock!
+                              </div>
+                            )}
+                            
+                            {/* Insufficient stock warning */}
+                            {((item.bundleId && item.bundleId.stock !== undefined && item.bundleId.stock < item.quantity) || 
+                              (item.productId && item.productId.stock !== undefined && item.productId.stock < item.quantity)) && (
+                              <div className="text-xs font-medium text-red-600 flex items-center mt-1">
+                                <span className="inline-block w-2 h-2 rounded-full bg-red-600 mr-1"></span>
+                                Insufficient stock (Available: {item.bundleId?.stock || item.productId?.stock || 0}, Requested: {item.quantity})
                               </div>
                             )}
                             

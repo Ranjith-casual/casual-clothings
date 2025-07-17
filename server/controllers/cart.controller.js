@@ -345,8 +345,14 @@ export const validateCartItemsController = async (req, res) => {
         const cartItems = await CartProductModel.find({
             _id: { $in: cartItemIds }
         })
-        .populate('productId')
-        .populate('bundleId');
+        .populate({
+            path: 'productId',
+            select: 'name price stock publish'
+        })
+        .populate({
+            path: 'bundleId',
+            select: 'title bundlePrice stock isActive isTimeLimited startDate endDate'
+        });
         
         if (!cartItems || cartItems.length === 0) {
             return res.status(404).json({
@@ -422,11 +428,11 @@ export const validateCartItemsController = async (req, res) => {
                     continue;
                 }
                 
-                // Check if product is active
-                if (!item.productId.isActive) {
+                // Check if product is published (active)
+                if (!item.productId.publish) {
                     invalidItems.push({
                         cartItemId: item._id,
-                        reason: "Product is not active",
+                        reason: "Product is not available",
                         productName: item.productId.name
                     });
                     continue;
