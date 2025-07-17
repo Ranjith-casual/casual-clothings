@@ -74,98 +74,48 @@ function SizeGuide() {
     <div className="bg-gray-50 min-h-screen">
       {/* Header */}
       <div className='bg-white shadow-sm p-4 mb-6 flex items-center justify-between border-b border-gray-200'>
-        <h1 className='text-xl font-bold text-gray-900 font-serif'>Size Guide</h1>
+        <h1 className='text-xl font-bold text-gray-900 font-["Playfair_Display"]'>Size Guide</h1>
       </div>
 
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        {/* Introduction */}
-        <div className="mb-8">
-          <h2 className="text-2xl font-bold text-gray-900 mb-4">Finding Your Perfect Fit</h2>
-          <p className="text-gray-700">
-            We want you to love how our clothes fit and feel. Use this guide to find your perfect size. 
-            For the best results, take your measurements over undergarments. Keep the tape measure snug but not tight.
+        <div className="mb-8 text-center">
+          <h2 className="text-2xl font-medium text-gray-900 mb-4 font-['Playfair_Display']">Find Your Perfect Fit</h2>
+          <p className="max-w-2xl mx-auto text-gray-600 font-['Poppins']">
+            Use our comprehensive size guides to find your ideal fit. Measure yourself correctly for the most accurate sizing.
           </p>
-          
-          {/* Measurement unit toggle */}
-          <div className="mt-6 flex items-center">
-            <span className="mr-3 text-sm text-gray-700">Measurement Units:</span>
-            <div className="flex rounded-md shadow-sm">
-              <button
-                onClick={() => setMeasurementSystem('inches')}
-                className={`px-4 py-2 text-sm font-medium rounded-l-md ${
-                  measurementSystem === 'inches' 
-                    ? 'bg-black text-white' 
-                    : 'bg-white text-gray-700 hover:bg-gray-50 border border-gray-300'
-                }`}
-              >
-                Inches
-              </button>
-              <button
-                onClick={() => setMeasurementSystem('cm')}
-                className={`px-4 py-2 text-sm font-medium rounded-r-md ${
-                  measurementSystem === 'cm' 
-                    ? 'bg-black text-white' 
-                    : 'bg-white text-gray-700 hover:bg-gray-50 border border-gray-300 border-l-0'
-                }`}
-              >
-                Centimeters
-              </button>
-            </div>
+        </div>
+
+        {/* Measurement system toggle */}
+        <div className="flex justify-center mb-8">
+          <div className="inline-flex rounded-md shadow-sm font-['Poppins']">
+            <button
+              onClick={() => setMeasurementSystem('inches')}
+              className={`px-4 py-2 text-sm font-medium rounded-l-md ${
+                measurementSystem === 'inches' 
+                  ? 'bg-black text-white' 
+                  : 'bg-white text-gray-700 hover:bg-gray-50 border border-gray-300'
+              }`}
+            >
+              Inches
+            </button>
+            <button
+              onClick={() => setMeasurementSystem('cm')}
+              className={`px-4 py-2 text-sm font-medium rounded-r-md ${
+                measurementSystem === 'cm' 
+                  ? 'bg-black text-white' 
+                  : 'bg-white text-gray-700 hover:bg-gray-50 border border-gray-300 border-l-0'
+              }`}
+            >
+              Centimeters
+            </button>
           </div>
         </div>
 
-        {/* How to Measure Guide */}
-        <div className="bg-white rounded-lg shadow-sm p-6 mb-8">
-          <h3 className="text-xl font-bold text-gray-900 mb-4">How to Measure</h3>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            <div className="flex flex-col items-center text-center">
-              <div className="rounded-full bg-black/5 p-4 mb-3">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-black" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                </svg>
-              </div>
-              <h4 className="font-medium text-gray-900 mb-2">Chest/Bust</h4>
-              <p className="text-gray-600 text-sm">Measure around the fullest part of your chest/bust, keeping the tape measure horizontal.</p>
-            </div>
-            
-            <div className="flex flex-col items-center text-center">
-              <div className="rounded-full bg-black/5 p-4 mb-3">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-black" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                </svg>
-              </div>
-              <h4 className="font-medium text-gray-900 mb-2">Waist</h4>
-              <p className="text-gray-600 text-sm">Measure around your natural waistline, keeping the tape measure comfortably loose.</p>
-            </div>
-            
-            <div className="flex flex-col items-center text-center">
-              <div className="rounded-full bg-black/5 p-4 mb-3">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-black" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-                </svg>
-              </div>
-              <h4 className="font-medium text-gray-900 mb-2">Hips</h4>
-              <p className="text-gray-600 text-sm">Measure around the fullest part of your hips, about 8" below your natural waistline.</p>
-            </div>
-            
-            <div className="flex flex-col items-center text-center">
-              <div className="rounded-full bg-black/5 p-4 mb-3">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-black" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3" />
-                </svg>
-              </div>
-              <h4 className="font-medium text-gray-900 mb-2">Inseam</h4>
-              <p className="text-gray-600 text-sm">Measure from the crotch to the desired pant length along the inside of the leg.</p>
-            </div>
-          </div>
-        </div>
-
-        {/* Size Charts */}
-        <div className="bg-white rounded-lg shadow-sm p-6">
+        {/* Size charts by category */}
+        <div className="mb-10">
           <Tab.Group>
-            <Tab.List className="flex space-x-1 rounded-xl bg-gray-100 p-1">
+            <Tab.List className="flex space-x-1 rounded-xl bg-gray-100 p-1 font-['Poppins']">
               {Object.keys(categories).map((category) => (
                 <Tab
                   key={category}
@@ -183,7 +133,7 @@ function SizeGuide() {
                 </Tab>
               ))}
             </Tab.List>
-            <Tab.Panels className="mt-6">
+            <Tab.Panels className="mt-4 font-['Poppins']">
               {/* Men's Size Chart Panel */}
               <Tab.Panel>
                 <div className="space-y-8">
@@ -356,14 +306,82 @@ function SizeGuide() {
           </Tab.Group>
         </div>
 
-        {/* Size Tips */}
-        <div className="bg-black/5 rounded-lg p-6 mt-8">
-          <h3 className="text-lg font-medium text-gray-900 mb-4">Tips for Finding Your Perfect Size</h3>
-          <div className="space-y-3 text-gray-700">
-            <p>• If you're between sizes, we recommend sizing up for a more comfortable fit.</p>
-            <p>• Our clothing is designed with a standard fit, unless specified as "slim fit" or "oversized" in the product description.</p>
-            <p>• Different styles may fit differently. Always check the specific product description for fit details.</p>
-            <p>• If you're still unsure about your size, contact our customer service team for assistance.</p>
+        {/* How to measure section */}
+        <div className="bg-white rounded-lg shadow-sm p-6 mb-10">
+          <h3 className="text-xl font-medium text-gray-900 mb-4 font-['Playfair_Display']">How to Measure</h3>
+          <div className="prose max-w-none text-gray-700 font-['Poppins']">
+            <p className="mb-4">
+              To ensure the best fit, please follow these measuring instructions carefully. Use a soft measuring tape and wear minimal clothing for the most accurate measurements.
+            </p>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              <div className="flex flex-col items-center text-center">
+                <div className="rounded-full bg-black/5 p-4 mb-3">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-black" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                  </svg>
+                </div>
+                <h4 className="font-medium text-gray-900 mb-2">Chest/Bust</h4>
+                <p className="text-gray-600 text-sm">Measure around the fullest part of your chest/bust, keeping the tape measure horizontal.</p>
+              </div>
+              
+              <div className="flex flex-col items-center text-center">
+                <div className="rounded-full bg-black/5 p-4 mb-3">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-black" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  </svg>
+                </div>
+                <h4 className="font-medium text-gray-900 mb-2">Waist</h4>
+                <p className="text-gray-600 text-sm">Measure around your natural waistline, keeping the tape measure comfortably loose.</p>
+              </div>
+              
+              <div className="flex flex-col items-center text-center">
+                <div className="rounded-full bg-black/5 p-4 mb-3">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-black" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                  </svg>
+                </div>
+                <h4 className="font-medium text-gray-900 mb-2">Hips</h4>
+                <p className="text-gray-600 text-sm">Measure around the fullest part of your hips, about 8" below your natural waistline.</p>
+              </div>
+              
+              <div className="flex flex-col items-center text-center">
+                <div className="rounded-full bg-black/5 p-4 mb-3">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-black" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3" />
+                  </svg>
+                </div>
+                <h4 className="font-medium text-gray-900 mb-2">Inseam</h4>
+                <p className="text-gray-600 text-sm">Measure from the crotch to the desired pant length along the inside of the leg.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Size conversion section */}
+        <div className="bg-white rounded-lg shadow-sm p-6">
+          <h3 className="text-xl font-medium text-gray-900 mb-4 font-['Playfair_Display']">International Size Conversion</h3>
+          <div className="overflow-x-auto font-['Poppins']">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">US Size</th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">UK Size</th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">EU Size</th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">JP Size</th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {/* Example row - replace with dynamic content */}
+                <tr>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">6</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">10</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">38</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">9</td>
+                </tr>
+                {/* Repeat rows as necessary */}
+              </tbody>
+            </table>
           </div>
         </div>
       </div>

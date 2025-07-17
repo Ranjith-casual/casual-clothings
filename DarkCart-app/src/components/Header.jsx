@@ -16,6 +16,10 @@ import women from '../assets/women.png';
 import kids from '../assets/kids.png';
 import "../App.css";
 import logo from "../assets/logo.png";
+import AxiosTostError from "../utils/AxiosTostError";
+import Axios from "../utils/Axios";
+import SummaryApi from "../common/SummaryApi";
+import toast from "react-hot-toast";
 
 const FashionLogo = () => {
   return (
@@ -100,6 +104,25 @@ function Header() {
   const handleUserMenu = () => {
     setShowUserMenue(false);
   };
+
+  const handleLogout = async() => {
+      try {
+            const response = await Axios({...SummaryApi.userLogOut})
+            console.log("Logout Response:",response)
+            if(response.data.success){
+                if(close){
+                    close()
+                }
+                toast.success("Logged out successfully")
+                dispatch(logout())
+                localStorage.clear()
+                navigate("/")
+            }
+        } catch (error) {
+            console.error("Logout Error:", error);
+            AxiosTostError(error)       
+        }
+  }
 
   const handleLoginNavigate = () => {
     if (!user?._id) {
@@ -649,10 +672,7 @@ function Header() {
                       {user?.name && (
                         <button
                           className="flex items-center text-gray-700 hover:text-black hover:bg-black/5 px-4 py-3 text-sm transition-all duration-300 rounded-md group w-full"
-                          onClick={() => {
-                            dispatch(logout());
-                            setTimeout(() => setMobileMenuOpen(false), 200);
-                          }}
+                          onClick={handleLogout}
                           style={{ 
                             fontFamily: "'Inter', sans-serif",
                             fontWeight: '300',

@@ -6,23 +6,23 @@ function TermsConditions() {
     <div className="bg-gray-50 min-h-screen">
       {/* Header */}
       <div className='bg-white shadow-sm p-4 mb-6 flex items-center justify-between border-b border-gray-200'>
-        <h1 className='text-xl font-bold text-gray-900 font-serif'>Terms and Conditions</h1>
+        <h1 className='text-xl font-bold text-gray-900 font-["Playfair_Display"]'>Terms and Conditions</h1>
       </div>
 
       {/* Main Content */}
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         {/* Last Updated */}
-        <div className="mb-6 text-gray-500 text-sm">
+        <div className="mb-6 text-gray-500 text-sm font-['Poppins']">
           <p>Last Updated: July 1, 2025</p>
         </div>
 
         {/* Introduction */}
         <section className="bg-white rounded-lg shadow-sm mb-8 overflow-hidden">
           <div className="p-5 bg-gray-50 border-b border-gray-200">
-            <h2 className="text-lg font-bold text-gray-900">Introduction</h2>
+            <h2 className="text-lg font-bold text-gray-900 font-['Playfair_Display']">Introduction</h2>
           </div>
           <div className="p-5">
-            <div className="prose max-w-none text-gray-700">
+            <div className="prose max-w-none text-gray-700 font-['Poppins']">
               <p className="mb-4">
                 Welcome to Casual Clothing Fashion. These Terms and Conditions ("Terms") govern your use of our website, mobile application, and services (collectively, the "Services"), as well as your purchase and use of any products offered by Casual Clothing Fashion ("we," "our," or "us").
               </p>
@@ -42,7 +42,7 @@ function TermsConditions() {
             <h2 className="text-lg font-bold text-gray-900">General Terms</h2>
           </div>
           <div className="p-5">
-            <div className="prose max-w-none text-gray-700">
+            <div className="prose max-w-none text-gray-700 font-['Poppins']">
               <h3 className="text-md font-bold mb-2">Age Requirement</h3>
               <p className="mb-4">
                 You must be at least 16 years of age to use our Services. By using our Services, you represent and warrant that you are at least 16 years of age.
@@ -77,7 +77,7 @@ function TermsConditions() {
             <h2 className="text-lg font-bold text-gray-900">Products and Purchases</h2>
           </div>
           <div className="p-5">
-            <div className="prose max-w-none text-gray-700">
+            <div className="prose max-w-none text-gray-700 font-['Poppins']">
               <h3 className="text-md font-bold mb-2">Product Information</h3>
               <p className="mb-4">
                 We strive to provide accurate and up-to-date information about our products. However, we do not warrant that product descriptions, pricing, or other content on our Services are accurate, complete, reliable, current, or error-free. In the event of a pricing error, we reserve the right to correct the error and charge the correct price or cancel the order and refund any amount charged.
@@ -112,7 +112,7 @@ function TermsConditions() {
             <h2 className="text-lg font-bold text-gray-900">Intellectual Property</h2>
           </div>
           <div className="p-5">
-            <div className="prose max-w-none text-gray-700">
+            <div className="prose max-w-none text-gray-700 font-['Poppins']">
               <h3 className="text-md font-bold mb-2">Ownership</h3>
               <p className="mb-4">
                 Our Services and all content, features, and functionality thereof, including but not limited to text, graphics, logos, icons, images, audio clips, digital downloads, data compilations, software, and the compilation thereof, are owned by Casual Clothing Fashion, our licensors, or other providers of such material and are protected by copyright, trademark, patent, trade secret, and other intellectual property or proprietary rights laws.
@@ -143,7 +143,7 @@ function TermsConditions() {
             <h2 className="text-lg font-bold text-gray-900">Disclaimer of Warranties</h2>
           </div>
           <div className="p-5">
-            <div className="prose max-w-none text-gray-700">
+            <div className="prose max-w-none text-gray-700 font-['Poppins']">
               <p className="mb-4">
                 YOUR USE OF OUR SERVICES, THEIR CONTENT, AND ANY PRODUCTS OBTAINED THROUGH THE SERVICES IS AT YOUR OWN RISK. THE SERVICES, THEIR CONTENT, AND ANY PRODUCTS OBTAINED THROUGH THE SERVICES ARE PROVIDED ON AN "AS IS" AND "AS AVAILABLE" BASIS, WITHOUT ANY WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED. NEITHER CASUAL CLOTHING FASHION NOR ANY PERSON ASSOCIATED WITH CASUAL CLOTHING FASHION MAKES ANY WARRANTY OR REPRESENTATION WITH RESPECT TO THE COMPLETENESS, SECURITY, RELIABILITY, QUALITY, ACCURACY, OR AVAILABILITY OF THE SERVICES.
               </p>
@@ -163,7 +163,7 @@ function TermsConditions() {
             <h2 className="text-lg font-bold text-gray-900">Limitation of Liability</h2>
           </div>
           <div className="p-5">
-            <div className="prose max-w-none text-gray-700">
+            <div className="prose max-w-none text-gray-700 font-['Poppins']">
               <p className="mb-4">
                 IN NO EVENT WILL CASUAL CLOTHING FASHION, ITS AFFILIATES, OR THEIR LICENSORS, SERVICE PROVIDERS, EMPLOYEES, AGENTS, OFFICERS, OR DIRECTORS BE LIABLE FOR DAMAGES OF ANY KIND, UNDER ANY LEGAL THEORY, ARISING OUT OF OR IN CONNECTION WITH YOUR USE, OR INABILITY TO USE, THE SERVICES, ANY WEBSITES LINKED TO THEM, ANY CONTENT ON THE SERVICES OR SUCH OTHER WEBSITES, INCLUDING ANY DIRECT, INDIRECT, SPECIAL, INCIDENTAL, CONSEQUENTIAL, OR PUNITIVE DAMAGES, INCLUDING BUT NOT LIMITED TO, PERSONAL INJURY, PAIN AND SUFFERING, EMOTIONAL DISTRESS, LOSS OF REVENUE, LOSS OF PROFITS, LOSS OF BUSINESS OR ANTICIPATED SAVINGS, LOSS OF USE, LOSS OF GOODWILL, LOSS OF DATA, AND WHETHER CAUSED BY TORT (INCLUDING NEGLIGENCE), BREACH OF CONTRACT, OR OTHERWISE, EVEN IF FORESEEABLE.
               </p>
@@ -180,7 +180,7 @@ function TermsConditions() {
             <h2 className="text-lg font-bold text-gray-900">Indemnification</h2>
           </div>
           <div className="p-5">
-            <div className="prose max-w-none text-gray-700">
+            <div className="prose max-w-none text-gray-700 font-['Poppins']">
               <p className="mb-4">
                 You agree to defend, indemnify, and hold harmless Casual Clothing Fashion, its affiliates, licensors, and service providers, and its and their respective officers, directors, employees, contractors, agents, licensors, suppliers, successors, and assigns from and against any claims, liabilities, damages, judgments, awards, losses, costs, expenses, or fees (including reasonable attorneys' fees) arising out of or relating to your violation of these Terms or your use of the Services, including, but not limited to, your User Content, any use of the Services' content, services, and products other than as expressly authorized in these Terms.
               </p>
@@ -194,7 +194,7 @@ function TermsConditions() {
             <h2 className="text-lg font-bold text-gray-900">Changes to Terms</h2>
           </div>
           <div className="p-5">
-            <div className="prose max-w-none text-gray-700">
+            <div className="prose max-w-none text-gray-700 font-['Poppins']">
               <p className="mb-4">
                 We may revise and update these Terms from time to time at our sole discretion. All changes are effective immediately when we post them, and apply to all access to and use of the Services thereafter.
               </p>
@@ -211,7 +211,7 @@ function TermsConditions() {
             <h2 className="text-lg font-bold text-gray-900">Governing Law and Jurisdiction</h2>
           </div>
           <div className="p-5">
-            <div className="prose max-w-none text-gray-700">
+            <div className="prose max-w-none text-gray-700 font-['Poppins']">
               <p className="mb-4">
                 These Terms and any dispute or claim arising out of or in connection with them shall be governed by and construed in accordance with the laws of the State of New York, without giving effect to any choice or conflict of law provision or rule.
               </p>
@@ -228,7 +228,7 @@ function TermsConditions() {
             <h2 className="text-lg font-bold text-gray-900">Severability</h2>
           </div>
           <div className="p-5">
-            <div className="prose max-w-none text-gray-700">
+            <div className="prose max-w-none text-gray-700 font-['Poppins']">
               <p className="mb-4">
                 If any provision of these Terms is held by a court or other tribunal of competent jurisdiction to be invalid, illegal, or unenforceable for any reason, such provision shall be eliminated or limited to the minimum extent such that the remaining provisions of the Terms will continue in full force and effect.
               </p>
@@ -242,7 +242,7 @@ function TermsConditions() {
             <h2 className="text-lg font-bold text-gray-900">Waiver</h2>
           </div>
           <div className="p-5">
-            <div className="prose max-w-none text-gray-700">
+            <div className="prose max-w-none text-gray-700 font-['Poppins']">
               <p className="mb-4">
                 No waiver by Casual Clothing Fashion of any term or condition set out in these Terms shall be deemed a further or continuing waiver of such term or condition or a waiver of any other term or condition, and any failure of Casual Clothing Fashion to assert a right or provision under these Terms shall not constitute a waiver of such right or provision.
               </p>
@@ -256,7 +256,7 @@ function TermsConditions() {
             <h2 className="text-lg font-bold text-gray-900">Entire Agreement</h2>
           </div>
           <div className="p-5">
-            <div className="prose max-w-none text-gray-700">
+            <div className="prose max-w-none text-gray-700 font-['Poppins']">
               <p className="mb-4">
                 The Terms, our Privacy Policy, and any other agreements incorporated by reference constitute the sole and entire agreement between you and Casual Clothing Fashion regarding the Services and supersede all prior and contemporaneous understandings, agreements, representations, and warranties, both written and oral, regarding the Services.
               </p>
@@ -270,7 +270,7 @@ function TermsConditions() {
             <h2 className="text-lg font-bold text-gray-900">Contact Information</h2>
           </div>
           <div className="p-5">
-            <div className="prose max-w-none text-gray-700">
+            <div className="prose max-w-none text-gray-700 font-['Poppins']">
               <p className="mb-4">
                 If you have any questions or concerns about these Terms, please contact us at:
               </p>

@@ -18,7 +18,7 @@ function UserMenue({close}) {
     const handleLogOut = async()=>{
         try {
             const response = await Axios({...SummaryApi.userLogOut})
-            
+            console.log("Logout Response:",response)
             if(response.data.success){
                 if(close){
                     close()

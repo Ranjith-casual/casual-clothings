@@ -4,25 +4,25 @@ import { Link } from 'react-router-dom';
 function PrivacyPolicy() {
   return (
     <div className="bg-gray-50 min-h-screen">
-      {/* Header */}
+      {/* Header - Updated with Playfair_Display font */}
       <div className='bg-white shadow-sm p-4 mb-6 flex items-center justify-between border-b border-gray-200'>
-        <h1 className='text-xl font-bold text-gray-900 font-serif'>Privacy Policy</h1>
+        <h1 className='text-xl font-bold text-gray-900 font-["Playfair_Display"]'>Privacy Policy</h1>
       </div>
 
       {/* Main Content */}
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        {/* Last Updated */}
-        <div className="mb-6 text-gray-500 text-sm">
+        {/* Last Updated - Updated with Poppins font */}
+        <div className="mb-6 text-gray-500 text-sm font-['Poppins']">
           <p>Last Updated: July 1, 2025</p>
         </div>
 
         {/* Introduction */}
         <section className="bg-white rounded-lg shadow-sm mb-8 overflow-hidden">
           <div className="p-5 bg-gray-50 border-b border-gray-200">
-            <h2 className="text-lg font-bold text-gray-900">Introduction</h2>
+            <h2 className="text-lg font-bold text-gray-900 font-['Playfair_Display']">Introduction</h2>
           </div>
           <div className="p-5">
-            <div className="prose max-w-none text-gray-700">
+            <div className="prose max-w-none text-gray-700 font-['Poppins']">
               <p className="mb-4">
                 At Casual Clothing Fashion ("we," "our," or "us"), we value your privacy and are committed to protecting your personal information. This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you visit our website, use our mobile application, make purchases, or interact with us in any other way.
               </p>
@@ -39,11 +39,11 @@ function PrivacyPolicy() {
         {/* Information We Collect */}
         <section className="bg-white rounded-lg shadow-sm mb-8 overflow-hidden">
           <div className="p-5 bg-gray-50 border-b border-gray-200">
-            <h2 className="text-lg font-bold text-gray-900">Information We Collect</h2>
+            <h2 className="text-lg font-bold text-gray-900 font-['Playfair_Display']">Information We Collect</h2>
           </div>
           <div className="p-5">
-            <div className="prose max-w-none text-gray-700">
-              <h3 className="text-md font-bold mb-2">Personal Information</h3>
+            <div className="prose max-w-none text-gray-700 font-['Poppins']">
+              <h3 className="text-md font-bold mb-2 font-['Playfair_Display']">Personal Information</h3>
               <p className="mb-4">
                 We may collect personal information that you provide directly to us, including but not limited to:
               </p>
@@ -74,10 +74,10 @@ function PrivacyPolicy() {
         {/* How We Use Your Information */}
         <section className="bg-white rounded-lg shadow-sm mb-8 overflow-hidden">
           <div className="p-5 bg-gray-50 border-b border-gray-200">
-            <h2 className="text-lg font-bold text-gray-900">How We Use Your Information</h2>
+            <h2 className="text-lg font-bold text-gray-900 font-['Playfair_Display']">How We Use Your Information</h2>
           </div>
           <div className="p-5">
-            <div className="prose max-w-none text-gray-700">
+            <div className="prose max-w-none text-gray-700 font-['Poppins']">
               <p className="mb-4">
                 We may use the information we collect for various purposes, including to:
               </p>
@@ -99,10 +99,10 @@ function PrivacyPolicy() {
         {/* How We Share Your Information */}
         <section className="bg-white rounded-lg shadow-sm mb-8 overflow-hidden">
           <div className="p-5 bg-gray-50 border-b border-gray-200">
-            <h2 className="text-lg font-bold text-gray-900">How We Share Your Information</h2>
+            <h2 className="text-lg font-bold text-gray-900 font-['Playfair_Display']">How We Share Your Information</h2>
           </div>
           <div className="p-5">
-            <div className="prose max-w-none text-gray-700">
+            <div className="prose max-w-none text-gray-700 font-['Poppins']">
               <p className="mb-4">
                 We may share your information in the following circumstances:
               </p>
@@ -124,10 +124,10 @@ function PrivacyPolicy() {
         {/* Cookies and Tracking Technologies */}
         <section className="bg-white rounded-lg shadow-sm mb-8 overflow-hidden">
           <div className="p-5 bg-gray-50 border-b border-gray-200">
-            <h2 className="text-lg font-bold text-gray-900">Cookies and Tracking Technologies</h2>
+            <h2 className="text-lg font-bold text-gray-900 font-['Playfair_Display']">Cookies and Tracking Technologies</h2>
           </div>
           <div className="p-5">
-            <div className="prose max-w-none text-gray-700">
+            <div className="prose max-w-none text-gray-700 font-['Poppins']">
               <p className="mb-4">
                 We use cookies, web beacons, and similar tracking technologies to collect information about your interactions with our website and services. These technologies help us:
               </p>
@@ -149,10 +149,10 @@ function PrivacyPolicy() {
         {/* Your Rights and Choices */}
         <section className="bg-white rounded-lg shadow-sm mb-8 overflow-hidden">
           <div className="p-5 bg-gray-50 border-b border-gray-200">
-            <h2 className="text-lg font-bold text-gray-900">Your Rights and Choices</h2>
+            <h2 className="text-lg font-bold text-gray-900 font-['Playfair_Display']">Your Rights and Choices</h2>
           </div>
           <div className="p-5">
-            <div className="prose max-w-none text-gray-700">
+            <div className="prose max-w-none text-gray-700 font-['Poppins']">
               <p className="mb-4">
                 Depending on your location, you may have certain rights regarding your personal information, including:
               </p>
@@ -181,10 +181,10 @@ function PrivacyPolicy() {
         {/* Data Security */}
         <section className="bg-white rounded-lg shadow-sm mb-8 overflow-hidden">
           <div className="p-5 bg-gray-50 border-b border-gray-200">
-            <h2 className="text-lg font-bold text-gray-900">Data Security</h2>
+            <h2 className="text-lg font-bold text-gray-900 font-['Playfair_Display']">Data Security</h2>
           </div>
           <div className="p-5">
-            <div className="prose max-w-none text-gray-700">
+            <div className="prose max-w-none text-gray-700 font-['Poppins']">
               <p className="mb-4">
                 We implement appropriate technical and organizational measures to protect your personal information from unauthorized access, use, disclosure, alteration, or destruction. However, no method of transmission over the internet or electronic storage is 100% secure, and we cannot guarantee absolute security.
               </p>
@@ -198,10 +198,10 @@ function PrivacyPolicy() {
         {/* Children's Privacy */}
         <section className="bg-white rounded-lg shadow-sm mb-8 overflow-hidden">
           <div className="p-5 bg-gray-50 border-b border-gray-200">
-            <h2 className="text-lg font-bold text-gray-900">Children's Privacy</h2>
+            <h2 className="text-lg font-bold text-gray-900 font-['Playfair_Display']">Children's Privacy</h2>
           </div>
           <div className="p-5">
-            <div className="prose max-w-none text-gray-700">
+            <div className="prose max-w-none text-gray-700 font-['Poppins']">
               <p className="mb-4">
                 Our services are not intended for individuals under the age of 16. We do not knowingly collect personal information from children under 16. If we become aware that we have collected personal information from a child under 16, we will take steps to delete that information as quickly as possible. If you believe we have collected information from a child under 16, please contact us.
               </p>
@@ -212,10 +212,10 @@ function PrivacyPolicy() {
         {/* International Data Transfers */}
         <section className="bg-white rounded-lg shadow-sm mb-8 overflow-hidden">
           <div className="p-5 bg-gray-50 border-b border-gray-200">
-            <h2 className="text-lg font-bold text-gray-900">International Data Transfers</h2>
+            <h2 className="text-lg font-bold text-gray-900 font-['Playfair_Display']">International Data Transfers</h2>
           </div>
           <div className="p-5">
-            <div className="prose max-w-none text-gray-700">
+            <div className="prose max-w-none text-gray-700 font-['Poppins']">
               <p className="mb-4">
                 We may transfer your information to countries other than your country of residence, including the United States, where our servers and service providers are located. These countries may have different data protection laws than your country of residence. We will take appropriate measures to protect your information in accordance with this Privacy Policy and applicable laws.
               </p>
@@ -223,19 +223,19 @@ function PrivacyPolicy() {
           </div>
         </section>
 
-        {/* Contact Us */}
+        {/* Contact Us - Update contact information */}
         <section className="bg-white rounded-lg shadow-sm mb-8 overflow-hidden">
           <div className="p-5 bg-gray-50 border-b border-gray-200">
-            <h2 className="text-lg font-bold text-gray-900">Contact Us</h2>
+            <h2 className="text-lg font-bold text-gray-900 font-['Playfair_Display']">Contact Us</h2>
           </div>
           <div className="p-5">
-            <div className="prose max-w-none text-gray-700">
+            <div className="prose max-w-none text-gray-700 font-['Poppins']">
               <p className="mb-4">
                 If you have any questions or concerns about this Privacy Policy or our privacy practices, please contact us at:
               </p>
-              <p className="mb-1"><strong>Email:</strong> privacy@casualclothingfashion.com</p>
-              <p className="mb-1"><strong>Phone:</strong> (555) 123-4567</p>
-              <p className="mb-4"><strong>Address:</strong> 123 Fashion Avenue, New York, NY 10001</p>
+              <p className="mb-1"><strong>Email:</strong> casulclothings2024@gmail.com</p>
+              <p className="mb-1"><strong>Phone:</strong> +91 9442955929</p>
+              <p className="mb-4"><strong>Address:</strong> Sivsakthi Nagar, 5th Street, Tirupur, Tamil Nadu - 641604</p>
               <p>
                 We will respond to your request as soon as possible and within the timeframes required by applicable law.
               </p>
@@ -243,27 +243,27 @@ function PrivacyPolicy() {
           </div>
         </section>
 
-        {/* Quick Links */}
+        {/* Related Policies */}
         <div className="bg-black/5 rounded-lg p-6 mb-8">
-          <h3 className="text-lg font-medium text-gray-900 mb-4">Related Policies</h3>
+          <h3 className="text-lg font-medium text-gray-900 mb-4 font-['Playfair_Display']">Related Policies</h3>
           <div className="flex flex-wrap gap-3">
-            <Link to="/terms-conditions" className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md bg-white text-gray-700 hover:bg-gray-50">
+            <Link to="/terms-conditions" className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md bg-white text-gray-700 hover:bg-gray-50 font-['Poppins']">
               Terms & Conditions
             </Link>
-            <Link to="/shipping-returns" className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md bg-white text-gray-700 hover:bg-gray-50">
+            <Link to="/shipping-returns" className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md bg-white text-gray-700 hover:bg-gray-50 font-['Poppins']">
               Shipping & Returns
             </Link>
-            <Link to="/cookie-policy" className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md bg-white text-gray-700 hover:bg-gray-50">
+            <Link to="/cookie-policy" className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md bg-white text-gray-700 hover:bg-gray-50 font-['Poppins']">
               Cookie Policy
             </Link>
           </div>
         </div>
 
-        {/* Print Policy */}
+        {/* Print Button */}
         <div className="text-center mb-8">
           <button 
             onClick={() => window.print()} 
-            className="inline-flex items-center px-4 py-2 text-sm text-gray-600 hover:text-gray-900"
+            className="inline-flex items-center px-4 py-2 text-sm text-gray-600 hover:text-gray-900 font-['Poppins']"
           >
             <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />

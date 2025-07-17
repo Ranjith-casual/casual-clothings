@@ -155,39 +155,16 @@ function FAQ() {
   return (
     <div className="bg-gray-50 min-h-screen">
       {/* Header */}
-      <div className='bg-white shadow-sm p-4 mb-6 flex items-center justify-between border-b border-gray-200'>
-        <h1 className='text-xl font-bold text-gray-900 font-serif'>Frequently Asked Questions</h1>
+      <div className="bg-white shadow-sm p-4 mb-6 flex items-center justify-between border-b border-gray-200">
+        <h1 className="text-xl font-bold text-gray-900 font-['Playfair_Display']">Frequently Asked Questions</h1>
       </div>
 
       {/* Main Content */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        {/* FAQ Search */}
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        
+        {/* Category Navigation */}
         <div className="mb-8">
-          <div className="max-w-2xl mx-auto">
-            <div className="relative">
-              <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
-                <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                </svg>
-              </div>
-              <input 
-                type="search" 
-                className="block w-full p-4 pl-10 text-sm border border-gray-300 rounded-lg bg-white focus:ring-black focus:border-black" 
-                placeholder="Search frequently asked questions..." 
-              />
-              <button 
-                type="submit" 
-                className="text-white absolute right-2.5 bottom-2.5 bg-black hover:bg-gray-900 focus:ring-4 focus:outline-none focus:ring-gray-300 font-medium rounded-lg text-sm px-4 py-2"
-              >
-                Search
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {/* FAQ Categories */}
-        <div className="mb-8 overflow-x-auto">
-          <div className="inline-flex min-w-full pb-2">
+          <div className="flex flex-wrap justify-center gap-2 md:gap-4 font-['Poppins']">
             {Object.keys(faqData).map(category => (
               <button
                 key={category}
@@ -204,53 +181,56 @@ function FAQ() {
           </div>
         </div>
 
-        {/* FAQ Items */}
-        <div className="bg-white rounded-lg shadow-sm overflow-hidden">
-          <div className="divide-y divide-gray-200">
-            {faqData[activeCategory].map((item) => (
-              <div key={item.id} className="border-l-4 border-transparent hover:border-black">
-                <button
-                  onClick={() => toggleQuestion(item.id)}
-                  className="flex justify-between items-center w-full p-5 text-left"
-                >
-                  <span className="text-lg font-medium text-gray-900">{item.question}</span>
-                  <svg
-                    className={`w-6 h-6 text-gray-500 transform ${openQuestions[item.id] ? 'rotate-180' : ''}`}
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                    xmlns="http://www.w3.org/2000/svg"
+        {/* FAQ Content */}
+        <div className="space-y-6 font-['Poppins']">
+          {/* FAQ Items */}
+          <div className="bg-white rounded-lg shadow-sm overflow-hidden">
+            <div className="divide-y divide-gray-200">
+              {faqData[activeCategory].map((item) => (
+                <div key={item.id} className="border-l-4 border-transparent hover:border-black">
+                  <button
+                    onClick={() => toggleQuestion(item.id)}
+                    className="flex justify-between items-center w-full p-5 text-left"
                   >
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                  </svg>
-                </button>
-                {openQuestions[item.id] && (
-                  <div className="px-5 pb-5 pt-0">
-                    <p className="text-gray-600">{item.answer}</p>
-                  </div>
-                )}
-              </div>
-            ))}
+                    <span className="text-lg font-medium text-gray-900">{item.question}</span>
+                    <svg
+                      className={`w-6 h-6 text-gray-500 transform ${openQuestions[item.id] ? 'rotate-180' : ''}`}
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                      xmlns="http://www.w3.org/2000/svg"
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </button>
+                  {openQuestions[item.id] && (
+                    <div className="px-5 pb-5 pt-0">
+                      <p className="text-gray-600">{item.answer}</p>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
           </div>
-        </div>
 
-        {/* Still have questions */}
-        <div className="bg-black/5 rounded-lg p-6 mt-8 text-center">
-          <h3 className="text-xl font-medium text-gray-900 mb-2">Still Have Questions?</h3>
-          <p className="text-gray-600 mb-4">Our customer service team is here to help you with any questions you may have.</p>
-          <div className="flex flex-col sm:flex-row justify-center gap-4">
-            <Link to="/contact" className="inline-flex items-center justify-center px-5 py-3 border border-transparent text-base font-medium rounded-md text-white bg-black hover:bg-gray-900">
-              <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-              </svg>
-              Contact Us
-            </Link>
-            <button className="inline-flex items-center justify-center px-5 py-3 border border-gray-300 text-base font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
-              <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-              </svg>
-              Live Chat
-            </button>
+          {/* Still have questions */}
+          <div className="bg-black/5 rounded-lg p-6 mt-8 text-center">
+            <h3 className="text-xl font-medium text-gray-900 mb-2">Still Have Questions?</h3>
+            <p className="text-gray-600 mb-4">Our customer service team is here to help you with any questions you may have.</p>
+            <div className="flex flex-col sm:flex-row justify-center gap-4">
+              <Link to="/contact" className="inline-flex items-center justify-center px-5 py-3 border border-transparent text-base font-medium rounded-md text-white bg-black hover:bg-gray-900">
+                <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                </svg>
+                Contact Us
+              </Link>
+              <button className="inline-flex items-center justify-center px-5 py-3 border border-gray-300 text-base font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
+                <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                </svg>
+                Live Chat
+              </button>
+            </div>
           </div>
         </div>
       </div>

@@ -6,7 +6,7 @@ function ShippingReturns() {
     <div className="bg-gray-50 min-h-screen">
       {/* Header */}
       <div className='bg-white shadow-sm p-4 mb-6 flex items-center justify-between border-b border-gray-200'>
-        <h1 className='text-xl font-bold text-gray-900 font-serif'>Shipping & Returns Policy</h1>
+        <h1 className='text-xl font-bold text-gray-900 font-["Playfair_Display"]'>Shipping & Returns Policy</h1>
       </div>
 
       {/* Main Content */}
@@ -14,10 +14,10 @@ function ShippingReturns() {
         {/* Page Navigation */}
         <div className="bg-white rounded-lg shadow-sm mb-8 overflow-hidden">
           <div className="p-5 bg-gray-50 border-b border-gray-200">
-            <h2 className="text-lg font-bold text-gray-900">Contents</h2>
+            <h2 className="text-lg font-bold text-gray-900 font-['Playfair_Display']">Contents</h2>
           </div>
           <div className="p-5">
-            <ul className="space-y-2 text-black">
+            <ul className="space-y-2 text-black font-['Poppins']">
               <li>
                 <a href="#shipping" className="hover:text-gray-800">Shipping Information</a>
               </li>

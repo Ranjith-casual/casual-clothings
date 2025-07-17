@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { FaMapMarkerAlt, FaPhone, FaEnvelope, FaFacebookF, FaTwitter, FaInstagram } from 'react-icons/fa';
+import { FaMapMarkerAlt, FaPhone, FaEnvelope } from 'react-icons/fa';
 import { Link, useNavigate } from 'react-router-dom';
 import Swal from 'sweetalert2';
 import withReactContent from 'sweetalert2-react-content';
@@ -18,8 +18,8 @@ function Contact() {
   
   // Default store location
   const [storeLocation] = useState({
-    name: "Casual Clothing Fashion Headquarters",
-    address: "123 Fashion Avenue, New York, NY 10001"
+    name: "Casual Clothings Headquarters",
+    address: "Sivsakthi Nagar, 5th Street, Tirupur, Tamil Nadu - 641604"
   });
 
   // Form state
@@ -73,7 +73,7 @@ function Contact() {
       // Redirect to login if they click "Log in"
       if (result.isConfirmed) {
         navigate("/login", { 
-          state: { from: "/about", returnToForm: true } 
+          state: { from: "/contact", returnToForm: true } 
         });
       }
       return; // Stop execution if not logged in
@@ -176,8 +176,8 @@ function Contact() {
 
   // Render contact form with login check
   const renderContactForm = () => (
-    <div className="md:w-1/2">
-      <h3 className="text-xl font-semibold mb-4">Send Us a Message</h3>
+    <div className="w-full md:w-1/2">
+      <h3 className="text-xl font-medium mb-4 font-['Playfair_Display']">Send Us a Message</h3>
       
       {!isLoggedIn ? (
         <div className="bg-gray-50 p-6 rounded-lg border border-gray-200 text-center">
@@ -186,27 +186,27 @@ function Contact() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
             </svg>
           </div>
-          <h4 className="text-lg font-medium text-gray-900 mb-2">Authentication Required</h4>
-          <p className="text-gray-600 mb-6">
+          <h4 className="text-lg font-medium text-gray-900 mb-2 font-['Playfair_Display']">Authentication Required</h4>
+          <p className="text-gray-600 mb-6 font-['Poppins']">
             Please log in to send us a message. We value your feedback and will respond promptly.
           </p>
           <Link 
             to="/login"
-            className="inline-flex justify-center items-center px-6 py-3 border border-transparent rounded-md shadow-sm text-base font-medium text-white bg-gray-900 hover:bg-gray-800"
+            className="inline-flex justify-center items-center px-6 py-3 border border-transparent rounded-md shadow-sm text-base font-medium text-white bg-gray-900 hover:bg-gray-800 font-['Poppins']"
           >
             Log In to Continue
             <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 ml-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
             </svg>
           </Link>
-          <p className="mt-4 text-sm text-gray-500">
+          <p className="mt-4 text-sm text-gray-500 font-['Poppins']">
             Don't have an account? <Link to="/register" className="text-gray-900 font-medium hover:underline">Sign up</Link>
           </p>
         </div>
       ) : (
         <form onSubmit={handleSubmit} className="space-y-6">
           <div className="space-y-2">
-            <label htmlFor="fullName" className="block text-sm font-medium text-gray-700">Full Name</label>
+            <label htmlFor="fullName" className="block text-sm font-medium text-gray-700 font-['Poppins']">Full Name</label>
             <input 
               type="text" 
               id="fullName" 
@@ -214,12 +214,12 @@ function Contact() {
               value={formData.fullName}
               onChange={handleChange}
               required
-              className="block w-full rounded-md border-gray-300 shadow-sm focus:border-gray-900 focus:ring-gray-900 sm:text-sm"
+              className="block w-full rounded-md border-gray-300 shadow-sm focus:border-gray-900 focus:ring-gray-900 sm:text-sm font-['Poppins']"
             />
           </div>
           
           <div className="space-y-2">
-            <label htmlFor="email" className="block text-sm font-medium text-gray-700">Email Address</label>
+            <label htmlFor="email" className="block text-sm font-medium text-gray-700 font-['Poppins']">Email Address</label>
             <input 
               type="email" 
               id="email" 
@@ -227,12 +227,12 @@ function Contact() {
               value={formData.email}
               onChange={handleChange} 
               required
-              className="block w-full rounded-md border-gray-300 shadow-sm focus:border-gray-900 focus:ring-gray-900 sm:text-sm"
+              className="block w-full rounded-md border-gray-300 shadow-sm focus:border-gray-900 focus:ring-gray-900 sm:text-sm font-['Poppins']"
             />
           </div>
           
           <div className="space-y-2">
-            <label htmlFor="subject" className="block text-sm font-medium text-gray-700">Subject</label>
+            <label htmlFor="subject" className="block text-sm font-medium text-gray-700 font-['Poppins']">Subject</label>
             <input 
               type="text" 
               id="subject" 
@@ -240,12 +240,12 @@ function Contact() {
               value={formData.subject}
               onChange={handleChange}
               required
-              className="block w-full rounded-md border-gray-300 shadow-sm focus:border-gray-900 focus:ring-gray-900 sm:text-sm"
+              className="block w-full rounded-md border-gray-300 shadow-sm focus:border-gray-900 focus:ring-gray-900 sm:text-sm font-['Poppins']"
             />
           </div>
           
           <div className="space-y-2">
-            <label htmlFor="message" className="block text-sm font-medium text-gray-700">Message</label>
+            <label htmlFor="message" className="block text-sm font-medium text-gray-700 font-['Poppins']">Message</label>
             <textarea 
               id="message" 
               name="message"
@@ -253,7 +253,7 @@ function Contact() {
               onChange={handleChange}
               rows="4" 
               required
-              className="block w-full rounded-md border-gray-300 shadow-sm focus:border-gray-900 focus:ring-gray-900 sm:text-sm"
+              className="block w-full rounded-md border-gray-300 shadow-sm focus:border-gray-900 focus:ring-gray-900 sm:text-sm font-['Poppins']"
             ></textarea>
           </div>
           
@@ -261,7 +261,7 @@ function Contact() {
             <button 
               type="submit" 
               disabled={isSubmitting}
-              className="relative inline-flex justify-center w-full py-3 px-6 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-gray-900 hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-gray-900 focus:ring-offset-2"
+              className="relative inline-flex justify-center w-full py-3 px-6 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-gray-900 hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-gray-900 focus:ring-offset-2 font-['Poppins']"
             >
               {/* Progress bar for submission */}
               {isSubmitting && (
@@ -322,7 +322,7 @@ function Contact() {
             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-green-500" viewBox="0 0 20 20" fill="currentColor">
               <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
             </svg>
-            <span>Logged in as {user.name}</span>
+            <span className="font-['Poppins']">Logged in as {user.name}</span>
           </div>
         </form>
       )}
@@ -332,67 +332,37 @@ function Contact() {
   return (
     <div className="bg-gray-50 min-h-screen">
       {/* Header */}
-     
+      <div className="bg-gray-900 text-white py-16 md:py-24">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center">
+            <h1 className="text-3xl md:text-4xl lg:text-5xl font-bold font-['Playfair_Display'] mb-4">Contact Us</h1>
+            <p className="text-lg text-gray-300 max-w-3xl mx-auto font-['Poppins']">
+              We'd love to hear from you. Reach out with any questions or feedback about our products.
+            </p>
+          </div>
+        </div>
+      </div>
 
       {/* Main Content */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        {/* Hero Section */}
-        <div className="bg-gray-900 text-white rounded-lg overflow-hidden mb-12">
-          {/* Hero content (unchanged) */}
-        </div>
-
-        {/* Our Story */}
-        <div className="mb-16">
-          {/* Story content (unchanged) */}
-        </div>
-
-        {/* Our Values */}
-        <div className="mb-16">
-          {/* Values content (unchanged) */}
-        </div>
-
-        {/* Our Location */}
-        <div className="mb-16">
-          {/* Location content (unchanged) */}
-        </div>
-
-        {/* Fashion Innovation Section */}
-        <div className="mb-16">
-          {/* Innovation content (unchanged) */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        {/* Page Title */}
+        <div className='bg-white shadow-sm p-4 mb-6 flex items-center justify-between rounded-lg border-b border-gray-200'>
+          <h1 className='text-xl font-bold text-gray-900 font-["Playfair_Display"]'>Contact Our Team</h1>
         </div>
         
         {/* Contact Form - with Redux-based authentication check */}
         <div className="mb-16">
         
-          <div className="bg-white rounded-lg shadow-sm p-6 md:p-8 relative overflow-hidden">
-            {/* Background elements */}
+          <div className="bg-white rounded-lg shadow-sm p-4 md:p-8 relative overflow-hidden">
+            {/* Background pattern */}
             <div className="absolute inset-0 opacity-[0.03] bg-[length:50px_50px] pointer-events-none"></div>
-            
-            {/* Animated particles */}
-            <div className="absolute inset-0 pointer-events-none">
-              {[...Array(12)].map((_, index) => (
-                <div
-                  key={index}
-                  className="absolute rounded-full"
-                  style={{
-                    width: Math.random() * 5 + 1,
-                    height: Math.random() * 5 + 1,
-                    top: `${Math.random() * 100}%`,
-                    left: `${Math.random() * 100}%`,
-                    background: index % 3 === 0 ? '#333' : index % 3 === 1 ? '#555' : '#777',
-                    opacity: Math.random() * 0.3 + 0.1,
-                    animation: `float ${Math.random() * 8 + 12}s infinite ease-in-out ${Math.random() * 5}s`,
-                  }}
-                />
-              ))}
-            </div>
 
-            <div className="flex flex-col md:flex-row gap-8 relative z-10">
+            <div className="flex flex-col md:flex-row gap-8 relative z-10 w-full">
               {/* Contact form with Redux auth check */}
               {renderContactForm()}
 
-              <div className="md:w-1/2">
-                <h3 className="text-xl font-semibold mb-4">Connect With Us</h3>
+              <div className="w-full md:w-1/2 mt-8 md:mt-0">
+                <h3 className="text-xl font-medium mb-4 font-['Playfair_Display']">Connect With Us</h3>
                 
                 <div className="space-y-6">
                   <div className="flex items-start space-x-4 group">
@@ -400,12 +370,12 @@ function Contact() {
                       <FaEnvelope className="h-6 w-6 text-gray-700 group-hover:text-gray-900 transition-colors" />
                     </div>
                     <div>
-                      <h4 className="font-medium text-base">Email</h4>
+                      <h4 className="font-medium text-base font-['Playfair_Display']">Email</h4>
                       <a 
-                        href="mailto:contact@casualclothingfashion.com" 
-                        className="text-gray-600 hover:text-gray-900 transition-colors inline-flex items-center gap-1"
+                        href="mailto:casulclothings2024@gmail.com" 
+                        className="text-gray-600 hover:text-gray-900 transition-colors inline-flex items-center gap-1 font-['Poppins']"
                       >
-                        contact@casualclothingfashion.com
+                        casulclothings2024@gmail.com
                       </a>
                     </div>
                   </div>
@@ -415,9 +385,9 @@ function Contact() {
                       <FaMapMarkerAlt className="h-6 w-6 text-gray-700 group-hover:text-gray-900 transition-colors" />
                     </div>
                     <div>
-                      <h4 className="font-medium text-base">Location</h4>
-                      <p className="text-gray-600">
-                        123 Fashion Avenue, New York, NY 10001
+                      <h4 className="font-medium text-base font-['Playfair_Display']">Location</h4>
+                      <p className="text-gray-600 font-['Poppins']">
+                        Sivsakthi Nagar, 5th Street, Tirupur, Tamil Nadu - 641604
                       </p>
                     </div>
                   </div>
@@ -427,23 +397,16 @@ function Contact() {
                       <FaPhone className="h-6 w-6 text-gray-700 group-hover:text-gray-900 transition-colors" />
                     </div>
                     <div>
-                      <h4 className="font-medium text-base">Phone</h4>
-                      <p className="text-gray-600">(555) 123-4567</p>
+                      <h4 className="font-medium text-base font-['Playfair_Display']">Phone</h4>
+                      <p className="text-gray-600 font-['Poppins']">+91 9442955929</p>
                     </div>
                   </div>
                   
                   <div>
-                    <h4 className="font-medium text-base mb-3">Follow Us</h4>
-                    <div className="flex space-x-4">
-                      <a href="#" className="w-10 h-10 rounded-full bg-gray-900 text-white flex items-center justify-center hover:bg-gray-700 transition-colors">
-                        <FaFacebookF />
-                      </a>
-                      <a href="#" className="w-10 h-10 rounded-full bg-gray-900 text-white flex items-center justify-center hover:bg-gray-700 transition-colors">
-                        <FaTwitter />
-                      </a>
-                      <a href="#" className="w-10 h-10 rounded-full bg-gray-900 text-white flex items-center justify-center hover:bg-gray-700 transition-colors">
-                        <FaInstagram />
-                      </a>
+                    <h4 className="font-medium text-base mb-3 font-['Playfair_Display']">Business Hours</h4>
+                    <div className="space-y-2">
+                      <p className="text-gray-600 font-['Poppins']">Monday - Saturday: 10:00 AM - 8:00 PM</p>
+                      <p className="text-gray-600 font-['Poppins']">Sunday: 11:00 AM - 5:00 PM</p>
                     </div>
                   </div>
                 </div>
@@ -451,25 +414,46 @@ function Contact() {
             </div>
           </div>
         </div>
+        
+        {/* Map Section */}
+        <div className="mb-16">
+          <div className='bg-white shadow-sm p-4 mb-6 flex items-center justify-between rounded-lg border-b border-gray-200'>
+            <h2 className='text-xl font-bold text-gray-900 font-["Playfair_Display"]'>Our Location</h2>
+          </div>
+          
+          <div className="bg-white rounded-lg shadow-sm p-4 overflow-hidden">
+            <div className="aspect-w-16 aspect-h-9 rounded-lg overflow-hidden">
+              <iframe 
+                src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d125323.16899423013!2d77.2791009243364!3d11.107926535324067!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x3ba907b0424b8edf%3A0x2b29d00e11b7a337!2sTirupur%2C%20Tamil%20Nadu!5e0!3m2!1sen!2sin!4v1716371645387!5m2!1sen!2sin"
+                width="100%" 
+                height="450" 
+                style={{ border: 0 }} 
+                allowFullScreen="" 
+                loading="lazy" 
+                referrerPolicy="no-referrer-when-downgrade"
+                title="Casual Clothings Store Location"
+                className="rounded-lg shadow-inner"
+              ></iframe>
+            </div>
+            <div className="mt-6 text-center">
+              <p className="text-gray-600 font-['Poppins']">Visit our store at Sivsakthi Nagar, 5th Street, Tirupur, Tamil Nadu - 641604</p>
+              <a 
+                href="https://goo.gl/maps/J2cX5DG4koH8vTjM8" 
+                target="_blank" 
+                rel="noopener noreferrer" 
+                className="inline-flex items-center mt-3 text-gray-900 hover:text-gray-700 font-['Poppins'] font-medium"
+              >
+                Get Directions
+                <svg className="ml-2 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path>
+                </svg>
+              </a>
+            </div>
+          </div>
+        </div>
       </div>
 
-      {/* Animation styles */}
-      <style>{`
-        @keyframes float {
-          0%, 100% {
-            transform: translateY(0) translateX(0);
-            opacity: 0;
-          }
-          50% {
-            transform: translateY(-20px) translateX(10px);
-            opacity: 0.6;
-          }
-          100% {
-            transform: translateY(0) translateX(0);
-            opacity: 0;
-          }
-        }
-      `}</style>
+
     </div>
   );
 }
