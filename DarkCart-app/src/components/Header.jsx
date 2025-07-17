@@ -12,7 +12,9 @@ import { useGlobalContext } from "../provider/GlobalProvider";
 import DisplayCartItem from "./DisplayCartItem";
 import isAdmin from "../utils/isAdmin";
 import { logout } from "../store/userSlice";
-import { handleAddItemCart } from "../store/cartProduct";
+import men from '../assets/men.png';
+import women from '../assets/women.png';
+import kids from '../assets/kids.png';
 import "../App.css";
 import logo from "../assets/logo.png";
 
@@ -361,7 +363,7 @@ function Header() {
                       <Link to="/search?gender=Men" className="flex flex-col items-center gap-2 p-2 rounded-lg hover:bg-black/5 transition-all duration-300 group">
                         <div className="w-16 h-16 overflow-hidden transition-transform duration-500 group-hover:scale-105">
                           <img 
-                            src="https://images.unsplash.com/photo-1617137968427-85924c800a22?ixlib=rb-1.2.1&ixid=MnwxMjA3fDB8MHxzZWFyY2h8M3x8bWVuJTIwZmFzaGlvbnxlbnwwfHwwfHw%3D&w=200&q=80" 
+                            src= {men} 
                             alt="Men" 
                             className="w-full h-full object-cover filter grayscale hover:grayscale-0 transition-all duration-500" 
                           />
@@ -380,7 +382,7 @@ function Header() {
                       <Link to="/search?gender=Women" className="flex flex-col items-center gap-2 p-2 rounded-lg hover:bg-black/5 transition-all duration-300 group">
                         <div className="w-16 h-16 overflow-hidden transition-transform duration-500 group-hover:scale-105">
                           <img 
-                            src="https://images.unsplash.com/photo-1618244972963-dbad64b98bad?ixlib=rb-1.2.1&ixid=MnwxMjA3fDB8MHxzZWFyY2h8NXx8d29tZW4lMjBmYXNoaW9ufGVufDB8fDB8fA%3D%3D&w=200&q=80" 
+                            src={women} 
                             alt="Women" 
                             className="w-full h-full object-cover filter grayscale hover:grayscale-0 transition-all duration-500" 
                           />
@@ -399,7 +401,7 @@ function Header() {
                       <Link to="/search?gender=Kids" className="flex flex-col items-center gap-2 p-2 rounded-lg hover:bg-black/5 transition-all duration-300 group">
                         <div className="w-16 h-16 overflow-hidden transition-transform duration-500 group-hover:scale-105">
                           <img 
-                            src="https://images.unsplash.com/photo-1622290291468-a28f7a7dc6a8?ixlib=rb-1.2.1&ixid=MnwxMjA3fDB8MHxzZWFyY2h8M3x8a2lkcyUyMGZhc2hpb258ZW58MHx8MHx8&w=200&q=80" 
+                            src={kids} 
                             alt="Kids" 
                             className="w-full h-full object-cover filter grayscale hover:grayscale-0 transition-all duration-500" 
                           />

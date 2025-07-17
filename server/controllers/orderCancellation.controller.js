@@ -67,7 +67,7 @@ export const requestOrderCancellation = async (req, res) => {
 
         // Get current policy for refund calculation
         const policy = await cancellationPolicyModel.findOne({ isActive: true });
-        const refundPercentage = policy?.refundPercentage || 7;
+        const refundPercentage = policy?.refundPercentage || 65;
 
         // Create cancellation request
         const cancellationRequest = new orderCancellationModel({
@@ -356,7 +356,7 @@ export const getCancellationPolicy = async (req, res) => {
         if (!policy) {
             // Create default policy if none exists
             const defaultPolicy = new cancellationPolicyModel({
-                refundPercentage: 7,
+                refundPercentage: 65,
                 responseTimeHours: 48,
                 allowedReasons: [
                     { reason: 'Changed mind' },
@@ -369,13 +369,13 @@ export const getCancellationPolicy = async (req, res) => {
                     { reason: 'Other' }
                 ],
                 timeBasedRules: [
-                    { description: 'Within 1 hour of order', timeFrameHours: 1, refundPercentage: 10 },
-                    { description: 'Within 24 hours of order', timeFrameHours: 24, refundPercentage: 7 },
-                    { description: 'After 24 hours', timeFrameHours: 999999, refundPercentage: 5 }
+                    { description: 'Within 1 hour of order', timeFrameHours: 1, refundPercentage: 65 },
+                    { description: 'Within 24 hours of order', timeFrameHours: 24, refundPercentage: 65 },
+                    { description: 'After 24 hours', timeFrameHours: 999999, refundPercentage: 65 }
                 ],
                 orderStatusRules: [
-                    { orderStatus: 'ORDER PLACED', canCancel: true, refundPercentage: 7 },
-                    { orderStatus: 'PROCESSING', canCancel: true, refundPercentage: 5 },
+                    { orderStatus: 'ORDER PLACED', canCancel: true, refundPercentage: 65 },
+                    { orderStatus: 'PROCESSING', canCancel: true, refundPercentage: 65 },
                     { orderStatus: 'OUT FOR DELIVERY', canCancel: false, refundPercentage: 0 },
                     { orderStatus: 'DELIVERED', canCancel: false, refundPercentage: 0 }
                 ],

@@ -209,14 +209,24 @@ const BagPage = () => {
 
   // Auto-select all available items when cart loads initially
   useEffect(() => {
-    if (cartItemsList.length > 0 && selectedItems.length === 0) {
-      // Filter out unavailable items
-      const availableItems = cartItemsList
-        .filter(item => isItemAvailable(item))
-        .map(item => item._id);
-      
-      if (availableItems.length > 0) {
-        dispatch(setSelectedItems(availableItems));
+    if (cartItemsList.length > 0) {
+      if (cartItemsList.length === 1) {
+        // For single item, always select it if it's available
+        const singleItem = cartItemsList[0];
+        if (isItemAvailable(singleItem)) {
+          dispatch(setSelectedItems([singleItem._id]));
+        } else {
+          dispatch(setSelectedItems([]));
+        }
+      } else if (selectedItems.length === 0) {
+        // For multiple items, only auto-select if no items are currently selected
+        const availableItems = cartItemsList
+          .filter(item => isItemAvailable(item))
+          .map(item => item._id);
+        
+        if (availableItems.length > 0) {
+          dispatch(setSelectedItems(availableItems));
+        }
       }
     }
   }, [cartItemsList, selectedItems.length, dispatch]);
@@ -568,18 +578,20 @@ const BagPage = () => {
                     <h2 className="text-lg font-medium">
                       {cartItemsList.length} {cartItemsList.length === 1 ? 'ITEM' : 'ITEMS'} IN BAG
                     </h2>
-                    <div className="flex items-center space-x-2">
-                      <input
-                        type="checkbox"
-                        id="selectAll"
-                        checked={selectedItems.length === cartItemsList.length && cartItemsList.length > 0}
-                        onChange={handleSelectAll}
-                        className="h-4 w-4 text-red-500 border-gray-300 rounded focus:ring-red-500"
-                      />
-                      <label htmlFor="selectAll" className="text-sm font-medium cursor-pointer">
-                        Select All ({selectedItems.length}/{cartItemsList.length})
-                      </label>
-                    </div>
+                    {cartItemsList.length > 1 && (
+                      <div className="flex items-center space-x-2">
+                        <input
+                          type="checkbox"
+                          id="selectAll"
+                          checked={selectedItems.length === cartItemsList.length && cartItemsList.length > 0}
+                          onChange={handleSelectAll}
+                          className="h-4 w-4 text-red-500 border-gray-300 rounded focus:ring-red-500"
+                        />
+                        <label htmlFor="selectAll" className="text-sm font-medium cursor-pointer">
+                          Select All ({selectedItems.length}/{cartItemsList.length})
+                        </label>
+                      </div>
+                    )}
                   </div>
                 </div>
                 
@@ -641,18 +653,20 @@ const BagPage = () => {
                         <div className="flex flex-col sm:flex-row items-start w-full">
                           {/* Checkbox and Product Image */}
                           <div className="flex items-start">
-                            <div className="mr-3 relative">
-                              <input 
-                                type="checkbox" 
-                                checked={isSelected}
-                                onChange={() => handleItemSelection(item._id)}
-                                disabled={!isItemAvailable(item)}
-                                className={`h-5 w-5 border-gray-300 rounded ${isItemAvailable(item) ? 'text-red-500 focus:ring-red-500' : 'text-gray-300 cursor-not-allowed'}`}
-                              />
-                              {!isItemAvailable(item) && (
-                                <div className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full"></div>
-                              )}
-                            </div>
+                            {cartItemsList.length > 1 && (
+                              <div className="mr-3 relative">
+                                <input 
+                                  type="checkbox" 
+                                  checked={isSelected}
+                                  onChange={() => handleItemSelection(item._id)}
+                                  disabled={!isItemAvailable(item)}
+                                  className={`h-5 w-5 border-gray-300 rounded ${isItemAvailable(item) ? 'text-red-500 focus:ring-red-500' : 'text-gray-300 cursor-not-allowed'}`}
+                                />
+                                {!isItemAvailable(item) && (
+                                  <div className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full"></div>
+                                )}
+                              </div>
+                            )}
                             <div className="w-20 h-24 flex-shrink-0">
                               <img 
                                 src={imageSrc} 
@@ -820,7 +834,10 @@ const BagPage = () => {
               <div className="bg-white rounded shadow sticky top-4">
                 <div className="p-4 border-b">
                   <h2 className="text-lg font-medium">
-                    PRICE DETAILS ({selectedTotals.totalQty} {selectedTotals.totalQty === 1 ? 'Item' : 'Items'} Selected)
+                    {cartItemsList.length === 1 
+                      ? `PRICE DETAILS (${selectedTotals.totalQty} ${selectedTotals.totalQty === 1 ? 'Item' : 'Items'})`
+                      : `PRICE DETAILS (${selectedTotals.totalQty} ${selectedTotals.totalQty === 1 ? 'Item' : 'Items'} Selected)`
+                    }
                   </h2>
                 </div>
                 
@@ -864,14 +881,19 @@ const BagPage = () => {
                     disabled={selectedItems.length === 0}
                     className="w-full bg-red-500 hover:bg-red-600 text-white py-3 mt-6 font-medium flex items-center justify-center disabled:bg-gray-300 disabled:cursor-not-allowed"
                   >
-                    <span>PLACE ORDER ({selectedItems.length})</span>
+                    <span>
+                      {cartItemsList.length === 1 
+                        ? "PLACE ORDER" 
+                        : `PLACE ORDER (${selectedItems.length})`
+                      }
+                    </span>
                     <FaArrowRight className="ml-2" />
                   </button>
                   
                   <div className="mt-6 text-xs text-center text-gray-600">
                     <p>Safe and Secure Payments. Easy returns.</p>
                     <p>100% Authentic products.</p>
-                    {selectedItems.length > 0 && (
+                    {selectedItems.length > 0 && cartItemsList.length > 1 && (
                       <p className="mt-2 text-sm font-medium text-blue-600">
                         {cartItemsList.length - selectedItems.length} items will remain in your bag
                       </p>

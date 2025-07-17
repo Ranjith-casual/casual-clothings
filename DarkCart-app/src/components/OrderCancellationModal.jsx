@@ -29,7 +29,7 @@ function OrderCancellationModal({ order, onClose, onCancellationRequested }) {
 
     useEffect(() => {
         if (policy && order) {
-            const refundPercentage = policy.refundPercentage || 7
+            const refundPercentage = 65
             setEstimatedRefund((order.totalAmt * refundPercentage) / 100)
         }
     }, [policy, order])
@@ -39,8 +39,10 @@ function OrderCancellationModal({ order, onClose, onCancellationRequested }) {
             const response = await Axios({
                 ...SummaryApi.getCancellationPolicy
             })
+            
             if (response.data.success) {
-                setPolicy(response.data.data)
+                console.log('Cancellation Policy:', response.data.data.refundPercentage)
+                setPolicy(65)
             }
         } catch (error) {
             console.error('Error fetching cancellation policy:', error)
@@ -89,7 +91,7 @@ function OrderCancellationModal({ order, onClose, onCancellationRequested }) {
     }
 
     const getTimeBasedRefund = () => {
-        if (!policy || !order) return 7
+        if (!policy || !order) return 65
         
         const orderDate = new Date(order.orderDate)
         const now = new Date()
@@ -99,7 +101,7 @@ function OrderCancellationModal({ order, onClose, onCancellationRequested }) {
             hoursSinceOrder <= rule.timeFrameHours
         )
         
-        return timeRule?.refundPercentage || policy.refundPercentage || 7
+        return timeRule?.refundPercentage || policy.refundPercentage || 65
     }
 
     const canCancelOrder = () => {
