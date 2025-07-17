@@ -22,6 +22,7 @@ const SimpleProductCard = ({ product }) => {
   const { addToWishlist, removeFromWishlist, checkWishlistItem } = useGlobalContext();
   const [isWishlisted, setIsWishlisted] = useState(false);
   const [imageLoaded, setImageLoaded] = useState(false);
+  const [loading, setLoading] = useState(false);
   const user = useSelector((state) => state.user);
   
   useEffect(() => {
@@ -52,6 +53,7 @@ const SimpleProductCard = ({ product }) => {
     }
     
     try {
+      setLoading(true);
       console.log("SimpleProductCard: Updating wishlist for", product._id, "Current status:", isWishlisted);
       if (isWishlisted) {
         const result = await removeFromWishlist(product._id);
@@ -75,6 +77,8 @@ const SimpleProductCard = ({ product }) => {
     } catch (error) {
       console.error("Error updating wishlist:", error);
       toast.error("Something went wrong");
+    } finally {
+      setLoading(false);
     }
   };
   
@@ -140,16 +144,22 @@ const SimpleProductCard = ({ product }) => {
       </Link>
       
       {/* Wishlist Button */}
-      <button 
-        onClick={handleWishlist}
-        className="absolute top-2 right-2 p-1.5 bg-white/90 rounded-full shadow-sm z-10"
-      >
-        {isWishlisted ? (
+      { loading ? (
+        <div className="absolute top-2 right-2 p-1.5 bg-white/90 rounded-full shadow-sm z-10">
+          <FaSpinner className="animate-spin text-gray-600 w-3.5 h-3.5" />
+        </div>
+      ) : (
+        <button 
+          onClick={handleWishlist}
+          className="absolute top-2 right-2 p-1.5 bg-white/90 rounded-full shadow-sm z-10"
+        >
+          {isWishlisted ? (
           <FaHeart className="text-red-500 w-3.5 h-3.5" />
         ) : (
           <FaRegHeart className="text-gray-600 w-3.5 h-3.5 group-hover:text-red-500" />
         )}
-      </button>
+        </button>
+      )}
     </div>
   );
 };
