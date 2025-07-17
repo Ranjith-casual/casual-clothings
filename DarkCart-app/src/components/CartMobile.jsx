@@ -7,6 +7,7 @@ import { useSelector } from "react-redux";
 const CartMobileLink = () => {
   const { totalPrice, totalQty, setOpenCartSection } = useGlobalContext(); // Accessing global context
   const cartItem = useSelector((state) => state.cartItem.cart); // Accessing cart items from redux
+  const user = useSelector((state) => state.user); // Get user state
 
   const handleViewCart = () => {
     setOpenCartSection(true);
@@ -14,8 +15,8 @@ const CartMobileLink = () => {
 
   return (
     <>
-      {/* Only show if cart has items */}
-      {cartItem.length > 0 && (
+      {/* Only show if user is logged in and cart has items */}
+      {user?._id && cartItem.length > 0 && (
         <div className="sticky bottom-4 p-2 z-20">
           <div className="bg-black px-4 py-3 rounded-lg text-white text-sm flex items-center justify-between gap-3 lg:hidden shadow-lg border border-gray-800">
             <div className="flex items-center gap-3">

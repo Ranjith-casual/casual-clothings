@@ -11,6 +11,7 @@ import { DisplayPriceInRupees } from "../utils/DisplayPriceInRupees";
 import { useGlobalContext } from "../provider/GlobalProvider";
 import isAdmin from "../utils/isAdmin";
 import { logout } from "../store/userSlice";
+import { clearCart } from "../store/cartProduct";
 import men from '../assets/men.png';
 import women from '../assets/women.png';
 import kids from '../assets/kids.png';
@@ -672,7 +673,11 @@ function Header() {
                       {user?.name && (
                         <button
                           className="flex items-center text-gray-700 hover:text-black hover:bg-black/5 px-4 py-3 text-sm transition-all duration-300 rounded-md group w-full"
+
                           onClick={handleLogout}
+
+                     
+
                           style={{ 
                             fontFamily: "'Inter', sans-serif",
                             fontWeight: '300',
