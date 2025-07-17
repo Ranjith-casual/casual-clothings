@@ -140,10 +140,10 @@ const DisplayCartItem = ({close}) => {
                                     <p className='text-gray-600'>Quantity total</p>
                                     <p className='flex items-center gap-2 text-black font-medium'>{totalQty} item</p>
                                 </div>
-                                <div className='flex gap-2 sm:gap-4 justify-between ml-1 mb-2 sm:mb-3 pb-2 sm:pb-3 border-b border-gray-200 text-xs sm:text-sm'>
+                                {/* <div className='flex gap-2 sm:gap-4 justify-between ml-1 mb-2 sm:mb-3 pb-2 sm:pb-3 border-b border-gray-200 text-xs sm:text-sm'>
                                     <p className='text-gray-600'>Delivery Charge</p>
                                     <p className='flex items-center gap-2 text-black font-medium'>Free</p>
-                                </div>
+                                </div> */}
                                 <div className='font-semibold flex items-center justify-between gap-2 sm:gap-4'>
                                     <p className='text-gray-900 text-sm sm:text-base'>Grand total</p>
                                     <p className='text-black text-base sm:text-lg'>{DisplayPriceInRupees(totalPrice)}</p>

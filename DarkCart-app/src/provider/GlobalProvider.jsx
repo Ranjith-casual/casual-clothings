@@ -22,6 +22,7 @@ const GlobalProvider = ({ children }) => {
   const [notDiscountTotalPrice, setNotDiscountTotalPrice] = useState(0);
   const user = useSelector((state) => state.user);
   const [refreshingOrders, setRefreshingOrders] = useState(false);
+  const [openCartSection, setOpenCartSection] = useState(false);
   
   // Function to fetch user orders
   const fetchOrders = async () => {
@@ -350,7 +351,9 @@ const GlobalProvider = ({ children }) => {
         fetchWishlist,
         addToWishlist,
         removeFromWishlist,
-        checkWishlistItem
+        checkWishlistItem,
+        openCartSection,
+        setOpenCartSection
       }}
     >
       {children}

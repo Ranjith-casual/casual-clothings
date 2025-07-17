@@ -9,7 +9,6 @@ import { GoTriangleDown, GoTriangleUp } from "react-icons/go";
 import UserMenue from "./UserMenue";
 import { DisplayPriceInRupees } from "../utils/DisplayPriceInRupees";
 import { useGlobalContext } from "../provider/GlobalProvider";
-import DisplayCartItem from "./DisplayCartItem";
 import isAdmin from "../utils/isAdmin";
 import { logout } from "../store/userSlice";
 import { handleAddItemCart } from "../store/cartProduct";
@@ -57,8 +56,7 @@ function Header() {
   const [showFashionDropdown, setShowFashionDropdown] = useState(false);
   const cartItem = useSelector((state) => state.cartItem.cart);
   const user = useSelector((state) => state?.user);
-  const { totalPrice, totalQty } = useGlobalContext();
-  const [openCartSection, setOpenCartSection] = useState(false);
+  const { totalPrice, totalQty, openCartSection, setOpenCartSection } = useGlobalContext();
   const userMenuRef = useRef(null);
   const userMenuButtonRef = useRef(null);
   const mobileMenuRef = useRef(null);
@@ -981,11 +979,6 @@ function Header() {
           </div>
         </div>
       </header>
-
-      {/* Cart Sidebar with Enhanced Animation */}
-      {openCartSection && user?._id && (
-        <DisplayCartItem close={() => setOpenCartSection(false)} />
-      )}
 
       {/* Add styles for the animated marquee and menu stability */}
       <style jsx="true">{`
