@@ -735,8 +735,27 @@ const ProductDisplayPage = () => {
                   )}
                 </div>
 
-            
-                
+                {/* Wishlist button - Premium styling */}
+                { isWishlisted ? (
+                  <div className="mb-8">
+                    <button 
+                      onClick={handleWishlist}
+                      className="w-full bg-black text-white py-3.5 font-medium tracking-wide text-lg uppercase transition-all duration-300 border border-gray-300 rounded-md"
+                    >
+                      Remove from Wishlist
+                    </button>
+                  </div>
+                ) : (
+                  <div className="mb-8">
+                    <button 
+                      onClick={handleWishlist}
+                      className="w-full bg-black text-white py-3.5 font-medium tracking-wide text-lg uppercase transition-all duration-300 border border-gray-300 rounded-md"
+                    >
+                      Add to Wishlist
+                    </button>
+                  </div>
+                )}
+
                 {/* Product details section - Mobile view */}
                 <ProductDetails className="lg:hidden" />
               </div>

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import Search from "./Search";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { FaUserCircle, FaGift, FaPercentage, FaFire, FaLeaf, FaTshirt, FaFemale, FaChild, FaGem, FaRegHeart, FaRupeeSign } from "react-icons/fa";
+import { FaUserCircle, FaGift, FaPercentage, FaFire, FaLeaf, FaTshirt, FaFemale, FaChild, FaGem, FaRegHeart, FaRupeeSign, FaMapMarkerAlt } from "react-icons/fa";
 import useMobile from "../hooks/useMobile";
 import { BsCartCheckFill } from "react-icons/bs";
 import { useSelector, useDispatch } from "react-redux";
@@ -217,7 +217,7 @@ function Header() {
     <>
       <header className="sticky top-0 z-40 w-full bg-white shadow-sm border-b border-gray-100">
         {/* Premium Top Banner with Modern Icons */}
-        <div className="bg-black text-white overflow-hidden w-full relative">
+        {/* <div className="bg-black text-white overflow-hidden w-full relative">
           <div className="absolute inset-0 bg-gradient-to-r from-gray-900/30 to-black/40 backdrop-blur-[0.5px]"></div>
           <div className="animate-marquee whitespace-nowrap py-1.5 md:py-2 w-full relative z-10">
             <span className="mx-6 text-xs sm:text-sm inline-flex items-center tracking-wider" style={{ fontFamily: "'Inter', sans-serif", fontWeight: '300' }}>
@@ -241,7 +241,7 @@ function Header() {
               Exclusive member discounts
             </span>
           </div>
-        </div>
+        </div> */}
 
         <div className="w-full px-2 xs:px-3 sm:px-4 md:px-6 lg:px-8 xl:px-10">
           <nav className="flex items-center justify-between w-full">
@@ -441,7 +441,7 @@ function Header() {
                       </Link>
                     </div>
                     <div className="mt-3 bg-black/5 px-5 py-2.5">
-                      <Link to="/all-fashion" className="text-xs flex justify-between items-center text-gray-600 hover:text-black transition-colors duration-300">
+                      <Link to="/search" className="text-xs flex justify-between items-center text-gray-600 hover:text-black transition-colors duration-300">
                         <span 
                           style={{ 
                             fontFamily: "'Inter', sans-serif",
@@ -628,7 +628,8 @@ function Header() {
                       
                       {/* Wishlist - Mobile (only when logged in) with Premium Styling */}
                       {user?.name && (
-                        <Link
+                        <div>
+                           <Link
                           to="/dashboard/wishlist"
                           className="flex items-center text-gray-700 hover:text-black hover:bg-black/5 px-4 py-3 text-sm transition-all duration-300 rounded-md group"
                           onClick={() => setTimeout(() => setMobileMenuOpen(false), 200)}
@@ -643,6 +644,40 @@ function Header() {
                             <span className="tracking-wide">My Wishlist</span>
                           </div>
                         </Link>
+
+                         <Link
+                          to="/dashboard/myorders"
+                          className="flex items-center text-gray-700 hover:text-black hover:bg-black/5 px-4 py-3 text-sm transition-all duration-300 rounded-md group"
+                          onClick={() => setTimeout(() => setMobileMenuOpen(false), 200)}
+                          style={{ 
+                            fontFamily: "'Inter', sans-serif",
+                            fontWeight: '300',
+                            letterSpacing: '0.03em',
+                          }}
+                        >
+                          <div className="flex items-center gap-3 w-full">
+                            <FaGift className="w-5 h-5 text-gray-800 group-hover:scale-110 transition-transform duration-300" />
+                            <span className="tracking-wide">My Order</span>
+                          </div>
+                        </Link>
+
+                        <Link
+                          to="/dashboard/address"
+                          className="flex items-center text-gray-700 hover:text-black hover:bg-black/5 px-4 py-3 text-sm transition-all duration-300 rounded-md group"
+                          onClick={() => setTimeout(() => setMobileMenuOpen(false), 200)}
+                          style={{ 
+                            fontFamily: "'Inter', sans-serif",
+                            fontWeight: '300',
+                            letterSpacing: '0.03em',
+                          }}
+                        >
+                          <div className="flex items-center gap-3 w-full">
+                            <FaMapMarkerAlt className="w-5 h-5 text-gray-800 group-hover:scale-110 transition-transform duration-300" />
+                            <span className="tracking-wide">My Address</span>
+                          </div>
+                        </Link>
+                        
+                        </div>
                       )}
 
                       {/* Admin Dashboard - Mobile (only for admin users) with Premium Styling */}
