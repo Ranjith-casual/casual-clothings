@@ -1,29 +1,16 @@
 {
-  "rewrites": [
-    {
-      "source": "/((?!api|static|favicon.ico|assets|robots.txt|sitemap.xml).*)",
-      "destination": "/"
-    }
-  ],
-  "headers": [
-    {
-      "source": "/(.*)",
-      "headers": [
-        { "key": "X-Content-Type-Options", "value": "nosniff" },
-        { "key": "X-Frame-Options", "value": "DENY" },
-        { "key": "X-XSS-Protection", "value": "1; mode=block" },
-        { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" },
-        { "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }
-      ]
-    },
-    {
-      "source": "/(.+\\.(js|css|jpg|jpeg|gif|png|ico|svg|webp)$)",
-      "headers": [
+    "version": 2,
+    "name": "my-vercel-app",
+    "builds": [
         {
-          "key": "Cache-Control",
-          "value": "public, max-age=31536000, immutable"
+        "src": "./index.js",
+        "use": "@vercel/node"
         }
-      ]
-    }
-  ]
+    ],
+    "routes": [
+        {
+        "src": "/(.*)",
+        "dest": "/"
+        }
+    ]
 }
