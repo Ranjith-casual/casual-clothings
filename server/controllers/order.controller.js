@@ -197,8 +197,8 @@ export const onlinePaymentOrderController = async (req, res) => {
       paymentId: "",
       totalQuantity: quantity, // Total quantity of all items
       orderDate: new Date(),
-      paymentStatus: "PAID",
-      paymentMethod: "Online Payment",
+      paymentStatus: "PAID", // Always PAID for online payments
+      paymentMethod: paymentMethod || "Online Payment",
       deliveryAddress: addressId,
       subTotalAmt: subTotalAmt,
       totalAmt: totalAmount,

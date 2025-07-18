@@ -79,20 +79,20 @@ const PaymentPage = () => {
   const [selectedAddressId, setSelectedAddressId] = useState(null);
   const [deliveryCharge, setDeliveryCharge] = useState(0);
   const [selectedAddress, setSelectedAddress] = useState(null);
-  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('cod'); // Default payment method
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('online'); // Default to online payment
   const [isProcessing, setIsProcessing] = useState(false);
   const [deliveryDates, setDeliveryDates] = useState([]);
 
   // Helper function to map payment method codes to backend-expected names
   const getPaymentMethodName = (methodCode) => {
     const methodMapping = {
-      'cod': 'Cash on Delivery',
+      'online': 'Online Payment',
       'credit_card': 'Credit Card',
       'debit_card': 'Debit Card',
       'net_banking': 'Net Banking',
-      'razorpay_wallet': 'Razorpay Wallet'
+      'upi': 'UPI Payment'
     };
-    return methodMapping[methodCode] || 'Cash on Delivery';
+    return methodMapping[methodCode] || 'Online Payment';
   };
 
   // Get selected items from sessionStorage and filter cart items
@@ -271,7 +271,7 @@ const PaymentPage = () => {
       });
 
       const response = await Axios({
-        ...SummaryApi.CashOnDeliveryOrder,
+        ...SummaryApi.onlinePaymentOrder,
         data: {
           list_items: preparedItems, // Send properly formatted items
           totalAmount: totalPrice + deliveryCharge,
@@ -375,51 +375,57 @@ const PaymentPage = () => {
               <div className="p-4">
                 {/* Payment Methods List */}
                 <div className="space-y-4">
-                  {/* Cash On Delivery */}
+                  {/* Online Payment - Default Selected */}
                   <div className="border rounded overflow-hidden">
                     <div 
                       className={`p-4 flex items-center cursor-pointer ${
-                        selectedPaymentMethod === 'cod' ? 'bg-red-50' : ''
+                        selectedPaymentMethod === 'online' ? 'bg-red-50' : ''
                       }`}
-                      onClick={() => setSelectedPaymentMethod('cod')}
+                      onClick={() => setSelectedPaymentMethod('online')}
                     >
                       <input
                         type="radio"
-                        id="payment-cod"
+                        id="payment-online"
                         name="payment-method"
-                        checked={selectedPaymentMethod === 'cod'}
-                        onChange={() => setSelectedPaymentMethod('cod')}
+                        checked={selectedPaymentMethod === 'online'}
+                        onChange={() => setSelectedPaymentMethod('online')}
                         className="w-4 h-4 text-red-500 border-gray-300 focus:ring-red-500"
                       />
-                      <label htmlFor="payment-cod" className="ml-3 flex items-center cursor-pointer">
-                        <FaMoneyBillWave className="text-gray-600 mr-2" />
-                        <span className="font-medium">Cash On Delivery</span>
+                      <label htmlFor="payment-online" className="ml-3 flex items-center cursor-pointer">
+                        <FaCreditCard className="text-gray-600 mr-2" />
+                        <span className="font-medium">Online Payment</span>
                       </label>
                     </div>
                     
-                    {selectedPaymentMethod === 'cod' && (
+                    {selectedPaymentMethod === 'online' && (
                       <div className="p-4 border-t bg-gray-50">
                         <p className="text-sm text-gray-600">
-                          Pay with cash when your order is delivered.
+                          Pay securely using your credit/debit card, net banking, or UPI.
                         </p>
                         <p className="text-sm text-gray-600 mt-2">
-                          Note: Cash on delivery might not be available for all areas and order values.
+                          Your payment information is encrypted and secure.
                         </p>
                       </div>
                     )}
                   </div>
 
                   {/* Credit/Debit Card */}
-                  <div className="border rounded overflow-hidden opacity-60">
-                    <div className="p-4 flex items-center cursor-not-allowed">
+                  <div className="border rounded overflow-hidden">
+                    <div 
+                      className={`p-4 flex items-center cursor-pointer ${
+                        selectedPaymentMethod === 'credit_card' ? 'bg-red-50' : ''
+                      }`}
+                      onClick={() => setSelectedPaymentMethod('credit_card')}
+                    >
                       <input
                         type="radio"
                         id="payment-card"
                         name="payment-method"
-                        disabled
+                        checked={selectedPaymentMethod === 'credit_card'}
+                        onChange={() => setSelectedPaymentMethod('credit_card')}
                         className="w-4 h-4 text-red-500 border-gray-300 focus:ring-red-500"
                       />
-                      <label htmlFor="payment-card" className="ml-3 flex items-center cursor-not-allowed">
+                      <label htmlFor="payment-card" className="ml-3 flex items-center cursor-pointer">
                         <FaCreditCard className="text-gray-600 mr-2" />
                         <span className="font-medium">Credit/Debit Card</span>
                         <div className="ml-auto flex space-x-2">
@@ -432,42 +438,54 @@ const PaymentPage = () => {
                   </div>
 
                   {/* UPI */}
-                  <div className="border rounded overflow-hidden opacity-60">
-                    <div className="p-4 flex items-center cursor-not-allowed">
+                  <div className="border rounded overflow-hidden">
+                    <div 
+                      className={`p-4 flex items-center cursor-pointer ${
+                        selectedPaymentMethod === 'upi' ? 'bg-red-50' : ''
+                      }`}
+                      onClick={() => setSelectedPaymentMethod('upi')}
+                    >
                       <input
                         type="radio"
                         id="payment-upi"
                         name="payment-method"
-                        disabled
+                        checked={selectedPaymentMethod === 'upi'}
+                        onChange={() => setSelectedPaymentMethod('upi')}
                         className="w-4 h-4 text-red-500 border-gray-300 focus:ring-red-500"
                       />
-                      <label htmlFor="payment-upi" className="ml-3 flex items-center cursor-not-allowed">
+                      <label htmlFor="payment-upi" className="ml-3 flex items-center cursor-pointer">
                         <FaWallet className="text-gray-600 mr-2" />
                         <span className="font-medium">UPI Payment</span>
                       </label>
                     </div>
                   </div>
 
-                  {/* PayPal */}
-                  <div className="border rounded overflow-hidden opacity-60">
-                    <div className="p-4 flex items-center cursor-not-allowed">
+                  {/* Net Banking */}
+                  <div className="border rounded overflow-hidden">
+                    <div 
+                      className={`p-4 flex items-center cursor-pointer ${
+                        selectedPaymentMethod === 'net_banking' ? 'bg-red-50' : ''
+                      }`}
+                      onClick={() => setSelectedPaymentMethod('net_banking')}
+                    >
                       <input
                         type="radio"
-                        id="payment-paypal"
+                        id="payment-netbanking"
                         name="payment-method"
-                        disabled
+                        checked={selectedPaymentMethod === 'net_banking'}
+                        onChange={() => setSelectedPaymentMethod('net_banking')}
                         className="w-4 h-4 text-red-500 border-gray-300 focus:ring-red-500"
                       />
-                      <label htmlFor="payment-paypal" className="ml-3 flex items-center cursor-not-allowed">
-                        <FaPaypal className="text-blue-600 mr-2" />
-                        <span className="font-medium">PayPal</span>
+                      <label htmlFor="payment-netbanking" className="ml-3 flex items-center cursor-pointer">
+                        <FaWallet className="text-gray-600 mr-2" />
+                        <span className="font-medium">Net Banking</span>
                       </label>
                     </div>
                   </div>
 
                   <div className="text-sm text-gray-600 mt-4">
                     <p>
-                      Note: Only Cash on Delivery is available for now. Other payment options will be enabled soon.
+                      All payments are processed securely. Your card details are never stored on our servers.
                     </p>
                   </div>
                 </div>
@@ -648,7 +666,7 @@ const PaymentPage = () => {
                   disabled={isProcessing || !selectedPaymentMethod}
                   className="w-full bg-red-500 hover:bg-red-600 text-white py-3 mt-6 font-medium disabled:bg-gray-300 disabled:cursor-not-allowed"
                 >
-                  {isProcessing ? "PROCESSING..." : "PLACE ORDER"}
+                  {isProcessing ? "PROCESSING PAYMENT..." : "PAY NOW"}
                 </button>
                 
                 <div className="mt-6 text-xs text-center text-gray-600">

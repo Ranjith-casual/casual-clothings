@@ -834,7 +834,7 @@ const CheckoutPage = () => {
                   disabled={isProcessing || selectedAddressIndex === null}
                   className="w-full bg-red-500 hover:bg-red-600 text-white py-3 mt-6 font-medium disabled:bg-gray-300 disabled:cursor-not-allowed"
                 >
-                  {isProcessing ? "PROCESSING..." : "PLACE ORDER"}
+                  {isProcessing ? "PROCESSING PAYMENT..." : "PAY NOW"}
                 </button>
 
                 <div className="mt-6 text-xs text-center text-gray-600">

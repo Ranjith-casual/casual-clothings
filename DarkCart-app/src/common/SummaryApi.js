@@ -167,10 +167,7 @@ const SummaryApi = {
         url: '/api/order/online-payment',
         method: 'post'
     },
-    CashOnDeliveryOrder:{
-        url: '/api/order/online-payment', // Using the same endpoint but will handle COD in the payload
-        method: 'post'
-    },
+
     getOrderList:{
         url: '/api/order/get',
         method: 'get'
