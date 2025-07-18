@@ -231,7 +231,7 @@ const PremiumHeroCarousel = () => {
       {/* Mobile Premium Design - Innovative Vertical Stack */}
       <section className="md:hidden bg-white">
         {/* Mobile Hero Header */}
-        <div className="relative h-[60vh] max-h-[70vh] bg-black overflow-hidden">
+     <div className="relative h-[45vh] max-h-[60vh] bg-black overflow-hidden">
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}

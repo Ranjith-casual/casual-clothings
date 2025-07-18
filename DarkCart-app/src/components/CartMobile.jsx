@@ -17,7 +17,7 @@ const CartMobileLink = () => {
     <>
       {/* Only show if user is logged in and cart has items */}
       {user?._id && cartItem.length > 0 && (
-        <div className="sticky bottom-4 p-2 z-20">
+        <div className="fixed w-full bottom-4 p-2 z-20">
           <div className="bg-black px-4 py-3 rounded-lg text-white text-sm flex items-center justify-between gap-3 lg:hidden shadow-lg border border-gray-800">
             <div className="flex items-center gap-3">
               <div className="p-2 bg-gray-800 rounded-md w-fit">
