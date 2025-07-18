@@ -49,7 +49,7 @@ const OrderTimeline = ({ status }) => {
             {/* Container for the timeline */}
             <div className="flex items-center justify-between px-4">
               {/* Line connecting all steps */}
-              <div className="absolute left-4 right-4 top-1/2 transform -translate-y-1/2 h-1 bg-gray-200 z-0">
+              <div className="absolute left-2 right-2 top-1/3 transform -translate-y-1/2 h-1 bg-gray-200 z-0">
                 <div 
                   className="h-full bg-green-500 transition-all duration-500" 
                   style={{ 
