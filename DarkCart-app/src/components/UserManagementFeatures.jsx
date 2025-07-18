@@ -1,7 +1,39 @@
-import React from 'react'
+import React, { useEffect } from 'react'
 import { FaUsers, FaShield, FaEdit, FaHistory } from 'react-icons/fa'
 
+// CSS for animation
+const featureStyles = `
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slideUp {
+  from {
+    transform: translateY(10px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+`;
+
 function UserManagementFeatures() {
+    // Add the styles to the document
+    useEffect(() => {
+        const styleEl = document.createElement('style');
+        styleEl.innerHTML = featureStyles;
+        document.head.appendChild(styleEl);
+        return () => {
+            document.head.removeChild(styleEl);
+        };
+    }, []);
     const features = [
         {
             icon: <FaUsers className="text-blue-500" />,
@@ -50,27 +82,31 @@ function UserManagementFeatures() {
     ]
 
     return (
-        <div className="bg-gray-50 p-6 rounded-lg">
-            <div className="mb-6">
-                <h3 className="text-xl font-bold text-gray-900 mb-2">User Management System</h3>
-                <p className="text-gray-600">
+        <div className="bg-gray-50 p-4 sm:p-6 rounded-lg shadow-sm font-sans" style={{ animation: 'fadeIn 0.5s ease-out' }}>
+            <div className="mb-4 sm:mb-6">
+                <h3 className="text-lg sm:text-xl font-bold text-gray-900 mb-1 sm:mb-2 tracking-wide">User Management System</h3>
+                <p className="text-sm text-gray-600 tracking-wide">
                     Complete user administration with role-based access control and comprehensive user analytics
                 </p>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-6">
                 {features.map((feature, index) => (
-                    <div key={index} className="bg-white p-6 rounded-lg shadow-md">
-                        <div className="flex items-center mb-4">
-                            <div className="text-2xl mr-3">{feature.icon}</div>
-                            <h4 className="text-lg font-semibold text-gray-900">{feature.title}</h4>
+                    <div 
+                        key={index} 
+                        className="bg-white p-4 sm:p-6 rounded-lg shadow-md border border-gray-100 hover:shadow-lg transition-shadow"
+                        style={{ animation: `slideUp 0.5s ease-out ${index * 0.1}s both` }}
+                    >
+                        <div className="flex items-center mb-3 sm:mb-4">
+                            <div className="text-xl sm:text-2xl mr-3">{feature.icon}</div>
+                            <h4 className="text-base sm:text-lg font-semibold text-gray-900 tracking-wide">{feature.title}</h4>
                         </div>
-                        <p className="text-gray-600 mb-4">{feature.description}</p>
-                        <ul className="space-y-2">
+                        <p className="text-xs sm:text-sm text-gray-600 mb-3 sm:mb-4 tracking-wide">{feature.description}</p>
+                        <ul className="space-y-1 sm:space-y-2">
                             {feature.capabilities.map((capability, capIndex) => (
-                                <li key={capIndex} className="flex items-center text-sm text-gray-700">
-                                    <div className="w-2 h-2 bg-blue-500 rounded-full mr-2"></div>
-                                    {capability}
+                                <li key={capIndex} className="flex items-center text-xs sm:text-sm text-gray-700">
+                                    <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-blue-500 rounded-full mr-2"></div>
+                                    <span className="tracking-wide">{capability}</span>
                                 </li>
                             ))}
                         </ul>
@@ -78,17 +114,17 @@ function UserManagementFeatures() {
                 ))}
             </div>
 
-            <div className="mt-6 p-4 bg-blue-50 rounded-lg">
-                <h5 className="font-semibold text-blue-900 mb-2">Quick Actions Available:</h5>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-sm text-blue-800">
-                    <span>• User Search & Filter</span>
-                    <span>• Role Management</span>
-                    <span>• Status Control</span>
-                    <span>• Order History View</span>
-                    <span>• User Statistics</span>
-                    <span>• Bulk Operations</span>
-                    <span>• Data Export</span>
-                    <span>• Activity Monitoring</span>
+            <div className="mt-4 sm:mt-6 p-3 sm:p-4 bg-blue-50 rounded-lg shadow-sm border border-blue-100">
+                <h5 className="font-semibold text-blue-900 mb-1 sm:mb-2 text-xs sm:text-sm tracking-wide">Quick Actions Available:</h5>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-1 sm:gap-2 text-xs sm:text-sm text-blue-800">
+                    <span className="tracking-wide">• User Search & Filter</span>
+                    <span className="tracking-wide">• Role Management</span>
+                    <span className="tracking-wide">• Status Control</span>
+                    <span className="tracking-wide">• Order History View</span>
+                    <span className="tracking-wide">• User Statistics</span>
+                    <span className="tracking-wide">• Bulk Operations</span>
+                    <span className="tracking-wide">• Data Export</span>
+                    <span className="tracking-wide">• Activity Monitoring</span>
                 </div>
             </div>
         </div>

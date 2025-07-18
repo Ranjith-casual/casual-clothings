@@ -4,7 +4,39 @@ import Axios from '../utils/Axios'
 import SummaryApi from '../common/SummaryApi'
 import AxiosTostError from '../utils/AxiosTostError'
 
+// CSS for animation
+const cardStyles = `
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes scaleIn {
+  from {
+    transform: scale(0.95);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+`;
+
 function UserStatsCards() {
+    // Add the styles to the document
+    useEffect(() => {
+        const styleEl = document.createElement('style');
+        styleEl.innerHTML = cardStyles;
+        document.head.appendChild(styleEl);
+        return () => {
+            document.head.removeChild(styleEl);
+        };
+    }, []);
     const [stats, setStats] = useState({
         totalUsers: 0,
         activeUsers: 0,
@@ -93,15 +125,15 @@ function UserStatsCards() {
 
     if (loading) {
         return (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-4 sm:mb-6 font-sans">
                 {[...Array(7)].map((_, index) => (
-                    <div key={index} className="bg-white p-6 rounded-lg shadow-md animate-pulse">
+                    <div key={index} className="bg-white p-3 sm:p-4 rounded-lg shadow-sm border border-gray-100 animate-pulse">
                         <div className="flex items-center justify-between">
                             <div>
-                                <div className="h-4 bg-gray-200 rounded w-20 mb-2"></div>
-                                <div className="h-6 bg-gray-200 rounded w-12"></div>
+                                <div className="h-3 sm:h-4 bg-gray-200 rounded w-16 sm:w-20 mb-2"></div>
+                                <div className="h-5 sm:h-6 bg-gray-200 rounded w-10 sm:w-12"></div>
                             </div>
-                            <div className="h-8 w-8 bg-gray-200 rounded"></div>
+                            <div className="h-7 w-7 sm:h-8 sm:w-8 bg-gray-200 rounded-full"></div>
                         </div>
                     </div>
                 ))}
@@ -110,17 +142,21 @@ function UserStatsCards() {
     }
 
     return (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-4 sm:mb-6 font-sans">
             {statsCards.map((card, index) => (
-                <div key={index} className={`${card.bgColor} p-6 rounded-lg shadow-md hover:shadow-lg transition-shadow`}>
+                <div 
+                    key={index} 
+                    className={`${card.bgColor} p-3 sm:p-4 rounded-lg shadow-sm border border-gray-100 hover:shadow-md transition-all`}
+                    style={{ animation: `scaleIn 0.4s ease-out ${index * 0.05}s both` }}
+                >
                     <div className="flex items-center justify-between">
                         <div>
-                            <p className="text-sm font-medium text-gray-600">{card.title}</p>
-                            <p className={`text-2xl font-bold ${card.textColor}`}>
+                            <p className="text-xs sm:text-sm font-medium text-gray-600 tracking-wide">{card.title}</p>
+                            <p className={`text-xl sm:text-2xl font-bold ${card.textColor} tracking-wide`}>
                                 {card.value.toLocaleString()}
                             </p>
                         </div>
-                        <div className="text-2xl">
+                        <div className="text-xl sm:text-2xl">
                             {card.icon}
                         </div>
                     </div>
