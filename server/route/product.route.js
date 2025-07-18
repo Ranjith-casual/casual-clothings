@@ -1,6 +1,6 @@
 import { Router } from 'express'
 import auth from '../middleware/auth.js'
-import { createProductController, deleteProductDetails, getProductByCategory, getProductController, getProductDetails, searchProduct, updateProductDetails, getProductStatsController } from '../controllers/product.controller.js'
+import { createProductController, deleteProductDetails, getProductByCategory, getProductController, getProductDetails, searchProduct, updateProductDetails } from '../controllers/product.controller.js'
 import { admin } from '../middleware/Admin.js'
 
 const productRouter = Router()
@@ -21,6 +21,5 @@ productRouter.delete('/delete-product',auth,admin,deleteProductDetails)
 productRouter.post('/search-product',searchProduct)
 
 //get product statistics
-productRouter.get('/stats',auth,admin,getProductStatsController)
 
 export default productRouter
