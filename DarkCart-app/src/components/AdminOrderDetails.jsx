@@ -198,6 +198,12 @@ const AdminOrderDetails = ({ order, onClose }) => {
               </h3>
               <div className="bg-gray-50 p-5 rounded-lg border border-gray-200 shadow-sm hover:shadow transition-shadow">
                 <div className="mb-4">
+                  <span className="block text-sm font-medium text-gray-500 mb-1.5">Payment Method</span>
+                  <span className="font-medium text-gray-800 tracking-wide">
+                    {order.paymentMethod || order.paymentStatus === 'Online Payment'}
+                  </span>
+                </div>
+                <div className="mb-4">
                   <span className="block text-sm font-medium text-gray-500 mb-1.5">Payment Status</span>
                   <div className="flex items-center flex-wrap gap-2">
                     <span className="font-medium text-gray-800 tracking-wide">{order.paymentStatus}</span>
@@ -252,11 +258,15 @@ const AdminOrderDetails = ({ order, onClose }) => {
                   // Handle both populated and non-populated productId
                   const productInfo = item.productId && typeof item.productId === 'object' 
                     ? item.productId  // If populated, use the populated data
-                    : item.productDetails; // Otherwise, use productDetails
+                    : item.productDetails || item.bundleDetails; // Use productDetails or bundleDetails
                   
                   const productId = item.productId && typeof item.productId === 'object'
                     ? item.productId._id  // If populated, get the _id
                     : item.productId;     // Otherwise, use the ID string
+                  
+                  // Calculate item total if not available
+                  const itemTotal = item.itemTotal || (item.quantity * (productInfo?.price || 0));
+                  const unitPrice = productInfo?.price || (item.itemTotal / item.quantity) || 0;
                   
                   return (
                     <div key={index} className="bg-white border border-gray-200 rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow">
@@ -265,13 +275,18 @@ const AdminOrderDetails = ({ order, onClose }) => {
                           {productInfo?.image && productInfo.image.length > 0 && (
                             <img 
                               src={productInfo.image[0]} 
-                              alt={productInfo?.name} 
+                              alt={productInfo?.name || productInfo?.title} 
                               className="w-full h-full object-cover"
+                              onError={(e) => {
+                                e.target.style.display = 'none';
+                              }}
                             />
                           )}
                         </div>
                         <div className="flex-grow">
-                          <h4 className="font-semibold text-gray-900 mb-3 tracking-tight text-base sm:text-lg">{productInfo?.name}</h4>
+                          <h4 className="font-semibold text-gray-900 mb-3 tracking-tight text-base sm:text-lg">
+                            {productInfo?.name || productInfo?.title || 'Product Name'}
+                          </h4>
                           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 sm:gap-5 text-sm">
                             <div className="bg-gray-50 p-2.5 rounded-md border border-gray-100">
                               <span className="text-gray-500 font-medium block mb-1">Quantity</span>
@@ -279,11 +294,11 @@ const AdminOrderDetails = ({ order, onClose }) => {
                             </div>
                             <div className="bg-gray-50 p-2.5 rounded-md border border-gray-100">
                               <span className="text-gray-500 font-medium block mb-1">Unit Price</span>
-                              <p className="font-semibold text-gray-800">₹{productInfo?.price?.toFixed(2)}</p>
+                              <p className="font-semibold text-gray-800">₹{unitPrice?.toFixed(2)}</p>
                             </div>
                             <div className="bg-gray-50 p-2.5 rounded-md border border-gray-100">
                               <span className="text-gray-500 font-medium block mb-1">Item Total</span>
-                              <p className="font-semibold text-gray-800">₹{item.itemTotal?.toFixed(2)}</p>
+                              <p className="font-semibold text-gray-800">₹{itemTotal?.toFixed(2)}</p>
                             </div>
                             <div className="bg-gray-50 p-2.5 rounded-md border border-gray-100">
                               <span className="text-gray-500 font-medium block mb-1">Product ID</span>

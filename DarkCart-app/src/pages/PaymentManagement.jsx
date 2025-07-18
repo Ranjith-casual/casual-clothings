@@ -372,15 +372,7 @@ function PaymentManagement() {
                                                     >
                                                         <FaDownload />
                                                     </button>
-                                                    {payment.paymentStatus?.toLowerCase() === 'paid' && (
-                                                        <button
-                                                            onClick={() => handleRefundPayment(payment._id)}
-                                                            className="text-orange-600 hover:text-orange-900"
-                                                            title="Initiate Refund"
-                                                        >
-                                                            <FaUndoAlt />
-                                                        </button>
-                                                    )}
+                                                   
                                                 </div>
                                             </td>
                                         </tr>

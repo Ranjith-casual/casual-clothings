@@ -510,9 +510,6 @@ const AdminOrderDashboard = () => {
     fetchOrders();
   };
 
-  console.log(orders)
-  console.log(orders[0]?.items[0]?.productDetails?.image[0])
-
   return (
     <div className="bg-gray-50 min-h-screen p-4 sm:p-6">
       <div className="max-w-7xl mx-auto">
@@ -757,7 +754,18 @@ const AdminOrderDashboard = () => {
                 ) : (
                   filteredOrders.map((order) => {
                     const statusDisplay = getStatusDisplay(order.orderStatus);
-                    {console.log(order?.items[0]?.productDetails?.image[0])}
+                    
+                    // Debug log to understand order structure
+                    if (order.orderId && order.orderId.includes('687a655d')) {
+                      console.log('Order structure debug:', {
+                        orderId: order.orderId,
+                        items: order.items,
+                        firstItem: order.items?.[0],
+                        productDetails: order.productDetails,
+                        bundleDetails: order.bundleDetails
+                      });
+                    }
+                    
                     return (
                       <tr 
                         key={order.orderId} 
@@ -772,34 +780,102 @@ const AdminOrderDashboard = () => {
                         <td className="px-4 py-4">
                           <div className="flex items-start gap-3">
                             <div className="w-12 h-12 rounded-md overflow-hidden bg-gray-100 border border-gray-200">
-                              {/* Fix the image display logic */}
-                              {order.items && order.items.length > 0 && order.items[0]?.productDetails?.image?.[0] ? (
-                                <img 
-                                  src={order.items[0].productDetails.image[0]} 
-                                  alt={order.items[0].productDetails?.name || 'Product'} 
-                                  className="w-full h-full object-cover"
-                                  onError={(e) => {
-                                    e.target.style.display = 'none';
-                                  }}
-                                />
-                              ) : order.productDetails?.image?.[0] ? (
-                                <img 
-                                  src={order.productDetails.image[0]} 
-                                  alt={order.productDetails?.name || 'Product'} 
-                                  className="w-full h-full object-cover"
-                                  onError={(e) => {
-                                    e.target.style.display = 'none';
-                                  }}
-                                />
-                              ) : (
-                                <div className="w-full h-full flex items-center justify-center bg-gray-200">
-                                  <FaBox className="text-gray-400 text-lg" />
-                                </div>
-                              )}
+                              {/* Enhanced image display logic */}
+                              {(() => {
+                                let imageUrl = null;
+                                let altText = 'Product';
+                                
+                                // Check for items array first (new order structure)
+                                if (order.items && order.items.length > 0) {
+                                  const firstItem = order.items[0];
+                                  
+                                  // Check if productId is populated object
+                                  if (firstItem.productId && typeof firstItem.productId === 'object') {
+                                    imageUrl = firstItem.productId.image?.[0];
+                                    altText = firstItem.productId.name || firstItem.productId.title || 'Product';
+                                  }
+                                  // Check productDetails
+                                  else if (firstItem.productDetails?.image?.[0]) {
+                                    imageUrl = firstItem.productDetails.image[0];
+                                    altText = firstItem.productDetails.name || firstItem.productDetails.title || 'Product';
+                                  }
+                                  // Check bundleId is populated object
+                                  else if (firstItem.bundleId && typeof firstItem.bundleId === 'object') {
+                                    imageUrl = firstItem.bundleId.image?.[0];
+                                    altText = firstItem.bundleId.title || firstItem.bundleId.name || 'Bundle';
+                                  }
+                                  // Check bundleDetails
+                                  else if (firstItem.bundleDetails?.image?.[0]) {
+                                    imageUrl = firstItem.bundleDetails.image[0];
+                                    altText = firstItem.bundleDetails.title || firstItem.bundleDetails.name || 'Bundle';
+                                  }
+                                }
+                                // Fall back to old structure
+                                else if (order.productDetails?.image?.[0]) {
+                                  imageUrl = order.productDetails.image[0];
+                                  altText = order.productDetails.name || order.productDetails.title || 'Product';
+                                }
+                                
+                                return imageUrl ? (
+                                  <img 
+                                    src={imageUrl}
+                                    alt={altText}
+                                    className="w-full h-full object-cover"
+                                    onError={(e) => {
+                                      e.target.style.display = 'none';
+                                    }}
+                                  />
+                                ) : (
+                                  <div className="w-full h-full flex items-center justify-center bg-gray-200">
+                                    <FaBox className="text-gray-400 text-lg" />
+                                  </div>
+                                );
+                              })()}
                             </div>
                             <div className="flex flex-col">
                               <span className="font-medium text-gray-900">
-                                {order.items?.[0]?.productDetails?.name || order.productDetails?.name || 'Product Name'}
+                                {/* Enhanced product name resolution */}
+                                {(() => {
+                                  // Check for items array first (new order structure)
+                                  if (order.items && order.items.length > 0) {
+                                    const firstItem = order.items[0];
+                                    
+                                    // Check if productId is populated object
+                                    if (firstItem.productId && typeof firstItem.productId === 'object') {
+                                      return firstItem.productId.name || firstItem.productId.title || 'Product';
+                                    }
+                                    
+                                    // Check productDetails
+                                    if (firstItem.productDetails) {
+                                      return firstItem.productDetails.name || firstItem.productDetails.title || 'Product';
+                                    }
+                                    
+                                    // Check bundleDetails
+                                    if (firstItem.bundleDetails) {
+                                      return firstItem.bundleDetails.title || firstItem.bundleDetails.name || 'Bundle';
+                                    }
+                                    
+                                    // Check if bundleId is populated object
+                                    if (firstItem.bundleId && typeof firstItem.bundleId === 'object') {
+                                      return firstItem.bundleId.title || firstItem.bundleId.name || 'Bundle';
+                                    }
+                                    
+                                    // Check itemType
+                                    if (firstItem.itemType === 'bundle') {
+                                      return 'Bundle Item';
+                                    } else if (firstItem.itemType === 'product') {
+                                      return 'Product Item';
+                                    }
+                                  }
+                                  
+                                  // Fall back to old structure
+                                  if (order.productDetails) {
+                                    return order.productDetails.name || order.productDetails.title || 'Product';
+                                  }
+                                  
+                                  // Last resort
+                                  return `${order.items?.length || 1} Item${order.items?.length > 1 ? 's' : ''}`;
+                                })()}
                               </span>
                               <span className="text-xs text-gray-500">{order.orderId}</span>
                             </div>

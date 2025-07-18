@@ -24,7 +24,7 @@ const OrderTimeline = ({ status }) => {
   // Define the order statuses and their corresponding icons and colors
   const statuses = [
     { name: 'ORDER PLACED', icon: <FaBox />, color: 'text-blue-500' },
-    { name: 'PROCESSIN', icon: <FaCog className="animate-spin-slow" />, color: 'text-yellow-500' },
+    { name: 'PROCESSING', icon: <FaCog className="animate-spin-slow" />, color: 'text-yellow-500' },
     { name: 'OUT FOR DELIVERY', icon: <FaTruck />, color: 'text-orange-500' },
     { name: 'DELIVERED', icon: <FaCheckCircle />, color: 'text-green-500' },
   ]
@@ -45,51 +45,54 @@ const OrderTimeline = ({ status }) => {
       ) : (
         <>
           {/* Desktop timeline (hidden on small screens) */}
-          <div className="hidden sm:flex items-center justify-between relative mb-6" style={{ animation: 'slideIn 0.6s ease-out' }}>
-            {/* Line connecting all steps */}
-            <div className="absolute left-0 top-1/2 transform -translate-y-1/2 w-full h-1 bg-gray-200 z-0">
-              <div 
-                className="h-full bg-green-500 transition-all duration-500" 
-                style={{ 
-                  width: currentStatusIndex >= 0 
-                    ? `${Math.min(100, (currentStatusIndex / (statuses.length - 1)) * 100)}%` 
-                    : '0%' 
-                }}
-              ></div>
-            </div>
-            
-            {statuses.map((step, index) => {
-              const isCompleted = index <= currentStatusIndex;
-              const isCurrent = index === currentStatusIndex;
+          <div className="hidden sm:block relative mb-6" style={{ animation: 'slideIn 0.6s ease-out' }}>
+            {/* Container for the timeline */}
+            <div className="flex items-center justify-between px-4">
+              {/* Line connecting all steps */}
+              <div className="absolute left-4 right-4 top-1/2 transform -translate-y-1/2 h-1 bg-gray-200 z-0">
+                <div 
+                  className="h-full bg-green-500 transition-all duration-500" 
+                  style={{ 
+                    width: currentStatusIndex >= 0 
+                      ? `${Math.min(100, (currentStatusIndex / (statuses.length - 1)) * 100)}%` 
+                      : '0%' 
+                  }}
+                ></div>
+              </div>
               
-              return (
-                <div key={step.name} className="z-10 mt-4 flex flex-col items-center relative" style={{ animation: `fadeIn 0.5s ease-out ${0.2 + index * 0.1}s both` }}>
-                  <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-full flex items-center justify-center shadow-sm ${
-                    isCurrent 
-                      ? `${step.color} bg-white border-2 border-current animate-pulse` 
-                      : isCompleted 
-                        ? `text-white bg-green-500` 
-                        : `text-gray-400 bg-gray-50 border border-gray-300`
-                  }`}>
-                    {step.icon}
+              {statuses.map((step, index) => {
+                const isCompleted = index <= currentStatusIndex;
+                const isCurrent = index === currentStatusIndex;
+                
+                return (
+                  <div key={step.name} className="relative z-10 flex flex-col items-center" style={{ animation: `fadeIn 0.5s ease-out ${0.2 + index * 0.1}s both` }}>
+                    <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-full flex items-center justify-center shadow-sm mb-3 ${
+                      isCurrent 
+                        ? `${step.color} bg-white border-2 border-current animate-pulse` 
+                        : isCompleted 
+                          ? `text-white bg-green-500` 
+                          : `text-gray-400 bg-gray-50 border border-gray-300`
+                    }`}>
+                      {step.icon}
+                    </div>
+                    <p className={`text-[10px] sm:text-xs font-medium text-center tracking-wide max-w-[120px] leading-tight ${
+                      isCurrent 
+                        ? step.color 
+                        : isCompleted 
+                          ? 'text-green-500' 
+                          : 'text-gray-500'
+                    }`}>
+                      {step.name.replace(/_/g, ' ')}
+                    </p>
                   </div>
-                  <p className={`text-[10px] sm:text-xs font-medium mt-2 text-center tracking-wide max-w-[120px] ${
-                    isCurrent 
-                      ? step.color 
-                      : isCompleted 
-                        ? 'text-green-500' 
-                        : 'text-gray-500'
-                  }`}>
-                    {step.name.replace(/_/g, ' ')}
-                  </p>
-                </div>
-              )
-            })}
+                )
+              })}
+            </div>
           </div>
           
           {/* Mobile timeline (vertical, shown only on small screens) */}
           <div className="sm:hidden" style={{ animation: 'fadeIn 0.5s ease-out' }}>
-            <div className="relative">
+            <div className="relative pl-2">
               {/* Vertical line */}
               <div className="absolute left-5 top-0 bottom-0 w-1 bg-gray-200 z-0">
                 <div 
@@ -109,7 +112,7 @@ const OrderTimeline = ({ status }) => {
                 return (
                   <div 
                     key={step.name} 
-                    className="flex items-start mb-6 relative z-10" 
+                    className="flex items-start pb-8 relative z-10" 
                     style={{ animation: `slideIn 0.5s ease-out ${0.2 + index * 0.1}s both` }}
                   >
                     <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 shadow-sm ${
@@ -121,7 +124,7 @@ const OrderTimeline = ({ status }) => {
                     }`}>
                       {step.icon}
                     </div>
-                    <div className="ml-4">
+                    <div className="ml-4 pt-1">
                       <p className={`font-medium text-sm tracking-wide ${
                         isCurrent 
                           ? step.color 
