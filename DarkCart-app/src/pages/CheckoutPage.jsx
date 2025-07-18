@@ -307,7 +307,7 @@ const CheckoutPage = () => {
 
   const [isProcessing, setIsProcessing] = useState(false);
 
-  const handleCashOnDelivery = async () => {
+  const handleOnlinePayment = async () => {
     if (selectedAddressIndex === null || selectedAddressIndex === undefined || !addressList[selectedAddressIndex]) {
       toast.error("Please select an address");
       return;
@@ -326,29 +326,44 @@ const CheckoutPage = () => {
     }
 
     setIsProcessing(true);
+    let toastId = "order-processing";
 
     try {
       toast.loading("Processing your order...", {
-        id: "order-processing",
+        id: toastId,
+      });
+
+      // Make sure items are properly formatted for the API
+      const preparedItems = checkoutItems.map(item => {
+        // Create a simplified version of each item with only the necessary properties
+        return {
+          _id: item._id,
+          productId: typeof item.productId === 'object' ? item.productId._id : item.productId,
+          bundleId: item.bundleId ? (typeof item.bundleId === 'object' ? item.bundleId._id : item.bundleId) : undefined,
+          quantity: item.quantity || 1
+        };
       });
 
       const response = await Axios({
-        ...SummaryApi.CashOnDeliveryOrder,
+        ...SummaryApi.onlinePaymentOrder,
         data: {
-          list_items: checkoutItems, // Only send selected items
+          list_items: preparedItems,
           totalAmount: selectedTotals.totalPrice + deliveryCharge,
           addressId: selectedAddress._id,
           subTotalAmt: selectedTotals.totalPrice,
           deliveryCharge: deliveryCharge,
           quantity: selectedTotals.totalQty,
+          paymentMethod: "ONLINE" // Explicitly set payment method
         },
+        // Add timeout to prevent hanging requests
+        timeout: 30000
       });
+
+      toast.dismiss(toastId);
 
       const { data: responseData } = response;
 
-      toast.dismiss("order-processing");
-
-      if (responseData.success) {
+      if (responseData && responseData.success) {
         toast.success("Order placed successfully");
         
         // Clear sessionStorage
@@ -365,10 +380,17 @@ const CheckoutPage = () => {
             text: "Order",
           },
         });
+      } else {
+        toast.error(responseData?.message || "Failed to place order. Please try again.");
       }
     } catch (error) {
-      toast.dismiss("order-processing");
-      AxiosTostError(error);
+      toast.dismiss(toastId);
+      
+      if (error.code === 'ECONNABORTED') {
+        toast.error("The request timed out. Please try again.");
+      } else {
+        AxiosTostError(error);
+      }
     } finally {
       setIsProcessing(false);
     }
@@ -568,7 +590,7 @@ const CheckoutPage = () => {
                       {selectedAddressIndex === index && (
                         <div className="mt-3 pt-3 border-t">
                           <p className="text-sm text-gray-600">
-                            • Pay on Delivery available
+                            • Online Payment Only
                           </p>
                         </div>
                       )}
@@ -808,11 +830,11 @@ const CheckoutPage = () => {
                 </div>
                 
                 <button
-                  onClick={handleCashOnDelivery}
+                  onClick={handleOnlinePayment}
                   disabled={isProcessing || selectedAddressIndex === null}
                   className="w-full bg-red-500 hover:bg-red-600 text-white py-3 mt-6 font-medium disabled:bg-gray-300 disabled:cursor-not-allowed"
                 >
-                  {isProcessing ? "PROCESSING..." : "CONTINUE"}
+                  {isProcessing ? "PROCESSING..." : "PLACE ORDER"}
                 </button>
 
                 <div className="mt-6 text-xs text-center text-gray-600">

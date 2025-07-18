@@ -48,6 +48,7 @@ import UserManagement from "../pages/UserManagement";
 import PaymentManagement from "../pages/PaymentManagement";
 import CancellationManagementPage from "../pages/CancellationManagementPage";
 import CancellationPolicyPage from "../pages/CancellationPolicyPage";
+import RefundManagementPage from "../pages/RefundManagementPage";
 
 const router = createBrowserRouter([
     {
@@ -171,6 +172,10 @@ const router = createBrowserRouter([
                 {
                     path:"cancellation-policy",
                     element:<AdminPermision><CancellationPolicyPage/></AdminPermision>
+                },
+                {
+                    path:"refund-management",
+                    element:<AdminPermision><RefundManagementPage/></AdminPermision>
                 },
 
                 // Add catch-all for dashboard subroutes

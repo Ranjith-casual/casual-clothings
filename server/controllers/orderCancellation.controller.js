@@ -42,12 +42,21 @@ export const requestOrderCancellation = async (req, res) => {
         }
 
         // Check if order can be cancelled based on status
-        const nonCancellableStatuses = ['DELIVERED', 'CANCELLED'];
+        const nonCancellableStatuses = ['OUT FOR DELIVERY', 'DELIVERED', 'CANCELLED'];
         if (nonCancellableStatuses.includes(order.orderStatus)) {
             return res.status(400).json({
                 success: false,
                 error: true,
                 message: `Cannot cancel order with status: ${order.orderStatus}`
+            });
+        }
+        
+        // Check if payment is online and paid
+        if (order.paymentMethod !== 'Online Payment' || order.paymentStatus !== 'PAID') {
+            return res.status(400).json({
+                success: false,
+                error: true,
+                message: `Only paid online orders can be cancelled`
             });
         }
 
@@ -340,6 +349,163 @@ export const processCancellationRequest = async (req, res) => {
 
     } catch (error) {
         console.error("Error in processCancellationRequest:", error);
+        res.status(500).json({
+            success: false,
+            error: true,
+            message: "Internal server error"
+        });
+    }
+};
+
+// Admin completes refund process
+export const completeRefund = async (req, res) => {
+    try {
+        const adminId = req.userId;
+        const { requestId, transactionId, adminComments } = req.body;
+
+        if (!requestId) {
+            return res.status(400).json({
+                success: false,
+                error: true,
+                message: "Request ID is required"
+            });
+        }
+
+        const cancellationRequest = await orderCancellationModel.findById(requestId)
+            .populate('orderId')
+            .populate('userId');
+
+        if (!cancellationRequest) {
+            return res.status(404).json({
+                success: false,
+                error: true,
+                message: "Cancellation request not found"
+            });
+        }
+
+        // Check if the request is in APPROVED status
+        if (cancellationRequest.status !== 'APPROVED') {
+            return res.status(400).json({
+                success: false,
+                error: true,
+                message: "Only approved cancellation requests can be refunded"
+            });
+        }
+
+        // Check if refund is already processed
+        if (cancellationRequest.refundDetails.refundStatus === 'COMPLETED') {
+            return res.status(400).json({
+                success: false,
+                error: true,
+                message: "Refund has already been processed"
+            });
+        }
+
+        // Update cancellation request with refund details
+        cancellationRequest.refundDetails.refundId = transactionId || `REF-${Date.now()}`;
+        cancellationRequest.refundDetails.refundDate = new Date();
+        cancellationRequest.refundDetails.refundStatus = 'COMPLETED';
+        cancellationRequest.adminResponse.adminComments = adminComments || cancellationRequest.adminResponse.adminComments;
+        
+        await cancellationRequest.save();
+
+        // Update order status
+        const order = cancellationRequest.orderId;
+        await orderModel.findByIdAndUpdate(order._id, {
+            orderStatus: 'CANCELLED',
+            paymentStatus: 'REFUND_SUCCESSFUL'
+        });
+
+        // Send email to user
+        const user = cancellationRequest.userId;
+        if (user.email) {
+            await sendEmail({
+                sendTo: user.email,
+                subject: "Refund Successful for Your Cancelled Order",
+                html: `
+                    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                        <h2 style="color: #28a745;">Refund Successful</h2>
+                        <p>Dear ${user.name},</p>
+                        <p>We're pleased to inform you that the refund for your cancelled order <strong>#${order.orderId}</strong> has been successfully processed.</p>
+                        
+                        <div style="background-color: #d4edda; padding: 15px; border-radius: 5px; margin: 20px 0; border-left: 4px solid #28a745;">
+                            <h3>Refund Details:</h3>
+                            <p><strong>Refund Amount:</strong> ₹${cancellationRequest.adminResponse.refundAmount.toFixed(2)}</p>
+                            <p><strong>Refund ID:</strong> ${cancellationRequest.refundDetails.refundId}</p>
+                            <p><strong>Refund Date:</strong> ${new Date().toLocaleDateString()}</p>
+                            <p><strong>Refund Method:</strong> Original payment method</p>
+                        </div>
+                        
+                        <p>The refund has been processed to your original payment method. It may take 2-5 business days to reflect in your account, depending on your bank's policies.</p>
+                        
+                        <p>Thank you for your patience and understanding.</p>
+                        <p>Best regards,<br>DarkCart Team</p>
+                    </div>
+                `
+            });
+        }
+
+        res.status(200).json({
+            success: true,
+            error: false,
+            message: "Refund processed successfully",
+            data: {
+                refundId: cancellationRequest.refundDetails.refundId,
+                refundDate: cancellationRequest.refundDetails.refundDate,
+                refundAmount: cancellationRequest.adminResponse.refundAmount,
+                orderNumber: order.orderId
+            }
+        });
+
+    } catch (error) {
+        console.error("Error in completeRefund:", error);
+        res.status(500).json({
+            success: false,
+            error: true,
+            message: "Internal server error",
+            details: error.message
+        });
+    }
+};
+
+// Get all refunds (Admin)
+export const getAllRefunds = async (req, res) => {
+    try {
+        const { page = 1, limit = 10, status = 'all' } = req.query;
+        
+        const filter = {};
+        
+        // Filter by refund status
+        if (status !== 'all') {
+            filter['refundDetails.refundStatus'] = status;
+        } else {
+            // Only get requests with refund status (approved or in process)
+            filter.status = 'APPROVED';
+        }
+
+        const refunds = await orderCancellationModel.find(filter)
+            .populate('orderId', 'orderId totalAmt orderDate orderStatus paymentStatus paymentMethod')
+            .populate('userId', 'name email')
+            .populate('adminResponse.processedBy', 'name')
+            .sort({ 'refundDetails.refundDate': -1, 'adminResponse.processedDate': -1 })
+            .limit(limit * 1)
+            .skip((page - 1) * limit);
+
+        const total = await orderCancellationModel.countDocuments(filter);
+
+        res.status(200).json({
+            success: true,
+            error: false,
+            data: {
+                refunds,
+                currentPage: parseInt(page),
+                totalPages: Math.ceil(total / limit),
+                totalRefunds: total
+            }
+        });
+
+    } catch (error) {
+        console.error("Error in getAllRefunds:", error);
         res.status(500).json({
             success: false,
             error: true,

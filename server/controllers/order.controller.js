@@ -6,24 +6,10 @@ import ProductModel from "../models/product.model.js";
 import BundleModel from "../models/bundles.js"; // Add bundle model import
 import sendEmail from "../config/sendEmail.js";
 
-export const cashOnDeliveryOrderController = async (req, res) => {
-  console.log("🚀 ORDER CONTROLLER CALLED");
-  console.log("Method:", req.method);
-  console.log("URL:", req.url);
-  console.log("Headers:", req.headers);
-  
+export const onlinePaymentOrderController = async (req, res) => {
   try {
     const userId = req.userId;
     const { list_items, totalAmount, addressId, subTotalAmt, quantity, paymentMethod } = req.body;
-
-    console.log("=== ORDER DEBUG START ===");
-    console.log("User ID:", userId);
-    console.log("Request body exists:", !!req.body);
-    console.log("List items exists:", !!list_items);
-    console.log("List items length:", list_items?.length);
-    console.log("Request body:", req.body);
-    console.log("List items:", JSON.stringify(list_items, null, 2));
-    console.log("=== ORDER DEBUG END ===");
 
     // Get user details for email
     const user = await UserModel.findById(userId);
@@ -38,18 +24,10 @@ export const cashOnDeliveryOrderController = async (req, res) => {
     // Validate stock availability before processing order
     try {
       for (const item of list_items) {
-        console.log("=== VALIDATING ITEM START ===");
-        console.log("Item keys:", Object.keys(item || {}));
-        console.log("Item bundleId:", item?.bundleId);
-        console.log("Item bundleId type:", typeof item?.bundleId);
-        console.log("Item productId:", item?.productId);
-        console.log("Item productId type:", typeof item?.productId);
-        console.log("Full item:", JSON.stringify(item, null, 2));
-        console.log("=== VALIDATING ITEM END ===");
+        // Process item validation
 
         // Add null check for item itself
         if (!item) {
-          console.log("ERROR: Item is null or undefined");
           return res.status(400).json({
             success: false,
             error: true,
@@ -67,17 +45,13 @@ export const cashOnDeliveryOrderController = async (req, res) => {
           (typeof item.productId === 'object' && item.productId && item.productId._id) || 
           (typeof item.productId === 'string' && item.productId.length > 0)
         ));
-        
-        console.log(`Processing item - isBundle: ${isBundle}, isProduct: ${isProduct}`);
       
       if (isBundle) {
         // Validate bundle exists
         let bundleId;
         try {
           bundleId = (typeof item.bundleId === 'object' && item.bundleId && item.bundleId._id) ? item.bundleId._id : item.bundleId;
-          console.log("Extracted bundleId:", bundleId);
         } catch (bundleIdError) {
-          console.log("Error extracting bundleId:", bundleIdError.message);
           return res.status(400).json({
             success: false,
             error: true,
@@ -223,8 +197,8 @@ export const cashOnDeliveryOrderController = async (req, res) => {
       paymentId: "",
       totalQuantity: quantity, // Total quantity of all items
       orderDate: new Date(),
-      paymentStatus: paymentMethod === 'Cash on Delivery' ? "CASH ON DELIVERY" : "PENDING",
-      paymentMethod: paymentMethod || 'Cash on Delivery',
+      paymentStatus: "PAID",
+      paymentMethod: "Online Payment",
       deliveryAddress: addressId,
       subTotalAmt: subTotalAmt,
       totalAmt: totalAmount,

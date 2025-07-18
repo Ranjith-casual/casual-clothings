@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { FaMapMarkerAlt, FaCity, FaFlag, FaTimes, FaUser, FaEnvelope, FaCalendarAlt, FaBox, FaMoneyBillWave, FaTruck, FaCheck, FaCog, FaBan, FaBoxOpen } from 'react-icons/fa';
+import React, { useState } from 'react';  
+import { FaMapMarkerAlt, FaCity, FaFlag, FaTimes, FaUser, FaCalendarAlt, FaBox, FaMoneyBillWave, FaTruck, FaCheck, FaCog, FaBan, FaBoxOpen, FaInfoCircle, FaExclamationCircle, FaEnvelope } from 'react-icons/fa';
 import OrderTimeline from './OrderTimeline';
 import { useGlobalContext } from '../provider/GlobalProvider';
 import toast from 'react-hot-toast';
@@ -104,6 +104,37 @@ const AdminOrderDetails = ({ order, onClose }) => {
             <div className="bg-white border border-gray-100 rounded-lg p-4 shadow-sm">
               <OrderTimeline status={localOrderStatus || order.orderStatus} />
             </div>
+            
+            {/* Add special messages for delivered or out for delivery status */}
+            {(localOrderStatus === 'DELIVERED' || order.orderStatus === 'DELIVERED') && (
+              <div className="mt-4 bg-green-50 border border-green-200 rounded-lg p-4 flex items-start">
+                <FaCheck className="text-green-500 mt-0.5 mr-3 flex-shrink-0" />
+                <div>
+                  <p className="text-green-800 font-medium">This order has been successfully delivered.</p>
+                  <p className="text-green-700 text-sm mt-1">Payment has been marked as complete. Order cannot be cancelled at this stage.</p>
+                </div>
+              </div>
+            )}
+            
+            {(localOrderStatus === 'OUT FOR DELIVERY' || order.orderStatus === 'OUT FOR DELIVERY') && (
+              <div className="mt-4 bg-yellow-50 border border-yellow-200 rounded-lg p-4 flex items-start">
+                <FaTruck className="text-yellow-500 mt-0.5 mr-3 flex-shrink-0" />
+                <div>
+                  <p className="text-yellow-800 font-medium">This order is out for delivery.</p>
+                  <p className="text-yellow-700 text-sm mt-1">Customer cannot cancel the order at this stage. If there are any delivery issues, please update the status accordingly.</p>
+                </div>
+              </div>
+            )}
+
+            {(localOrderStatus === 'CANCELLED' || order.orderStatus === 'CANCELLED') && (
+              <div className="mt-4 bg-red-50 border border-red-200 rounded-lg p-4 flex items-start">
+                <FaBan className="text-red-500 mt-0.5 mr-3 flex-shrink-0" />
+                <div>
+                  <p className="text-red-800 font-medium">This order has been cancelled.</p>
+                  <p className="text-red-700 text-sm mt-1">Please check the Refund Management section for details on any required refund processing.</p>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Status Update Section */}
@@ -153,7 +184,6 @@ const AdminOrderDetails = ({ order, onClose }) => {
                 <div className="mb-1">
                   <span className="block text-sm font-medium text-gray-500 mb-1.5">Email</span>
                   <div className="flex items-center">
-                    <FaEnvelope className="text-gray-500 mr-2" />
                     <span className="font-medium text-gray-800 tracking-wide">{order.userId?.email}</span>
                   </div>
                 </div>

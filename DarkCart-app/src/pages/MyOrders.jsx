@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { useSelector, useDispatch } from 'react-redux'
-import { FaMapMarkerAlt, FaCity, FaFlag, FaMailBulk, FaBox, FaUser, FaEnvelope, FaCalendar, FaTimes, FaExclamationTriangle, FaBan, FaRedo } from 'react-icons/fa'
+import { FaMapMarkerAlt, FaCity, FaFlag, FaMailBulk, FaBox, FaUser, FaEnvelope, FaCalendar, FaTimes, FaExclamationTriangle, FaBan, FaRedo, FaInfoCircle, FaCheck } from 'react-icons/fa'
 import AnimatedImage from '../components/NoData';
 import toast from 'react-hot-toast';
 import SummaryApi from '../common/SummaryApi';
@@ -140,8 +140,8 @@ function MyOrders() {
   const { updateOrderStatus } = useGlobalContext();
 
   const canCancelOrder = (orderData) => {
-    // Check if order can be cancelled (not delivered, not already cancelled)
-    const nonCancellableStatuses = ['DELIVERED', 'CANCELLED'];
+    // Check if order can be cancelled (not delivered, not already cancelled, not out for delivery)
+    const nonCancellableStatuses = ['DELIVERED', 'CANCELLED', 'OUT FOR DELIVERY'];
     
     // Don't show cancel button if order status doesn't allow cancellation
     if (nonCancellableStatuses.includes(orderData?.orderStatus)) {
@@ -635,7 +635,30 @@ function MyOrders() {
                   
                   {/* Bottom Controls */}
                   {!isCancelled && (
-                    <div className="flex justify-end mt-4">
+                    <div className="flex flex-col items-end mt-4">
+                      {/* Cancellation restriction message */}
+                      {order.orderStatus === 'OUT FOR DELIVERY' && (
+                        <div className="mb-2 bg-yellow-50 border border-yellow-200 rounded-md px-3 py-2 text-sm text-yellow-800 flex items-center">
+                          <FaExclamationTriangle className="text-yellow-600 mr-2 flex-shrink-0" />
+                          <span>Order is out for delivery and cannot be cancelled</span>
+                        </div>
+                      )}
+                      
+                      {order.orderStatus === 'DELIVERED' && (
+                        <div className="mb-2 bg-green-50 border border-green-200 rounded-md px-3 py-2 text-sm text-green-800 flex items-center">
+                          <FaCheck className="text-green-600 mr-2 flex-shrink-0" />
+                          <span>Order has been successfully delivered</span>
+                        </div>
+                      )}
+                      
+                      {hasPendingCancellationRequest(order._id) && (
+                        <div className="mb-2 bg-blue-50 border border-blue-200 rounded-md px-3 py-2 text-sm text-blue-800 flex items-center">
+                          <FaInfoCircle className="text-blue-600 mr-2 flex-shrink-0" />
+                          <span>Cancellation request is pending admin approval</span>
+                        </div>
+                      )}
+                      
+                      {/* Cancel button */}
                       {canCancelOrder(order) && (
                         <button
                           onClick={() => handleCancelOrder(order)}

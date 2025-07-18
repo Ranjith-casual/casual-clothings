@@ -163,10 +163,15 @@ const SummaryApi = {
         url : '/api/address/delete',
         method : 'delete'
     },
-    CashOnDeliveryOrder:{
-        url: '/api/order/cash-on-delivery',
+    onlinePaymentOrder:{
+        url: '/api/order/online-payment',
         method: 'post'
-    },getOrderList:{
+    },
+    CashOnDeliveryOrder:{
+        url: '/api/order/online-payment', // Using the same endpoint but will handle COD in the payload
+        method: 'post'
+    },
+    getOrderList:{
         url: '/api/order/get',
         method: 'get'
     },getAllOrders:{
@@ -290,6 +295,15 @@ const SummaryApi = {
     sendRefundEmail: {
         url: '/api/email/send-refund',
         method: 'post'
+    },
+    // Refund Management API endpoints
+    getAllRefunds: {
+        url: '/api/order-cancellation/admin/refunds',
+        method: 'get'
+    },
+    completeRefund: {
+        url: '/api/order-cancellation/admin/refund/complete',
+        method: 'put'
     },
 }
 

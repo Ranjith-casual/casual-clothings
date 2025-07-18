@@ -28,40 +28,60 @@ Axios.interceptors.response.use(
         return response;
     },
     async(error) => {
-        const originalRequest = error.config;
+        // Only proceed if we have a proper error response object
+        if (error.response && error.config) {
+            const originalRequest = error.config;
 
-        
-        if (error.response.status === 401 && !originalRequest.retry) {
-            originalRequest.retry = true;
-            const refreshToken = localStorage.getItem("refreshToken");
-            
-            if(refreshToken){
-                const newAccessToken = await refreshAccessToken(refreshToken);
-                if(newAccessToken){
-                    originalRequest.headers.Authorization = `Bearer ${newAccessToken}`;
-                    return Axios(originalRequest);
+            if (error.response.status === 401 && !originalRequest.retry) {
+                originalRequest.retry = true;
+                const refreshToken = localStorage.getItem("refreshToken");
+                
+                if(refreshToken) {
+                    try {
+                        const newAccessToken = await refreshAccessToken(refreshToken);
+                        if(newAccessToken) {
+                            originalRequest.headers.Authorization = `Bearer ${newAccessToken}`;
+                            return Axios(originalRequest);
+                        }
+                    } catch (refreshError) {
+                        console.error("Error refreshing token:", refreshError);
+                        // Clear tokens if refresh fails
+                        localStorage.removeItem("accessToken");
+                        localStorage.removeItem("refreshToken");
+                        // Redirect to login if needed
+                        if (window.location.pathname !== "/login") {
+                            window.location.href = "/login";
+                        }
+                    }
+                }
             }
-            
-        }    
-    }
-    return Promise.reject(error);
+        }
+        return Promise.reject(error);
     }
 );
 
 const refreshAccessToken = async(refreshToken) => {
     try {
-        const response = await Axios({
-            url: SummaryApi.refreshToken.url,
-            method: SummaryApi.refreshToken.method,
+        // Use axios directly for token refresh to avoid circular dependency issues
+        const response = await axios.create({
+            baseURL: baseURL,
+        }).post(SummaryApi.refreshToken.url, {}, {
             headers: {
                 Authorization: `Bearer ${refreshToken}`,
             },
         });
 
-        localStorage.setItem("accessToken", response.data.data.accessToken);
-        return response.data.data.accessToken;
+        if (response.data && response.data.data && response.data.data.accessToken) {
+            localStorage.setItem("accessToken", response.data.data.accessToken);
+            return response.data.data.accessToken;
+        }
+        throw new Error('Invalid token response');
     } catch (error) {
-        console.log(error);
+        console.error("Token refresh failed:", error);
+        // Clear tokens on refresh failure
+        localStorage.removeItem("accessToken");
+        localStorage.removeItem("refreshToken");
+        throw error; // Rethrow to handle in the interceptor
     }
 }
 

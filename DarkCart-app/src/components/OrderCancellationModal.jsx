@@ -105,7 +105,8 @@ function OrderCancellationModal({ order, onClose, onCancellationRequested }) {
     }
 
     const canCancelOrder = () => {
-        const nonCancellableStatuses = ['DELIVERED', 'CANCELLED']
+        // Orders cannot be cancelled if they are delivered, already cancelled, or out for delivery
+        const nonCancellableStatuses = ['DELIVERED', 'CANCELLED', 'OUT FOR DELIVERY']
         return !nonCancellableStatuses.includes(order?.orderStatus)
     }
 
@@ -119,7 +120,15 @@ function OrderCancellationModal({ order, onClose, onCancellationRequested }) {
                         </div>
                         <h2 className="text-xl font-bold text-center mb-4">Cannot Cancel Order</h2>
                         <p className="text-gray-600 text-center mb-6">
-                            This order cannot be cancelled as it has been {order?.orderStatus?.toLowerCase()}.
+                            {order?.orderStatus === 'DELIVERED' ? (
+                                "This order cannot be cancelled as it has already been delivered."
+                            ) : order?.orderStatus === 'OUT FOR DELIVERY' ? (
+                                "This order cannot be cancelled as it is already out for delivery."
+                            ) : order?.orderStatus === 'CANCELLED' ? (
+                                "This order has already been cancelled."
+                            ) : (
+                                `This order cannot be cancelled as it has been ${order?.orderStatus?.toLowerCase()}.`
+                            )}
                         </p>
                         <button
                             onClick={onClose}

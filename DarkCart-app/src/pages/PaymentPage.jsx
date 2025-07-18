@@ -254,22 +254,26 @@ const PaymentPage = () => {
     setIsProcessing(true);
 
     try {
-      // Debug log the cart items before sending
-      console.log("=== ORDER DEBUG START ===");
-      console.log("Selected checkout items being sent:", checkoutItems);
-      console.log("Total amount:", totalPrice + deliveryCharge);
-      console.log("Address ID:", selectedAddressId);
-      console.log("=== ORDER DEBUG END ===");
-
       // Show a loading toast
       toast.loading("Processing your order...", {
         id: "order-processing",
       });
 
+      // Make sure items are properly formatted for the API
+      const preparedItems = checkoutItems.map(item => {
+        // Create a simplified version of each item with only the necessary properties
+        return {
+          _id: item._id,
+          productId: typeof item.productId === 'object' ? item.productId._id : item.productId,
+          bundleId: item.bundleId ? (typeof item.bundleId === 'object' ? item.bundleId._id : item.bundleId) : undefined,
+          quantity: item.quantity || 1
+        };
+      });
+
       const response = await Axios({
         ...SummaryApi.CashOnDeliveryOrder,
         data: {
-          list_items: checkoutItems, // Use selected items instead of all cart items
+          list_items: preparedItems, // Send properly formatted items
           totalAmount: totalPrice + deliveryCharge,
           addressId: selectedAddressId,
           subTotalAmt: totalPrice,
@@ -277,6 +281,7 @@ const PaymentPage = () => {
           quantity: totalQty,
           paymentMethod: getPaymentMethodName(selectedPaymentMethod), // Add payment method
         },
+        timeout: 30000 // Add timeout to prevent hanging requests
       });
 
       const { data: responseData } = response;
@@ -306,9 +311,23 @@ const PaymentPage = () => {
       }
     } catch (error) {
       console.error("Order placement error:", error);
-      console.error("Error response:", error?.response?.data);
       toast.dismiss("order-processing");
-      AxiosTostError(error);
+      
+      if (error.code === 'ECONNABORTED') {
+        toast.error("The request timed out. Please try again.");
+      } else if (error.response && error.response.data && error.response.data.message) {
+        toast.error(error.response.data.message);
+      } else {
+        AxiosTostError(error);
+      }
+      
+      // Add fallback error message if AxiosTostError doesn't show anything
+      setTimeout(() => {
+        const toastElements = document.querySelectorAll('[data-id^="toast-"]');
+        if (toastElements.length === 0) {
+          toast.error("Failed to place order. Please try again.");
+        }
+      }, 300);
     } finally {
       setIsProcessing(false);
     }

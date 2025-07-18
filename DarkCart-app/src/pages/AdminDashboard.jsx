@@ -8,7 +8,8 @@ import {
     FaLayerGroup, 
     FaUsers, 
     FaCreditCard,
-    FaTimes 
+    FaTimes,
+    FaMoneyBillWave
 } from 'react-icons/fa'
 
 function AdminDashboard() {
@@ -60,6 +61,12 @@ function AdminDashboard() {
             description: "Review and process order cancellation requests",
             path: "/dashboard/cancellation-management",
             icon: <FaTimes className="text-red-500" />
+        },
+        {
+            title: "Refund Management",
+            description: "Process and track refunds for cancelled orders",
+            path: "/dashboard/refund-management",
+            icon: <FaMoneyBillWave className="text-green-600" />
         }
     ]
 
