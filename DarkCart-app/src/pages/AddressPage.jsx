@@ -212,6 +212,7 @@ const AddressPage = () => {
   const [deliveryCharge, setDeliveryCharge] = useState(0);
   const [isCalculatingDelivery, setIsCalculatingDelivery] = useState(false);
   const [deliveryDistance, setDeliveryDistance] = useState(null);
+  const [isDeliveryCalculated, setIsDeliveryCalculated] = useState(false);
 
   // Add state for estimated delivery dates
   const [deliveryDates, setDeliveryDates] = useState([]);
@@ -381,10 +382,12 @@ const AddressPage = () => {
     if (!customerAddress) {
       setDeliveryCharge(0);
       setDeliveryDistance(null);
+      setIsDeliveryCalculated(false);
       return;
     }
 
     setIsCalculatingDelivery(true);
+    setIsDeliveryCalculated(false);
     
     try {
       // Extract and normalize the customer city/district name
@@ -401,6 +404,7 @@ const AddressPage = () => {
       if (customerCity === shopCity) {
         setDeliveryDistance('0');
         setDeliveryCharge(50); // ₹50 for same place delivery
+        setIsDeliveryCalculated(true);
         return;
       }
       
@@ -410,11 +414,13 @@ const AddressPage = () => {
       
       setDeliveryDistance(roadDistance.toFixed(2));
       setDeliveryCharge(deliveryCharge);
+      setIsDeliveryCalculated(true);
       
     } catch (error) {
       console.error("Error calculating delivery charge:", error);
       setDeliveryCharge(0); // Default to free delivery if calculation fails
       setDeliveryDistance(null);
+      setIsDeliveryCalculated(true); // Still mark as calculated even if failed
     } finally {
       setIsCalculatingDelivery(false);
     }
@@ -427,6 +433,7 @@ const AddressPage = () => {
       setSelectedAddressIndex(null);
       setDeliveryCharge(0);
       setDeliveryDistance(null);
+      setIsDeliveryCalculated(false);
       return;
     }
     
@@ -442,6 +449,7 @@ const AddressPage = () => {
     if (selectedAddressIndex === null || !addressList || !addressList[selectedAddressIndex]) {
       setDeliveryCharge(0);
       setDeliveryDistance(null);
+      setIsDeliveryCalculated(false);
       return;
     }
     
@@ -571,11 +579,24 @@ const AddressPage = () => {
       return;
     }
     
-    // Continue to payment with the selected address
+    // Check if delivery charge is being calculated
+    if (isCalculatingDelivery) {
+      toast.error("Please wait while we calculate delivery charges");
+      return;
+    }
+    
+    // Check if delivery charge has been calculated
+    if (!isDeliveryCalculated) {
+      toast.error("Delivery charge calculation is pending. Please wait.");
+      return;
+    }
+    
+    // Continue to payment with the selected address and calculated delivery charge
     navigate('/checkout/payment', { 
       state: { 
         selectedAddressId: addressList[selectedAddressIndex]._id,
-        deliveryCharge 
+        deliveryCharge: deliveryCharge, // Ensure we pass the calculated delivery charge
+        deliveryDistance: deliveryDistance
       } 
     });
   };
@@ -640,7 +661,11 @@ const AddressPage = () => {
                             name="address"
                             value={index}
                             checked={selectedAddressIndex === index}
-                            onChange={() => setSelectedAddressIndex(index)}
+                            onChange={() => {
+                              setSelectedAddressIndex(index);
+                              // Reset calculation status when new address is selected
+                              setIsDeliveryCalculated(false);
+                            }}
                             className="w-4 h-4 text-teal-500 border-gray-300 focus:ring-teal-500"
                           />
                         </div>
@@ -890,9 +915,13 @@ const AddressPage = () => {
                   <div className="flex justify-between">
                     <span className="text-gray-700">Delivery Charge</span>
                     {isCalculatingDelivery ? (
-                      <span className="text-gray-500">Calculating...</span>
+                      <span className="text-blue-500 animate-pulse">Calculating...</span>
+                    ) : !isDeliveryCalculated && selectedAddressIndex !== null ? (
+                      <span className="text-orange-500">Pending calculation</span>
                     ) : (
-                      <span>{deliveryCharge > 0 ? `₹${deliveryCharge}` : 'FREE'}</span>
+                      <span className={deliveryCharge > 0 ? "text-gray-900" : "text-green-600"}>
+                        {deliveryCharge > 0 ? `₹${deliveryCharge}` : 'FREE'}
+                      </span>
                     )}
                   </div>
                   
@@ -906,11 +935,28 @@ const AddressPage = () => {
                 
                 <button
                   onClick={handleContinueToPayment}
-                  disabled={selectedAddressIndex === null}
+                  disabled={selectedAddressIndex === null || isCalculatingDelivery || !isDeliveryCalculated}
                   className="w-full bg-black hover:bg-gray-800 text-white py-3 mt-6 font-medium disabled:bg-gray-300 disabled:cursor-not-allowed border-b-4 border-teal-500"
                 >
-                  CONTINUE
+                  {isCalculatingDelivery ? "CALCULATING DELIVERY..." : "CONTINUE"}
                 </button>
+                
+                {/* Helper text for disabled button */}
+                {selectedAddressIndex === null && (
+                  <p className="text-xs text-red-500 text-center mt-2">
+                    Please select an address to continue
+                  </p>
+                )}
+                {selectedAddressIndex !== null && isCalculatingDelivery && (
+                  <p className="text-xs text-blue-500 text-center mt-2">
+                    Calculating delivery charges...
+                  </p>
+                )}
+                {selectedAddressIndex !== null && !isCalculatingDelivery && !isDeliveryCalculated && (
+                  <p className="text-xs text-orange-500 text-center mt-2">
+                    Delivery charge calculation pending
+                  </p>
+                )}
                 
                 <div className="mt-6 text-xs text-center text-gray-600">
                   <p>Safe and Secure Payments. Easy returns.</p>

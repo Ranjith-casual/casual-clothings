@@ -87,10 +87,6 @@ const PaymentPage = () => {
   const getPaymentMethodName = (methodCode) => {
     const methodMapping = {
       'online': 'Online Payment',
-      'credit_card': 'Credit Card',
-      'debit_card': 'Debit Card',
-      'net_banking': 'Net Banking',
-      'upi': 'UPI Payment'
     };
     return methodMapping[methodCode] || 'Online Payment';
   };
@@ -409,79 +405,13 @@ const PaymentPage = () => {
                     )}
                   </div>
 
-                  {/* Credit/Debit Card */}
-                  <div className="border rounded overflow-hidden">
-                    <div 
-                      className={`p-4 flex items-center cursor-pointer ${
-                        selectedPaymentMethod === 'credit_card' ? 'bg-red-50' : ''
-                      }`}
-                      onClick={() => setSelectedPaymentMethod('credit_card')}
-                    >
-                      <input
-                        type="radio"
-                        id="payment-card"
-                        name="payment-method"
-                        checked={selectedPaymentMethod === 'credit_card'}
-                        onChange={() => setSelectedPaymentMethod('credit_card')}
-                        className="w-4 h-4 text-red-500 border-gray-300 focus:ring-red-500"
-                      />
-                      <label htmlFor="payment-card" className="ml-3 flex items-center cursor-pointer">
-                        <FaCreditCard className="text-gray-600 mr-2" />
-                        <span className="font-medium">Credit/Debit Card</span>
-                        <div className="ml-auto flex space-x-2">
-                          <FaCcVisa className="text-blue-700 text-xl" />
-                          <FaCcMastercard className="text-orange-600 text-xl" />
-                          <FaCcAmex className="text-blue-500 text-xl" />
-                        </div>
-                      </label>
-                    </div>
-                  </div>
+                
 
                   {/* UPI */}
-                  <div className="border rounded overflow-hidden">
-                    <div 
-                      className={`p-4 flex items-center cursor-pointer ${
-                        selectedPaymentMethod === 'upi' ? 'bg-red-50' : ''
-                      }`}
-                      onClick={() => setSelectedPaymentMethod('upi')}
-                    >
-                      <input
-                        type="radio"
-                        id="payment-upi"
-                        name="payment-method"
-                        checked={selectedPaymentMethod === 'upi'}
-                        onChange={() => setSelectedPaymentMethod('upi')}
-                        className="w-4 h-4 text-red-500 border-gray-300 focus:ring-red-500"
-                      />
-                      <label htmlFor="payment-upi" className="ml-3 flex items-center cursor-pointer">
-                        <FaWallet className="text-gray-600 mr-2" />
-                        <span className="font-medium">UPI Payment</span>
-                      </label>
-                    </div>
-                  </div>
+                
 
                   {/* Net Banking */}
-                  <div className="border rounded overflow-hidden">
-                    <div 
-                      className={`p-4 flex items-center cursor-pointer ${
-                        selectedPaymentMethod === 'net_banking' ? 'bg-red-50' : ''
-                      }`}
-                      onClick={() => setSelectedPaymentMethod('net_banking')}
-                    >
-                      <input
-                        type="radio"
-                        id="payment-netbanking"
-                        name="payment-method"
-                        checked={selectedPaymentMethod === 'net_banking'}
-                        onChange={() => setSelectedPaymentMethod('net_banking')}
-                        className="w-4 h-4 text-red-500 border-gray-300 focus:ring-red-500"
-                      />
-                      <label htmlFor="payment-netbanking" className="ml-3 flex items-center cursor-pointer">
-                        <FaWallet className="text-gray-600 mr-2" />
-                        <span className="font-medium">Net Banking</span>
-                      </label>
-                    </div>
-                  </div>
+                
 
                   <div className="text-sm text-gray-600 mt-4">
                     <p>
