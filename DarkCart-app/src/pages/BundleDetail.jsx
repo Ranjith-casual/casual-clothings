@@ -208,11 +208,6 @@ const BundleDetail = () => {
             {/* Title and Category */}
             <div>
               <h1 className="text-3xl md:text-4xl font-bold text-black mb-2">{bundle.title}</h1>
-              {bundle.category && (
-                <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-gray-100 text-gray-800">
-                  {bundle.category.charAt(0).toUpperCase() + bundle.category.slice(1)}
-                </span>
-              )}
             </div>
 
             {/* Rating */}
@@ -379,7 +374,7 @@ const BundleDetail = () => {
           
           <div className="flex justify-center">
             <Link
-              to="/bundle-list"
+              to="/bundle-offers"
               className="bg-black text-white px-8 py-3 rounded-lg font-semibold hover:bg-gray-800 transition-colors"
             >
               View All Bundles

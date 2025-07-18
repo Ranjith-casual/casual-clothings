@@ -6,7 +6,6 @@ export const createBundleController = async (request, response) => {
         const {
             title,
             description,
-            category,
             originalPrice,
             bundlePrice,
             // Remove discount from destructuring
@@ -25,7 +24,7 @@ export const createBundleController = async (request, response) => {
         } = request.body;
 
         // Validate required fields
-        if (!title || !category || !originalPrice || !bundlePrice || !items || items.length === 0) {
+        if (!title || !originalPrice || !bundlePrice || !items || items.length === 0) {
             return response.status(400).json({
                 message: "Please provide all required fields",
                 error: true,
@@ -62,7 +61,6 @@ export const createBundleController = async (request, response) => {
         const bundle = new BundleModel({
             title,
             description,
-            category,
             originalPrice,
             bundlePrice,
             // Remove discount field - will be calculated as virtual

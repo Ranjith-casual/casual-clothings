@@ -33,7 +33,6 @@ const BundleAdmin = () => {
   const [formData, setFormData] = useState({
     name: "",
     description: "",
-    category: "",
     bundlePrice: "",
     originalPrice: "",
     image: "",
@@ -45,7 +44,6 @@ const BundleAdmin = () => {
     setFormData({
       name: "",
       description: "",
-      category: "",
       bundlePrice: "",
       originalPrice: "",
       image: "",
@@ -157,7 +155,7 @@ const BundleAdmin = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     
-    if (!formData.name || !formData.category || !formData.bundlePrice) {
+    if (!formData.name || !formData.bundlePrice) {
       toast.error("Please fill in all required fields");
       return;
     }
@@ -240,7 +238,6 @@ const BundleAdmin = () => {
     setFormData({
       name: bundle.name,
       description: bundle.description,
-      category: bundle.category,
       bundlePrice: bundle.bundlePrice.toString(),
       originalPrice: bundle.originalPrice.toString(),
       image: bundle.image,
@@ -392,28 +389,6 @@ const BundleAdmin = () => {
                       placeholder="Enter bundle name"
                       required
                     />
-                  </div>
-
-                  {/* Category */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Category *
-                    </label>
-                    <select
-                      name="category"
-                      value={formData.category}
-                      onChange={handleInputChange}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      required
-                    >
-                      <option value="">Select Category</option>
-                      <option value="electronics">Electronics</option>
-                      <option value="fashion">Fashion</option>
-                      <option value="home">Home & Garden</option>
-                      <option value="sports">Sports & Outdoors</option>
-                      <option value="books">Books</option>
-                      <option value="beauty">Beauty & Health</option>
-                    </select>
                   </div>
 
                   {/* Bundle Price */}
@@ -610,9 +585,6 @@ const BundleAdmin = () => {
                     Bundle
                   </th>
                   <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Category
-                  </th>
-                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Pricing
                   </th>
                   <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -644,11 +616,6 @@ const BundleAdmin = () => {
                           </div>
                         </div>
                       </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800 capitalize">
-                        {bundle.category}
-                      </span>
                     </td>
                     <td className="px-6 py-4">
                       <div className="text-sm text-gray-900">

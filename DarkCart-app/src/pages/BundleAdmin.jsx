@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { FaPlus, FaMinus, FaUpload, FaTrash, FaEdit, FaEye, FaGift, FaTag, FaStar } from "react-icons/fa";
+import { FaPlus, FaMinus, FaUpload, FaTrash, FaEdit, FaEye, FaGift, FaTag, FaStar, FaClock } from "react-icons/fa";
 import { motion, AnimatePresence } from "framer-motion";
 import Axios from "../utils/Axios";
 import toast from "react-hot-toast";
@@ -20,7 +20,6 @@ const BundleAdmin = () => {
   const [formData, setFormData] = useState({
     title: "",
     description: "",
-    category: "",
     bundlePrice: "",
     originalPrice: "",
     images: [""],
@@ -37,7 +36,6 @@ const BundleAdmin = () => {
     setFormData({
       title: "",
       description: "",
-      category: "",
       bundlePrice: "",
       originalPrice: "",
       images: [""],
@@ -54,7 +52,7 @@ const BundleAdmin = () => {
   const fetchBundles = async () => {
     try {
       setLoading(true);
-      const response = await Axios.get(SummaryApi.getBundles.url, {
+      const response = await Axios.get(`${SummaryApi.getBundles.url}?includeInactive=true`, {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`
         }
@@ -133,37 +131,60 @@ const BundleAdmin = () => {
 
   // Add item to bundle
   const addItem = () => {
-    setFormData(prev => ({
-      ...prev,
-      items: [...prev.items, { name: "", price: 0, image: "" }]
-    }));
+    setFormData(prev => {
+      const newItems = [...prev.items, { name: "", price: 0, description: "", image: "" }];
+      const calculatedOriginalPrice = newItems.reduce((sum, item) => sum + (parseFloat(item.price) || 0), 0);
+      
+      return {
+        ...prev,
+        items: newItems,
+        originalPrice: calculatedOriginalPrice
+      };
+    });
   };
 
   // Remove item from bundle
   const removeItem = (index) => {
-    setFormData(prev => ({
-      ...prev,
-      items: prev.items.filter((_, i) => i !== index)
-    }));
+    setFormData(prev => {
+      const newItems = prev.items.filter((_, i) => i !== index);
+      const calculatedOriginalPrice = newItems.reduce((sum, item) => sum + (parseFloat(item.price) || 0), 0);
+      
+      return {
+        ...prev,
+        items: newItems,
+        originalPrice: calculatedOriginalPrice
+      };
+    });
   };
 
   // Handle item changes
   const handleItemChange = (index, field, value) => {
     const processedValue = field === 'price' ? parseFloat(value) || 0 : value;
-    setFormData(prev => ({
-      ...prev,
-      items: prev.items.map((item, i) => 
+    setFormData(prev => {
+      const updatedItems = prev.items.map((item, i) => 
         i === index ? { ...item, [field]: processedValue } : item
-      )
-    }));
+      );
+      
+      // Auto-calculate original price when item prices change
+      let calculatedOriginalPrice = prev.originalPrice;
+      if (field === 'price') {
+        calculatedOriginalPrice = updatedItems.reduce((sum, item) => sum + (parseFloat(item.price) || 0), 0);
+      }
+      
+      return {
+        ...prev,
+        items: updatedItems,
+        originalPrice: calculatedOriginalPrice
+      };
+    });
   };
 
   // Handle form submission
   const handleSubmit = async (e) => {
     e.preventDefault();
     
-    if (!formData.title || !formData.category || !formData.bundlePrice || !formData.originalPrice) {
-      toast.error("Please fill in all required fields (title, category, bundle price, original price)");
+    if (!formData.title || !formData.bundlePrice || !formData.originalPrice) {
+      toast.error("Please fill in all required fields (title, bundle price, original price)");
       return;
     }
 
@@ -262,7 +283,6 @@ const BundleAdmin = () => {
     setFormData({
       title: bundle.title,
       description: bundle.description,
-      category: bundle.category,
       bundlePrice: bundle.bundlePrice.toString(),
       originalPrice: bundle.originalPrice.toString(),
       images: bundle.images || [""],
@@ -421,32 +441,10 @@ const BundleAdmin = () => {
                     />
                   </div>
 
-                  {/* Category */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Category *
-                    </label>
-                    <select
-                      name="category"
-                      value={formData.category}
-                      onChange={(e) => handleInputChange(e.target.name, e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      required
-                    >
-                      <option value="">Select Category</option>
-                      <option value="summer">Summer</option>
-                      <option value="winter">Winter</option>
-                      <option value="formal">Formal</option>
-                      <option value="casual">Casual</option>
-                      <option value="sports">Sports</option>
-                      <option value="ethnic">Ethnic</option>
-                    </select>
-                  </div>
-
                   {/* Bundle Price */}
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Bundle Price *
+                      Bundle Price (Discounted) *
                     </label>
                     <input
                       type="number"
@@ -461,21 +459,49 @@ const BundleAdmin = () => {
                     />
                   </div>
 
-                  {/* Original Price */}
+                  {/* Pricing Summary */}
+                  {formData.originalPrice && formData.bundlePrice && (
+                    <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
+                      <h4 className="font-medium text-blue-800 mb-2">Pricing Summary</h4>
+                      <div className="space-y-1 text-sm">
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">Original Price:</span>
+                          <span className="font-medium">₹{parseFloat(formData.originalPrice).toLocaleString()}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">Bundle Price:</span>
+                          <span className="font-medium text-blue-600">₹{parseFloat(formData.bundlePrice).toLocaleString()}</span>
+                        </div>
+                        <div className="flex justify-between border-t border-blue-200 pt-1">
+                          <span className="text-gray-600">You Save:</span>
+                          <span className="font-bold text-green-600">
+                            ₹{(parseFloat(formData.originalPrice) - parseFloat(formData.bundlePrice)).toLocaleString()} 
+                            ({Math.round(((parseFloat(formData.originalPrice) - parseFloat(formData.bundlePrice)) / parseFloat(formData.originalPrice)) * 100)}% off)
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Original Price - Auto-calculated */}
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Original Price
+                      Original Price (Auto-calculated)
                     </label>
                     <input
                       type="number"
                       name="originalPrice"
                       value={formData.originalPrice}
                       onChange={(e) => handleInputChange(e.target.name, e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-gray-50"
                       placeholder="0"
                       min="0"
                       step="0.01"
+                      readOnly
                     />
+                    <p className="text-xs text-gray-500 mt-1">
+                      Automatically calculated from item prices. You can override this value.
+                    </p>
                   </div>
 
                   {/* Multiple Images Upload */}
@@ -572,9 +598,14 @@ const BundleAdmin = () => {
                 {/* Bundle Items */}
                 <div>
                   <div className="flex justify-between items-center mb-4">
-                    <label className="block text-sm font-medium text-gray-700">
-                      Bundle Items
-                    </label>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700">
+                        Bundle Items *
+                      </label>
+                      <p className="text-xs text-gray-500 mt-1">
+                        Add products to this bundle. Original price will be auto-calculated from item prices.
+                      </p>
+                    </div>
                     <button
                       type="button"
                       onClick={addItem}
@@ -585,8 +616,15 @@ const BundleAdmin = () => {
                     </button>
                   </div>
 
+                  {formData.items.length === 0 && (
+                    <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
+                      <FaGift className="text-4xl text-gray-400 mx-auto mb-2" />
+                      <p className="text-gray-500">No items added yet. Click "Add Item" to start building your bundle.</p>
+                    </div>
+                  )}
+
                   {formData.items.map((item, index) => (
-                    <div key={index} className="border border-gray-200 rounded-lg p-4 mb-4">
+                    <div key={index} className="border border-gray-200 rounded-lg p-4 mb-4 bg-gray-50">
                       <div className="flex justify-between items-center mb-3">
                         <h4 className="font-medium text-gray-700">Item {index + 1}</h4>
                         <button
@@ -597,31 +635,50 @@ const BundleAdmin = () => {
                           <FaTrash className="w-4 h-4" />
                         </button>
                       </div>
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <input
-                          type="text"
-                          placeholder="Item name"
-                          value={item.name}
-                          onChange={(e) => handleItemChange(index, 'name', e.target.value)}
-                          className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                        />
-                        <input
-                          type="number"
-                          placeholder="Price"
-                          value={item.price}
-                          onChange={(e) => handleItemChange(index, 'price', e.target.value)}
-                          className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                          min="0"
-                          step="0.01"
-                        />
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                         <div>
-                          <ImageDropzone
-                            label=""
-                            initialImage={item.image}
-                            onImageUpload={(imageUrl) => handleItemChange(index, 'image', imageUrl)}
-                            height="h-24"
+                          <label className="block text-sm font-medium text-gray-600 mb-1">Product Name *</label>
+                          <input
+                            type="text"
+                            placeholder="Enter product name"
+                            value={item.name}
+                            onChange={(e) => handleItemChange(index, 'name', e.target.value)}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            required
                           />
                         </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-600 mb-1">Price *</label>
+                          <input
+                            type="number"
+                            placeholder="Enter price"
+                            value={item.price}
+                            onChange={(e) => handleItemChange(index, 'price', e.target.value)}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            min="0"
+                            step="0.01"
+                            required
+                          />
+                        </div>
+                      </div>
+                      <div className="mb-4">
+                        <label className="block text-sm font-medium text-gray-600 mb-1">Description</label>
+                        <textarea
+                          placeholder="Enter product description"
+                          value={item.description}
+                          onChange={(e) => handleItemChange(index, 'description', e.target.value)}
+                          rows={2}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-600 mb-1">Product Image</label>
+                        <ImageDropzone
+                          label=""
+                          initialImage={item.image}
+                          onImageUpload={(imageUrl) => handleItemChange(index, 'image', imageUrl)}
+                          height="h-24"
+                        />
                       </div>
                     </div>
                   ))}
@@ -695,13 +752,13 @@ const BundleAdmin = () => {
                     Bundle
                   </th>
                   <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Category
-                  </th>
-                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Pricing
                   </th>
                   <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Status
+                    Stock & Status
+                  </th>
+                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Offer Details
                   </th>
                   <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Actions
@@ -725,38 +782,58 @@ const BundleAdmin = () => {
                             {bundle.title}
                           </div>
                           <div className="text-sm text-gray-500">
-                            {bundle.items?.length || 0} items
+                            {bundle.items?.length || 0} items included
                           </div>
                         </div>
                       </div>
                     </td>
                     <td className="px-6 py-4">
-                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800 capitalize">
-                        {bundle.category}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4">
                       <div className="text-sm text-gray-900">
-                        ₹{bundle.bundlePrice?.toLocaleString()}
+                        <span className="font-medium">₹{bundle.bundlePrice?.toLocaleString()}</span>
                       </div>
                       <div className="text-sm text-gray-500 line-through">
                         ₹{bundle.originalPrice?.toLocaleString()}
                       </div>
-                      <div className="text-xs text-green-600">
-                        {bundle.discount}% off
+                      <div className="text-xs text-green-600 font-medium">
+                        {bundle.discount || Math.round(((bundle.originalPrice - bundle.bundlePrice) / bundle.originalPrice) * 100)}% off
                       </div>
                     </td>
                     <td className="px-6 py-4">
-                      <button
-                        onClick={() => toggleBundleStatus(bundle._id)}
-                        className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                          bundle.isActive
-                            ? "bg-green-100 text-green-800"
-                            : "bg-red-100 text-red-800"
-                        }`}
-                      >
-                        {bundle.isActive ? "Active" : "Inactive"}
-                      </button>
+                      <div className="space-y-2">
+                        <div className="text-sm">
+                          <span className="text-gray-600">Stock: </span>
+                          <span className={`font-medium ${bundle.stock < 10 ? 'text-red-600' : 'text-green-600'}`}>
+                            {bundle.stock || 0}
+                          </span>
+                        </div>
+                        <button
+                          onClick={() => toggleBundleStatus(bundle._id)}
+                          className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                            bundle.isActive
+                              ? "bg-green-100 text-green-800"
+                              : "bg-red-100 text-red-800"
+                          }`}
+                        >
+                          {bundle.isActive ? "Active" : "Inactive"}
+                        </button>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="text-sm">
+                        {bundle.isTimeLimited ? (
+                          <div className="space-y-1">
+                            <div className="flex items-center text-orange-600">
+                              <FaClock className="w-3 h-3 mr-1" />
+                              <span className="font-medium">Time Limited</span>
+                            </div>
+                            <div className="text-xs text-gray-500">
+                              {new Date(bundle.startDate).toLocaleDateString()} - {new Date(bundle.endDate).toLocaleDateString()}
+                            </div>
+                          </div>
+                        ) : (
+                          <span className="text-gray-500 text-sm">Regular Offer</span>
+                        )}
+                      </div>
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex items-center space-x-3">

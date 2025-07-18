@@ -6,6 +6,10 @@ const bundleItemSchema = new mongoose.Schema({
         required: true,
         trim: true
     },
+    description: {
+        type: String,
+        trim: true
+    },
     image: {
         type: String,
         required: true
@@ -29,11 +33,6 @@ const bundleSchema = new mongoose.Schema({
     description: {
         type: String,
         trim: true
-    },
-    category: {
-        type: String,
-        required: true,
-        enum: ['summer', 'winter', 'formal', 'casual', 'sports', 'ethnic']
     },
     originalPrice: {
         type: Number,
