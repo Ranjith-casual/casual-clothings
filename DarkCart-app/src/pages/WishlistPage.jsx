@@ -12,22 +12,22 @@ import toast from "react-hot-toast";
 const WishlistPage = () => {
   const dispatch = useDispatch();
   const { fetchWishlist, removeFromWishlist } = useGlobalContext();
-  const wishlistItems = useSelector((state) => state.wishlist.wishlistItems);
-  const loading = useSelector((state) => state.wishlist.loading);
+  const wishlistItems = useSelector((state) => state?.wishlist?.wishlistItems || []);
+  const loading = useSelector((state) => state?.wishlist?.loading || false);
   const [imageLoaded, setImageLoaded] = useState({});
 
   useEffect(() => {
     fetchWishlist();
   }, []);
 
-  const handleRemoveFromWishlist = async (productId) => {
-    await removeFromWishlist(productId);
+  const handleRemoveFromWishlist = async (itemId) => {
+    await removeFromWishlist(itemId);
   };
 
-  const handleImageLoad = (productId) => {
+  const handleImageLoad = (itemId) => {
     setImageLoaded(prev => ({
       ...prev,
-      [productId]: true
+      [itemId]: true
     }));
   };
 
@@ -38,7 +38,7 @@ const WishlistPage = () => {
         <div className="bg-black text-white p-6 rounded-lg shadow-md mb-6">
           <h1 className="text-2xl font-bold font-serif mb-2">My Wishlist</h1>
           <p className="text-teal-300 text-sm">
-            {wishlistItems.length} {wishlistItems.length === 1 ? 'item' : 'items'} saved
+            {(wishlistItems?.length || 0)} {(wishlistItems?.length || 0) === 1 ? 'item' : 'items'} saved
           </p>
         </div>
 
@@ -54,7 +54,7 @@ const WishlistPage = () => {
               </div>
             ))}
           </div>
-        ) : wishlistItems.length === 0 ? (
+        ) : (wishlistItems?.length || 0) === 0 ? (
           <div className="bg-white rounded-lg shadow-md p-8 text-center">
             <FaRegHeart className="text-gray-400 w-16 h-16 mx-auto mb-4" />
             <h2 className="text-xl font-medium text-gray-800 mb-2">Your wishlist is empty</h2>
@@ -70,50 +70,74 @@ const WishlistPage = () => {
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-            {wishlistItems.map((item) => {
+            {(wishlistItems || []).map((item) => {
+              // Handle both products and bundles
               const product = item.productId;
-              if (!product) return null;
+              const bundle = item.bundleId;
               
-              const price = product.price || 0;
-              const discount = product.discount || 0;
-              const discountedPrice = pricewithDiscount(price, discount);
-              const productImage = product.image?.[0] || '';
+              if (!product && !bundle) return null;
+              
+              // Use product or bundle data accordingly
+              const isBundle = !!bundle;
+              const itemData = isBundle ? bundle : product;
+              const itemId = itemData._id;
+              
+              const price = isBundle ? (itemData.bundlePrice || 0) : (itemData.price || 0);
+              const originalPrice = isBundle ? (itemData.originalPrice || 0) : (itemData.price || 0);
+              const discount = isBundle ? 
+                (originalPrice > price ? Math.round(((originalPrice - price) / originalPrice) * 100) : 0) : 
+                (itemData.discount || 0);
+              const discountedPrice = isBundle ? price : pricewithDiscount(price, discount);
+              const itemImage = isBundle ? 
+                (itemData.images?.[0] || '') : 
+                (itemData.image?.[0] || '');
+              const itemName = isBundle ? itemData.title : itemData.name;
+              const itemUrl = isBundle ? 
+                `/bundle/${itemId}` : 
+                `/product/${itemName?.replace(/\s+/g, '-').toLowerCase()}-${itemId}`;
               
               return (
-                <div key={product._id} className="bg-white rounded-lg shadow-md overflow-hidden border border-gray-200 hover:shadow-lg transition-shadow duration-300 relative group">
+                <div key={itemId} className="bg-white rounded-lg shadow-md overflow-hidden border border-gray-200 hover:shadow-lg transition-shadow duration-300 relative group">
                   {/* Remove from wishlist button */}
                   <button
-                    onClick={() => handleRemoveFromWishlist(product._id)}
+                    onClick={() => handleRemoveFromWishlist(itemId)}
                     className="absolute top-2 right-2 p-2 bg-white/90 rounded-full shadow-sm z-10 opacity-0 group-hover:opacity-100 transition-opacity duration-300"
                     title="Remove from wishlist"
                   >
                     <FaTrash className="text-red-500 w-4 h-4" />
                   </button>
 
-                  {/* Product Link */}
-                  <Link to={`/product/${product.name?.replace(/\s+/g, '-').toLowerCase()}-${product._id}`} className="block">
-                    {/* Product Image */}
+                  {/* Item Type Badge */}
+                  {isBundle && (
+                    <div className="absolute top-2 left-2 bg-black text-white px-2 py-1 rounded-md text-xs font-medium z-10">
+                      Bundle
+                    </div>
+                  )}
+
+                  {/* Product/Bundle Link */}
+                  <Link to={itemUrl} className="block">
+                    {/* Product/Bundle Image */}
                     <div className="w-full h-48 overflow-hidden bg-gray-100 relative">
-                      {!imageLoaded[product._id] && (
+                      {!imageLoaded[itemId] && (
                         <div className="absolute inset-0 bg-gray-200 animate-pulse"></div>
                       )}
                       <img
-                        src={productImage}
-                        alt={product.name}
+                        src={itemImage || '/placeholder-image.jpg'}
+                        alt={itemName}
                         className={`w-full h-full object-contain transition-all duration-500 ${
-                          imageLoaded[product._id] ? 'opacity-100' : 'opacity-0'
+                          imageLoaded[itemId] ? 'opacity-100' : 'opacity-0'
                         }`}
-                        onLoad={() => handleImageLoad(product._id)}
+                        onLoad={() => handleImageLoad(itemId)}
                       />
                     </div>
                     
-                    {/* Product Info */}
+                    {/* Item Info */}
                     <div className="p-4">
                       <div className="text-xs text-gray-500 uppercase tracking-wider font-medium mb-2">
-                        {product.category?.[0]?.name || 'Fashion'}
+                        {isBundle ? 'Bundle' : (itemData.category?.[0]?.name || 'Fashion')}
                       </div>
                       <h3 className="text-gray-900 font-medium text-sm line-clamp-2 h-10 mb-2">
-                        {product.name}
+                        {itemName}
                       </h3>
                       <div className="flex items-center gap-2 mb-4">
                         <span className="font-bold text-gray-900">
@@ -121,7 +145,7 @@ const WishlistPage = () => {
                         </span>
                         {discount > 0 && (
                           <span className="text-sm text-gray-500 line-through">
-                            {DisplayPriceInRupees(price)}
+                            {DisplayPriceInRupees(isBundle ? originalPrice : price)}
                           </span>
                         )}
                         {discount > 0 && (
@@ -131,7 +155,16 @@ const WishlistPage = () => {
                         )}
                       </div>
                       <div className="mt-2">
-                        <AddToCartButton data={product} customClass="w-full py-2" />
+                        {isBundle ? (
+                          <Link
+                            to={itemUrl}
+                            className="w-full bg-black text-white py-2 px-4 rounded-md font-medium hover:bg-gray-800 transition-colors duration-300 text-center block text-sm"
+                          >
+                            View Bundle
+                          </Link>
+                        ) : (
+                          <AddToCartButton data={itemData} customClass="w-full py-2" />
+                        )}
                       </div>
                     </div>
                   </Link>

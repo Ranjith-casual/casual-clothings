@@ -273,10 +273,14 @@ const GlobalProvider = ({ children }) => {
 
       const { data: responseData } = response;
       if (responseData.success) {
-        dispatch(setWishlistItems(responseData.data.products));
+        // Handle the new wishlist API structure that returns array directly
+        const wishlistData = responseData.data || [];
+        dispatch(setWishlistItems(wishlistData));
       }
     } catch (error) {
       console.error("Error fetching wishlist:", error);
+      // Set empty array on error to prevent crashes
+      dispatch(setWishlistItems([]));
     } finally {
       dispatch(setWishlistLoading(false));
     }
@@ -335,6 +339,10 @@ const GlobalProvider = ({ children }) => {
       const { data: responseData } = response;
       return responseData.isInWishlist;
     } catch (error) {
+      // If it's an authentication error (401), return false silently
+      if (error.response?.status === 401) {
+        return false;
+      }
       console.error("Error checking wishlist item:", error);
       return false;
     }

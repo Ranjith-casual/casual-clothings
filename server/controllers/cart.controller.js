@@ -72,11 +72,11 @@ export const getCartItemController = async (req, res) => {
         const cartItems = await CartProductModel.find({ userId: userId })
             .populate({
                 path: "productId",
-                select: "name price discount image primaryImage size brand" 
+                select: "name price discount image primaryImage size brand stock publish" 
             })
             .populate({
                 path: "bundleId",
-                select: "title bundlePrice discount images originalPrice"
+                select: "title bundlePrice discount images originalPrice stock isActive"
             });
 
         console.log('Raw cart items:', cartItems.length);

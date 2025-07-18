@@ -647,6 +647,7 @@ export const getOrderController = async (req, res) => {
         const orders = await orderModel.find({ userId: userId })
           .sort({createdAt: -1})
           .populate("items.productId", "name image price stock") // Updated populate path
+          .populate("items.bundleId", "title images bundlePrice stock") // Add bundle population
           .populate("deliveryAddress", "address_line city state pincode country")
           .populate("userId", "name email");
           
@@ -672,6 +673,7 @@ export const getAllOrdersController = async (req, res) => {
           .sort({createdAt: -1})
           .populate("userId", "name email")
           .populate("items.productId", "name image price stock") // Updated populate path
+          .populate("items.bundleId", "title images bundlePrice stock") // Add bundle population
           .populate("deliveryAddress", "address_line city state pincode country");
           
         return res.json({
@@ -761,6 +763,7 @@ export const updateOrderStatusController = async (req, res) => {
                 { new: true, session }
             ).populate("userId", "name email")
              .populate("items.productId", "name image price stock") // Updated populate path
+             .populate("items.bundleId", "title images bundlePrice stock") // Add bundle population
              .populate("deliveryAddress", "address_line city state pincode country");
 
             await session.commitTransaction();

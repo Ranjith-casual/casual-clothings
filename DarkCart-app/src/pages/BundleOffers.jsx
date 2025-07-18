@@ -17,6 +17,8 @@ const BundleOffers = () => {
   const [sortBy, setSortBy] = useState("newest");
   const [priceRange, setPriceRange] = useState("all");
   const [imageIndexes, setImageIndexes] = useState({}); // Track current image index for each bundle
+  const [wishlistItems, setWishlistItems] = useState([]);
+  const [wishlistLoading, setWishlistLoading] = useState({});
 
   // Cart hook and user state
   const { addBundleToCart, loading: cartLoading } = useCart();
@@ -65,6 +67,98 @@ const BundleOffers = () => {
 
     return () => clearInterval(interval);
   }, [bundles]);
+
+  // Fetch wishlist data when user logs in
+  useEffect(() => {
+    if (user?._id) {
+      fetchWishlist();
+    } else {
+      setWishlistItems([]);
+    }
+  }, [user]);
+
+  // Fetch wishlist data
+  const fetchWishlist = async () => {
+    if (!user?._id) return;
+    
+    try {
+      const response = await Axios.get(SummaryApi.getWishlist.url);
+      if (response.data.success) {
+        // Handle different possible data structures
+        const wishlistData = response.data.data || response.data.wishlist || [];
+        console.log("Wishlist data:", wishlistData); // Debug log
+        
+        if (Array.isArray(wishlistData)) {
+          const wishlistBundleIds = wishlistData
+            .filter(item => item.bundleId)
+            .map(item => item.bundleId._id);
+          setWishlistItems(wishlistBundleIds);
+        } else {
+          console.warn("Wishlist data is not an array:", wishlistData);
+          setWishlistItems([]);
+        }
+      }
+    } catch (error) {
+      console.error("Error fetching wishlist:", error);
+    }
+  };
+
+  // Handle wishlist toggle
+  const handleWishlistToggle = async (e, bundleId) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    if (!user?._id) {
+      toast.error('Please login to manage wishlist');
+      return;
+    }
+
+    setWishlistLoading(prev => ({ ...prev, [bundleId]: true }));
+    
+    try {
+      const isInWishlist = wishlistItems.includes(bundleId);
+      
+      if (isInWishlist) {
+        // Remove from wishlist
+        console.log("Removing from wishlist, bundleId:", bundleId);
+        const response = await Axios.post(SummaryApi.removeFromWishlist.url, {
+          bundleId
+        });
+        console.log("Remove response:", response.data);
+        
+        if (response.data.success) {
+          setWishlistItems(prev => prev.filter(id => id !== bundleId));
+          toast.success('Removed from wishlist');
+        } else {
+          toast.error(response.data.message || 'Failed to remove from wishlist');
+        }
+      } else {
+        // Add to wishlist
+        console.log("Adding to wishlist, bundleId:", bundleId);
+        const response = await Axios.post(SummaryApi.addToWishlist.url, {
+          bundleId: bundleId
+        });
+        console.log("Add response:", response.data);
+        
+        if (response.data.success) {
+          setWishlistItems(prev => [...prev, bundleId]);
+          toast.success('Added to wishlist');
+        } else {
+          toast.error(response.data.message || 'Failed to add to wishlist');
+        }
+      }
+    } catch (error) {
+      console.error("Error toggling wishlist:", error);
+      console.error("Error details:", error.response?.data);
+      
+      const isInWishlist = wishlistItems.includes(bundleId);
+      const errorMessage = error.response?.data?.message || 
+                          (isInWishlist ? 'Failed to remove from wishlist' : 'Failed to add to wishlist');
+      toast.error(errorMessage);
+    } finally {
+      setWishlistLoading(prev => ({ ...prev, [bundleId]: false }));
+    }
+  };
 
   // Helper function to get all images for a bundle (bundle images + item images)
   const getAllBundleImages = (bundle) => {
@@ -402,10 +496,15 @@ const BundleOffers = () => {
 
                     {/* Wishlist Button */}
                     <button 
-                      onClick={(e) => e.stopPropagation()}
-                      className="absolute top-4 right-4 z-10 p-2 rounded-full bg-white border border-gray-300 hover:border-black transition-colors group"
+                      onClick={(e) => handleWishlistToggle(e, bundle._id)}
+                      disabled={wishlistLoading[bundle._id]}
+                      className={`absolute top-4 right-4 z-10 p-2 rounded-full border transition-all duration-200 ${
+                        wishlistItems.includes(bundle._id)
+                          ? 'bg-red-50 border-red-500 text-red-600 hover:bg-red-100'
+                          : 'bg-white border-gray-300 text-gray-400 hover:border-black hover:text-black'
+                      } ${wishlistLoading[bundle._id] ? 'animate-pulse' : ''}`}
                     >
-                      <FaHeart className="w-4 h-4 text-gray-400 group-hover:text-black transition-colors" />
+                      <FaHeart className={`w-4 h-4 ${wishlistItems.includes(bundle._id) ? 'fill-current' : ''}`} />
                     </button>
 
                     {/* Quick View Overlay */}
@@ -425,7 +524,7 @@ const BundleOffers = () => {
                       className="block"
                     >
                       {/* Enhanced Product Images Carousel */}
-                      <div className="relative h-64 bg-gray-100 overflow-hidden">
+                      <div className="relative h-72 bg-gray-100 overflow-hidden rounded-t-2xl">
                         {(() => {
                           const allImages = getAllBundleImages(bundle);
                           const currentIndex = imageIndexes[bundle._id] || 0;
@@ -507,25 +606,6 @@ const BundleOffers = () => {
                           <p className="text-gray-600 text-sm leading-relaxed">
                             {getEnhancedDescription(bundle)}
                           </p>
-                        </div>
-                        
-                        {/* Rating */}
-                        <div className="flex items-center gap-2 mb-4">
-                          <div className="flex items-center">
-                            {[...Array(5)].map((_, i) => (
-                              <FaStar
-                                key={i}
-                                className={`w-4 h-4 ${
-                                  i < Math.floor(bundle.rating || 0)
-                                    ? "text-black"
-                                    : "text-gray-300"
-                                }`}
-                              />
-                            ))}
-                          </div>
-                          <span className="text-sm text-gray-600">
-                            {(bundle.rating || 0).toFixed(1)} ({bundle.reviews || 0} reviews)
-                          </span>
                         </div>
 
                         {/* Enhanced Price Section */}
@@ -718,10 +798,15 @@ const BundleOffers = () => {
                     <div className="w-1/2 flex flex-col">
                       {/* Wishlist Button */}
                       <button 
-                        onClick={(e) => e.stopPropagation()}
-                        className="absolute top-4 right-4 z-10 p-2 rounded-full bg-white border border-gray-300 hover:border-black transition-colors group"
+                        onClick={(e) => handleWishlistToggle(e, bundle._id)}
+                        disabled={wishlistLoading[bundle._id]}
+                        className={`absolute top-4 right-4 z-10 p-2 rounded-full border transition-all duration-200 ${
+                          wishlistItems.includes(bundle._id)
+                            ? 'bg-red-50 border-red-500 text-red-600 hover:bg-red-100'
+                            : 'bg-white border-gray-300 text-gray-400 hover:border-black hover:text-black'
+                        } ${wishlistLoading[bundle._id] ? 'animate-pulse' : ''}`}
                       >
-                        <FaHeart className="w-4 h-4 text-gray-400 group-hover:text-black transition-colors" />
+                        <FaHeart className={`w-4 h-4 ${wishlistItems.includes(bundle._id) ? 'fill-current' : ''}`} />
                       </button>
 
                       {/* Quick View Overlay */}

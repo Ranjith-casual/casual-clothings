@@ -4,7 +4,9 @@ import { validURLConvert } from "../utils/validURLConvert";
 import { Link, useLocation } from "react-router-dom";
 import { pricewithDiscount } from "../utils/PriceWithDiscount";
 import { useGlobalContext } from "../provider/GlobalProvider";
-import {  FaShoppingCart } from "react-icons/fa";
+import { FaShoppingCart } from "react-icons/fa";
+import { useSelector } from "react-redux";
+import AddToCartButton from "./AddToCartButton";
 
 // Component to display product name with search highlighting
 const ProductNameWithHighlight = ({ name, searchTerm }) => {
@@ -50,6 +52,7 @@ function CardProduct({ data, hideProductInfo = false }) {
   const [processingWishlist, setProcessingWishlist] = useState(false);
   const { addToWishlist, removeFromWishlist, checkWishlistItem } = useGlobalContext();
   const location = useLocation();
+  const user = useSelector(state => state.user);
   
   // Extract search term from URL params
   const searchParams = new URLSearchParams(location.search);
@@ -63,14 +66,17 @@ function CardProduct({ data, hideProductInfo = false }) {
   // Check if product is in wishlist when component mounts
   useEffect(() => {
     const checkWishlist = async () => {
-      if (productId) {
+      // Only check wishlist if user is logged in
+      if (productId && user?._id) {
         const isInWishlist = await checkWishlistItem(productId);
         setIsWishlisted(isInWishlist);
+      } else {
+        setIsWishlisted(false);
       }
     };
     
     checkWishlist();
-  }, [productId]);
+  }, [productId, user?._id]);
 
   const handleWishlist = async (e) => {
     e.preventDefault();
@@ -98,13 +104,13 @@ function CardProduct({ data, hideProductInfo = false }) {
   const getStockStatus = () => {
     const stock = data.stock || 0;
     if (stock <= 0) {
-      return { text: "Out of Stock", color: "text-gray-600 bg-gray-50" };
+      return { text: "Out of Stock", color: "text-red-700 bg-red-100" };
     } else if (stock <= 5) {
-      return { text: `Only ${stock} left`, color: "text-gray-600 bg-gray-50" };
+      return { text: `Only ${stock} left`, color: "text-amber-700 bg-amber-100" };
     } else if (stock <= 10) {
-      return { text: "Limited Stock", color: "text-gray-600 bg-gray-50" };
+      return { text: "Limited Stock", color: "text-orange-700 bg-orange-100" };
     } else {
-      return { text: "In Stock", color: "text-gray-600 bg-gray-50" };
+      return { text: "In Stock", color: "text-green-700 bg-green-100" };
     }
   };
 
@@ -139,7 +145,7 @@ function CardProduct({ data, hideProductInfo = false }) {
       <Link
         to={url}
         className={`bg-white rounded-lg overflow-hidden group flex flex-col w-full relative ${
-          hideProductInfo ? 'h-full' : 'h-[400px]'
+          hideProductInfo ? 'h-full' : 'h-[420px]'
         }`}
         onMouseEnter={() => setShowQuickActions(true)}
         onMouseLeave={() => setShowQuickActions(false)}
@@ -203,7 +209,7 @@ function CardProduct({ data, hideProductInfo = false }) {
 
         {/* Product Info - Show only if not hidden */}
         {!hideProductInfo && (
-          <div className="p-5 flex flex-col h-[160px] justify-center">
+          <div className="p-5 flex flex-col h-[180px] justify-center">{/* Increased height to accommodate button */}
             {/* Category */}
             <div className="text-xs text-gray-400 uppercase tracking-wider font-medium mb-3 text-center">
               {categoryName}
@@ -215,7 +221,7 @@ function CardProduct({ data, hideProductInfo = false }) {
             </div>
 
             {/* Price Section */}
-            <div className="flex flex-row items-center justify-center gap-2 flex-wrap">
+            <div className="flex flex-row items-center justify-center gap-2 flex-wrap mb-3">
               {discount > 0 && (
                 <span className="text-sm text-gray-400 line-through">
                   {DisplayPriceInRupees(price)}
@@ -229,6 +235,14 @@ function CardProduct({ data, hideProductInfo = false }) {
                   {discount}% OFF
                 </span>
               )}
+            </div>
+
+            {/* Add to Cart Button */}
+            <div className="mt-auto" onClick={(e) => e.preventDefault()}>
+              <AddToCartButton 
+                data={data} 
+                isBundle={false}
+              />
             </div>
           </div>
         )}

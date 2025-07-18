@@ -272,9 +272,9 @@ function UserDetailsModal({ user, onClose }) {
                                                 
                                                 {item.itemType === 'bundle' && item.bundleId && (
                                                     <>
-                                                        {item.bundleId.image && (
+                                                        {item.bundleId.images?.[0] && (
                                                             <img 
-                                                                src={item.bundleId.image} 
+                                                                src={item.bundleId.images[0]} 
                                                                 alt={item.bundleId.title}
                                                                 className="w-10 h-10 object-cover rounded"
                                                             />

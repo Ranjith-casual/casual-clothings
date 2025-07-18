@@ -165,8 +165,8 @@ const BagPage = () => {
         return false;
       }
       
-      // Check bundle stock
-      if (item.bundleId.stock !== undefined && item.bundleId.stock < item.quantity) {
+      // Check bundle stock (zero stock = unavailable, insufficient stock = still available but with warning)
+      if (item.bundleId.stock !== undefined && item.bundleId.stock === 0) {
         return false;
       }
       
@@ -176,8 +176,14 @@ const BagPage = () => {
         const startDate = new Date(item.bundleId.startDate);
         const endDate = new Date(item.bundleId.endDate);
         
-        if (now < startDate || now > endDate) {
+        // Expired bundles are unavailable
+        if (now > endDate) {
           return false;
+        }
+        
+        // Future bundles are available but not purchasable yet
+        if (now < startDate) {
+          return true; // Don't auto-remove, just warn
         }
       }
       
@@ -196,8 +202,8 @@ const BagPage = () => {
         return false;
       }
       
-      // Check product stock
-      if (item.productId.stock !== undefined && item.productId.stock < item.quantity) {
+      // Check product stock (zero stock = unavailable, insufficient stock = still available but with warning)
+      if (item.productId.stock !== undefined && item.productId.stock === 0) {
         return false;
       }
       
@@ -256,13 +262,17 @@ const BagPage = () => {
     let hasOutOfStockItems = false;
     let hasFutureStartDate = false;
     let hasInactiveItems = false;
+    const itemsToRemove = [];
     
     cartItemsList.forEach(item => {
+      let shouldRemove = false;
+      
       // Check bundles
       if (item.bundleId && item.bundleId._id) {
         // Check if bundle is active
         if (item.bundleId.isActive === false) {
           hasInactiveItems = true;
+          shouldRemove = true;
         }
         
         // Check time-limited bundles
@@ -275,12 +285,14 @@ const BagPage = () => {
             hasFutureStartDate = true;
           } else if (now > endDate) {
             hasExpiredTimeLimitedBundles = true;
+            shouldRemove = true;
           }
         }
         
         // Check stock
-        if (item.bundleId.stock !== undefined && item.bundleId.stock < item.quantity) {
+        if (item.bundleId.stock !== undefined && item.bundleId.stock === 0) {
           hasOutOfStockItems = true;
+          shouldRemove = true;
         }
       }
       
@@ -289,40 +301,42 @@ const BagPage = () => {
         // Check if product is published (active)
         if (item.productId.publish === false) {
           hasInactiveItems = true;
+          shouldRemove = true;
         }
         
-        if (item.productId.stock !== undefined && item.productId.stock < item.quantity) {
+        if (item.productId.stock !== undefined && item.productId.stock === 0) {
           hasOutOfStockItems = true;
+          shouldRemove = true;
         }
+      }
+      
+      if (shouldRemove) {
+        itemsToRemove.push(item);
       }
     });
     
-    // Display alerts to user
-    if (hasInactiveItems) {
-      toast.error("Some items in your cart are no longer available. Please remove them before checkout.", {
-        duration: 6000,
-        id: "inactive-items-warning"
+    // Auto-remove invalid items
+    if (itemsToRemove.length > 0) {
+      itemsToRemove.forEach(async (item) => {
+        await deleteCartItem(item._id);
       });
+      
+      // Show notification about removed items
+      setTimeout(() => {
+        const removedCount = itemsToRemove.length;
+        toast.success(`${removedCount} unavailable item${removedCount > 1 ? 's' : ''} automatically removed from cart`, {
+          duration: 5000,
+          id: "auto-removed-items"
+        });
+      }, 1000);
     }
     
-    if (hasExpiredTimeLimitedBundles) {
-      toast.error("Some time-limited bundles in your cart have expired. Please remove them before checkout.", {
-        duration: 6000,
-        id: "expired-bundles-warning"
-      });
-    }
-    
-    if (hasOutOfStockItems) {
-      toast.error("Some items in your cart are out of stock. Please remove them before checkout.", {
-        duration: 6000,
-        id: "out-of-stock-warning"
-      });
-    }
-    
+    // Display alerts to user for remaining issues
     if (hasFutureStartDate) {
-      toast.info("Some bundles in your cart are not yet available for purchase. Please check the start dates.", {
+      toast("Some bundles in your cart are not yet available for purchase. Please check the start dates.", {
         duration: 6000,
-        id: "future-bundles-info"
+        id: "future-bundles-info",
+        icon: 'ℹ️'
       });
     }
   };
@@ -385,6 +399,21 @@ const BagPage = () => {
       toast.error("Updating cart item...");
       console.log("Full cart item:", JSON.stringify(item, null, 2));
       return;
+    }
+    
+    // Check stock limits for increment
+    if (change > 0) {
+      let stockLimit = null;
+      if (item.bundleId && item.bundleId.stock !== undefined) {
+        stockLimit = item.bundleId.stock;
+      } else if (item.productId && item.productId.stock !== undefined) {
+        stockLimit = item.productId.stock;
+      }
+      
+      if (stockLimit !== null && newQty > stockLimit) {
+        toast.error(`Maximum stock reached! Only ${stockLimit} available`);
+        return;
+      }
     }
     
     if (newQty <= 0) {
@@ -478,7 +507,10 @@ const BagPage = () => {
         if (validSelectedItems.length !== selectedItems.length) {
           dispatch(setSelectedItems(validSelectedItems));
           setTimeout(() => {
-            toast.info(`${invalidCartItemIds.length} invalid item(s) have been deselected.`);
+            toast(`${invalidCartItemIds.length} invalid item(s) have been deselected.`, {
+              duration: 4000,
+              icon: 'ℹ️'
+            });
           }, invalidItems.length * 1000 + 500);
         }
       }
@@ -500,7 +532,10 @@ const BagPage = () => {
       dispatch(setSelectedItems(availableItems));
       
       if (availableItems.length < cartItemsList.length) {
-        toast.info(`${cartItemsList.length - availableItems.length} item(s) cannot be selected because they are unavailable for purchase.`);
+        toast(`${cartItemsList.length - availableItems.length} item(s) cannot be selected because they are unavailable for purchase.`, {
+          icon: 'ℹ️',
+          duration: 4000
+        });
       }
     }
   };
@@ -799,7 +834,29 @@ const BagPage = () => {
                                 </div>
                                 <button 
                                   onClick={() => handleQuantityChange(item, pricing.quantity, 1)}
-                                  className="px-3 py-1 text-lg font-medium hover:bg-gray-100"
+                                  disabled={(() => {
+                                    // Check if increment should be disabled due to stock limit
+                                    let stockLimit = null;
+                                    if (item.bundleId && item.bundleId.stock !== undefined) {
+                                      stockLimit = item.bundleId.stock;
+                                    } else if (item.productId && item.productId.stock !== undefined) {
+                                      stockLimit = item.productId.stock;
+                                    }
+                                    return stockLimit !== null && pricing.quantity >= stockLimit;
+                                  })()}
+                                  className={`px-3 py-1 text-lg font-medium transition-colors ${
+                                    (() => {
+                                      let stockLimit = null;
+                                      if (item.bundleId && item.bundleId.stock !== undefined) {
+                                        stockLimit = item.bundleId.stock;
+                                      } else if (item.productId && item.productId.stock !== undefined) {
+                                        stockLimit = item.productId.stock;
+                                      }
+                                      return stockLimit !== null && pricing.quantity >= stockLimit
+                                        ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                                        : 'hover:bg-gray-100';
+                                    })()
+                                  }`}
                                 >
                                   +
                                 </button>
@@ -820,6 +877,19 @@ const BagPage = () => {
                                 </button>
                               </div>
                             </div>
+                            
+                            {/* Maximum stock reached message */}
+                            {(() => {
+                              let stockLimit = null;
+                              if (item.bundleId && item.bundleId.stock !== undefined) {
+                                stockLimit = item.bundleId.stock;
+                              } else if (item.productId && item.productId.stock !== undefined) {
+                                stockLimit = item.productId.stock;
+                              }
+                              return stockLimit !== null && pricing.quantity >= stockLimit && (
+                                <p className="text-xs text-amber-600 text-center mt-2">Maximum stock reached</p>
+                              );
+                            })()}
                           </div>
                         </div>
                       </div>

@@ -14,19 +14,22 @@ const wishlistSlice = createSlice({
             state.wishlistItems = action.payload;
         },
         addWishlistItem: (state, action) => {
-            // Check if item already exists in wishlist
-            const existingItem = state.wishlistItems.find(
-                item => item.productId._id === action.payload.productId._id
-            );
+            // Check if item already exists in wishlist (handle both products and bundles)
+            const existingItem = state.wishlistItems.find(item => {
+                const itemId = item.productId?._id || item.bundleId?._id;
+                const payloadId = action.payload.productId?._id || action.payload.bundleId?._id;
+                return itemId === payloadId;
+            });
             
             if (!existingItem) {
                 state.wishlistItems.push(action.payload);
             }
         },
         removeWishlistItem: (state, action) => {
-            state.wishlistItems = state.wishlistItems.filter(
-                item => item.productId._id !== action.payload
-            );
+            state.wishlistItems = state.wishlistItems.filter(item => {
+                const itemId = item.productId?._id || item.bundleId?._id;
+                return itemId !== action.payload;
+            });
         },
         clearWishlist: (state) => {
             state.wishlistItems = [];

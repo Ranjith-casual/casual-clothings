@@ -9,12 +9,72 @@ import AddToCartButton from './AddToCartButton'
 import { pricewithDiscount } from '../utils/PriceWithDiscount'
 import imageEmpty from '../assets/noCart.jpg'
 import toast from 'react-hot-toast'
+import Axios from '../utils/Axios'
+import SummaryApi from '../common/SummaryApi'
 
 const DisplayCartItem = ({close}) => {
-    const { notDiscountTotalPrice, totalPrice ,totalQty} = useGlobalContext()
+    const { notDiscountTotalPrice, totalPrice ,totalQty, fetchCartItems } = useGlobalContext()
     const cartItem  = useSelector(state => state.cartItem.cart)
     const user = useSelector(state => state.user)
     const navigate = useNavigate()
+
+    // Function to check if an item should be removed automatically
+    const shouldAutoRemoveItem = (item) => {
+      // Check bundles
+      if (item.itemType === 'bundle' && item.bundleId) {
+        // Inactive bundles
+        if (item.bundleId.isActive === false) return true;
+        
+        // Out of stock bundles
+        if (item.bundleId.stock !== undefined && item.bundleId.stock === 0) return true;
+        
+        // Expired time-limited bundles
+        if (item.bundleId.isTimeLimited) {
+          const now = new Date();
+          const endDate = new Date(item.bundleId.endDate);
+          if (now > endDate) return true;
+        }
+      }
+      
+      // Check products
+      if (item.itemType === 'product' && item.productId) {
+        // Inactive products
+        if (item.productId.publish === false) return true;
+        
+        // Out of stock products
+        if (item.productId.stock !== undefined && item.productId.stock === 0) return true;
+      }
+      
+      return false;
+    };
+
+    // Auto-remove invalid items when cart loads
+    React.useEffect(() => {
+      if (cartItem && cartItem.length > 0) {
+        const itemsToRemove = cartItem.filter(item => shouldAutoRemoveItem(item));
+        
+        if (itemsToRemove.length > 0) {
+          itemsToRemove.forEach(async (item) => {
+            try {
+              await Axios({
+                ...SummaryApi.deleteCartItem,
+                data: { _id: item._id }
+              });
+            } catch (error) {
+              console.error("Error removing invalid cart item:", error);
+            }
+          });
+          
+          // Refresh cart after removals
+          setTimeout(() => {
+            fetchCartItems();
+            toast.success(`${itemsToRemove.length} unavailable item${itemsToRemove.length > 1 ? 's' : ''} removed from cart`, {
+              duration: 4000
+            });
+          }, 1000);
+        }
+      }
+    }, [cartItem, fetchCartItems]);
 
     const redirectToCheckoutPage = ()=>{
         if(user?._id){
@@ -83,9 +143,13 @@ const DisplayCartItem = ({close}) => {
                                                     <div key={item?._id+"cartItemDisplay"} className='flex w-full gap-3 sm:gap-4 pb-4 border-b border-gray-100 last:border-b-0'>
                                                         <div className='w-14 h-14 sm:w-16 sm:h-16 min-h-14 min-w-14 sm:min-h-16 sm:min-w-16 bg-gray-50 border border-gray-200 rounded-md overflow-hidden flex-shrink-0'>
                                                             <img
-                                                                src={item?.itemType === 'bundle' ? item?.bundleId?.image : item?.productId?.image[0]}
+                                                                src={item?.itemType === 'bundle' ? item?.bundleId?.images?.[0] : item?.productId?.image?.[0]}
                                                                 className='object-cover w-full h-full'
                                                                 alt={item?.itemType === 'bundle' ? item?.bundleId?.title : item?.productId?.name}
+                                                                onError={(e) => {
+                                                                    e.target.onerror = null;
+                                                                    e.target.src = imageEmpty;
+                                                                }}
                                                             />
                                                         </div>
                                                         <div className='flex-grow min-w-0 text-xs'>
@@ -101,7 +165,7 @@ const DisplayCartItem = ({close}) => {
                                                                     : DisplayPriceInRupees(pricewithDiscount(item?.productId?.price,item?.productId?.discount))
                                                                 }
                                                             </p>
-                                                            {/* Quantity Controls */}
+                                                            {/* Quantity Controls with Stock Validation */}
                                                             <div className='mt-2 w-full max-w-[120px]'>
                                                                 {item?.itemType === 'bundle' ? (
                                                                     <AddToCartButton 
@@ -138,7 +202,7 @@ const DisplayCartItem = ({close}) => {
                                 </div>
                                 <div className='flex gap-2 sm:gap-4 justify-between ml-1 mb-2 text-xs sm:text-sm'>
                                     <p className='text-gray-600'>Quantity total</p>
-                                    <p className='flex items-center gap-2 text-black font-medium'>{totalQty} item</p>
+                                    <p className='flex items-center gap-2 text-black font-medium'>{totalQty} {totalQty === 1 ? 'item' : 'items'}</p>
                                 </div>
                                 {/* <div className='flex gap-2 sm:gap-4 justify-between ml-1 mb-2 sm:mb-3 pb-2 sm:pb-3 border-b border-gray-200 text-xs sm:text-sm'>
                                     <p className='text-gray-600'>Delivery Charge</p>

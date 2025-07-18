@@ -9,6 +9,7 @@ import OrderTimeline from '../components/OrderTimeline';
 import OrderCancellationModal from '../components/OrderCancellationModal';
 import { useGlobalContext } from '../provider/GlobalProvider';
 import { setOrders } from '../store/orderSlice';
+import noCart from '../assets/noCart.jpg'; // Import fallback image
 
 function MyOrders() {
   // Get all orders from Redux store
@@ -185,6 +186,68 @@ function MyOrders() {
     return "PENDING";
   };
 
+  // Helper function to get image source with proper fallbacks (based on BagPage logic)
+  const getImageSource = (item) => {
+    if (!item) return noCart;
+    
+    // Initialize with fallback
+    let imageSrc = noCart;
+    
+    if (item?.itemType === 'bundle') {
+      // For bundles, try multiple possible image sources in order of preference
+      // First try populated bundleId (after backend fix)
+      if (item?.bundleId && item?.bundleId._id) {
+        imageSrc = item?.bundleId?.images?.[0] || item?.bundleId?.image || noCart;
+      } 
+      // Then try bundleDetails from the order (legacy)
+      else if (item?.bundleDetails) {
+        imageSrc = item?.bundleDetails?.images?.[0] || item?.bundleDetails?.image || noCart;
+      } 
+      // Finally try other possible sources
+      else {
+        imageSrc = item?.image?.[0] || item?.images?.[0] || item?.image || noCart;
+      }
+    } else {
+      // For products, try multiple possible image sources in order of preference
+      // First try populated productId (this should work)
+      if (item?.productId && item?.productId._id) {
+        imageSrc = item?.productId?.image?.[0] || item?.productId?.primaryImage || noCart;
+      } 
+      // Then try productDetails from the order
+      else if (item?.productDetails) {
+        imageSrc = item?.productDetails?.image?.[0] || item?.productDetails?.images?.[0] || item?.productDetails?.primaryImage || noCart;
+      } 
+      // Finally try other possible sources
+      else {
+        imageSrc = item?.image?.[0] || item?.images?.[0] || item?.primaryImage || item?.image || noCart;
+      }
+    }
+    
+    console.log('Image source for item:', {
+      itemType: item?.itemType,
+      finalImageSrc: imageSrc,
+      bundleId: item?.bundleId,
+      productId: item?.productId,
+      bundleDetails: item?.bundleDetails,
+      productDetails: item?.productDetails
+    });
+    
+    return imageSrc;
+  };
+
+  // Helper function to handle image load errors (based on BagPage logic)
+  const handleImageError = (e, item) => {
+    console.warn('Image failed to load for item:', {
+      originalSrc: e.target.src,
+      item: item,
+      itemType: item?.itemType,
+      bundleDetails: item?.bundleDetails,
+      productDetails: item?.productDetails
+    });
+    e.target.onerror = null; // Prevent infinite error loops
+    e.target.src = noCart;
+  };
+
   return (
     <div className="bg-white min-h-screen">
       {/* Header - Responsive */}
@@ -264,17 +327,14 @@ function MyOrders() {
                   <div className={`w-20 h-20 sm:w-24 sm:h-24 md:w-28 md:h-28 lg:w-32 lg:h-32 xl:w-36 xl:h-36 rounded-lg overflow-hidden border-2 relative ${isCancelled ? 'border-red-300 bg-red-50' : 'border-gray-200 bg-gray-50'}`}>
                     {/* Display first item image - handle both bundles and products */}
                     <img
-                      src={
-                        order?.items[0]?.itemType === 'bundle' 
-                          ? order?.items[0]?.bundleDetails?.image 
-                          : order?.items[0]?.productDetails?.image[0]
-                      }
+                      src={getImageSource(order?.items[0])}
                       alt={
                         order?.items[0]?.itemType === 'bundle' 
                           ? order?.items[0]?.bundleDetails?.title 
                           : order?.items[0]?.productDetails?.name
                       }
                       className={`w-full h-full object-cover transition-all duration-300 ${isCancelled ? 'grayscale opacity-60' : ''}`}
+                      onError={(e) => handleImageError(e, order?.items[0])}
                     />
                     {isCancelled && (
                       <div className="absolute inset-0 flex items-center justify-center bg-black/20">
@@ -340,11 +400,7 @@ function MyOrders() {
                               isCancelled ? 'border-red-300' : 'border-gray-200'
                             }`}>
                               <img
-                                src={
-                                  item?.itemType === 'bundle' 
-                                    ? item?.bundleDetails?.image 
-                                    : item?.productDetails?.image?.[0]
-                                }
+                                src={getImageSource(item)}
                                 alt={
                                   item?.itemType === 'bundle' 
                                     ? item?.bundleDetails?.title 
@@ -353,6 +409,7 @@ function MyOrders() {
                                 className={`w-full h-full object-cover ${
                                   isCancelled ? 'grayscale opacity-60' : ''
                                 }`}
+                                onError={(e) => handleImageError(e, item)}
                               />
                             </div>
                             

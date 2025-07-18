@@ -5,11 +5,19 @@ import UserModel from "../models/users.model.js";
 export const addToWishlistController = async (req, res) => {
     try {
         const userId = req.userId;
-        const { productId } = req.body;
+        const { productId, bundleId } = req.body;
 
-        if (!productId) {
+        if (!productId && !bundleId) {
             return res.status(400).json({
-                message: "Product ID is required",
+                message: "Either Product ID or Bundle ID is required",
+                success: false,
+                error: true
+            });
+        }
+
+        if (productId && bundleId) {
+            return res.status(400).json({
+                message: "Cannot add both product and bundle at the same time",
                 success: false,
                 error: true
             });
@@ -20,32 +28,38 @@ export const addToWishlistController = async (req, res) => {
 
         if (!wishlist) {
             // Create new wishlist if none exists
+            const newItem = productId ? { productId } : { bundleId };
             wishlist = new WishlistModel({
                 userId,
-                products: [{ productId }]
+                products: [newItem]
             });
             await wishlist.save();
         } else {
-            // Check if product already exists in wishlist
-            const productExists = wishlist.products.some(item => 
-                item.productId.toString() === productId.toString()
-            );
+            // Check if item already exists in wishlist
+            const itemExists = wishlist.products.some(item => {
+                if (productId) {
+                    return item.productId && item.productId.toString() === productId.toString();
+                } else {
+                    return item.bundleId && item.bundleId.toString() === bundleId.toString();
+                }
+            });
 
-            if (productExists) {
+            if (itemExists) {
                 return res.status(200).json({
-                    message: "Product already in wishlist",
+                    message: productId ? "Product already in wishlist" : "Bundle already in wishlist",
                     success: true,
                     isInWishlist: true
                 });
             }
 
-            // Add product to existing wishlist
-            wishlist.products.push({ productId });
+            // Add item to existing wishlist
+            const newItem = productId ? { productId } : { bundleId };
+            wishlist.products.push(newItem);
             await wishlist.save();
         }
 
         return res.status(201).json({
-            message: "Product added to wishlist",
+            message: productId ? "Product added to wishlist" : "Bundle added to wishlist",
             success: true,
             error: false,
             data: wishlist
@@ -64,17 +78,17 @@ export const addToWishlistController = async (req, res) => {
 export const removeFromWishlistController = async (req, res) => {
     try {
         const userId = req.userId;
-        const { productId } = req.body;
+        const { productId, bundleId } = req.body;
 
-        if (!productId) {
+        if (!productId && !bundleId) {
             return res.status(400).json({
-                message: "Product ID is required",
+                message: "Either Product ID or Bundle ID is required",
                 success: false,
                 error: true
             });
         }
 
-        // Find user's wishlist and remove the product
+        // Find user's wishlist and remove the item
         const wishlist = await WishlistModel.findOne({ userId });
 
         if (!wishlist) {
@@ -85,15 +99,19 @@ export const removeFromWishlistController = async (req, res) => {
             });
         }
 
-        // Filter out the product
-        wishlist.products = wishlist.products.filter(
-            item => item.productId.toString() !== productId.toString()
-        );
+        // Filter out the item
+        wishlist.products = wishlist.products.filter(item => {
+            if (productId) {
+                return !item.productId || item.productId.toString() !== productId.toString();
+            } else {
+                return !item.bundleId || item.bundleId.toString() !== bundleId.toString();
+            }
+        });
 
         await wishlist.save();
 
         return res.status(200).json({
-            message: "Product removed from wishlist",
+            message: productId ? "Product removed from wishlist" : "Bundle removed from wishlist",
             success: true,
             error: false,
             data: wishlist
@@ -113,12 +131,17 @@ export const getWishlistController = async (req, res) => {
     try {
         const userId = req.userId;
 
-        // Find user's wishlist and populate product details
+        // Find user's wishlist and populate both product and bundle details
         const wishlist = await WishlistModel.findOne({ userId })
             .populate({
                 path: 'products.productId',
                 model: 'product',
                 select: 'name price discount image description category stock'
+            })
+            .populate({
+                path: 'products.bundleId',
+                model: 'bundle',
+                select: 'title bundlePrice originalPrice images description items stock discount tag'
             });
 
         if (!wishlist) {
@@ -126,20 +149,18 @@ export const getWishlistController = async (req, res) => {
             return res.status(200).json({
                 message: "No wishlist found",
                 success: true,
-                data: { products: [] }
+                data: []
             });
         }
 
-        // Filter out any null productId entries that might occur if products were deleted
-        const validProducts = wishlist.products.filter(item => item.productId);
+        // Filter out any null entries and format the response
+        const validItems = wishlist.products.filter(item => item.productId || item.bundleId);
 
         return res.status(200).json({
             message: "Wishlist retrieved successfully",
             success: true,
             error: false,
-            data: {
-                products: validProducts
-            }
+            data: validItems
         });
     } catch (error) {
         console.error("Error fetching wishlist:", error);
@@ -156,6 +177,16 @@ export const checkWishlistItemController = async (req, res) => {
     try {
         const userId = req.userId;
         const { productId } = req.params;
+
+        console.log("checkWishlistItemController - userId:", userId, "productId:", productId);
+
+        if (!userId) {
+            return res.status(401).json({
+                message: "User not authenticated",
+                success: false,
+                error: true
+            });
+        }
 
         if (!productId) {
             return res.status(400).json({
@@ -175,9 +206,18 @@ export const checkWishlistItemController = async (req, res) => {
             });
         }
 
-        const isInWishlist = wishlist.products.some(
-            item => item.productId.toString() === productId.toString()
-        );
+        // Check if the item exists in wishlist (either as product or bundle)
+        const isInWishlist = wishlist.products.some(item => {
+            // Check if it's a product
+            if (item.productId && item.productId.toString() === productId.toString()) {
+                return true;
+            }
+            // Check if it's a bundle
+            if (item.bundleId && item.bundleId.toString() === productId.toString()) {
+                return true;
+            }
+            return false;
+        });
 
         return res.status(200).json({
             isInWishlist,
@@ -187,6 +227,7 @@ export const checkWishlistItemController = async (req, res) => {
         console.error("Error checking wishlist item:", error);
         return res.status(500).json({
             message: "Error checking wishlist item",
+            success: false,
             success: false,
             error: true
         });

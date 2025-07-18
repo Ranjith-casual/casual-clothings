@@ -126,8 +126,8 @@ const AddToCartButton = ({ data, isBundle = false, cartItemId = null, currentQty
       return;
     }
 
-    // Check if increasing quantity would exceed stock (only for products with defined stock)
-    if (!isBundle && data.stock !== undefined && qty + 1 > data.stock) {
+    // Check if increasing quantity would exceed stock
+    if (data.stock !== undefined && qty + 1 > data.stock) {
       toast.error(`Only ${data.stock} items available in stock`);
       return;
     }
@@ -200,8 +200,28 @@ const AddToCartButton = ({ data, isBundle = false, cartItemId = null, currentQty
   // Check if product is out of stock - add null check (only for products)
   const isOutOfStock = !isBundle && data && data.stock !== undefined && data.stock <= 0;
   
-  // In cart context, be more lenient with stock validation
-  const shouldDisableIncrement = loading || (!cartItemId && !isBundle && data?.stock !== undefined && qty >= data.stock);
+  // Check if increment should be disabled based on stock limits
+  const shouldDisableIncrement = (() => {
+    if (loading) return true;
+    
+    // For new items (not in cart yet)
+    if (!cartItemId) {
+      if (isBundle) {
+        // For bundles, check bundle stock if available
+        return data?.stock !== undefined && qty >= data.stock;
+      } else {
+        // For products, check product stock
+        return data?.stock !== undefined && qty >= data.stock;
+      }
+    }
+    
+    // For existing cart items, check stock limits
+    if (isBundle) {
+      return data?.stock !== undefined && qty >= data.stock;
+    } else {
+      return data?.stock !== undefined && qty >= data.stock;
+    }
+  })();
   
   return (
     <div className={`w-full ${large ? '' : 'max-w-[150px]'}`}>
@@ -270,6 +290,13 @@ const AddToCartButton = ({ data, isBundle = false, cartItemId = null, currentQty
                 </>
               )}
             </button>
+          )}
+
+          {/* Maximum stock reached message */}
+          {data?.stock !== undefined && qty >= data.stock && isAvailableCart && (
+            <div className="text-xs text-amber-600 text-center mt-1 font-medium">
+              Maximum stock reached
+            </div>
           )}
 
           {/* Stock Warning for Low Stock */}
