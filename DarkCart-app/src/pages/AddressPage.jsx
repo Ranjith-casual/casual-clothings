@@ -600,7 +600,7 @@ const AddressPage = () => {
       } 
     });
   };
-
+  console.log('checkoutItems:', checkoutItems);
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header Section with stepper */}
@@ -749,6 +749,7 @@ const AddressPage = () => {
                     // Get image source safely
                     const imageSrc = getProductProperty(item, 'image[0]') || 
                                     getProductProperty(item, 'primaryImage') ||
+                                    item.bundleId.images[0] ||
                                     noCart; // Use local fallback image
                     
                     // Get product title/name safely

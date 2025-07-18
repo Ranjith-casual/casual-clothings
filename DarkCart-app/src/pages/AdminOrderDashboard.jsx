@@ -510,6 +510,8 @@ const AdminOrderDashboard = () => {
     fetchOrders();
   };
 
+  console.log("Filtered orders:", filteredOrders);
+
   return (
     <div className="bg-gray-50 min-h-screen p-4 sm:p-6">
       <div className="max-w-7xl mx-auto">
@@ -801,7 +803,7 @@ const AdminOrderDashboard = () => {
                                   }
                                   // Check bundleId is populated object
                                   else if (firstItem.bundleId && typeof firstItem.bundleId === 'object') {
-                                    imageUrl = firstItem.bundleId.image?.[0];
+                                    imageUrl = firstItem.bundleId.images?.[0];
                                     altText = firstItem.bundleId.title || firstItem.bundleId.name || 'Bundle';
                                   }
                                   // Check bundleDetails

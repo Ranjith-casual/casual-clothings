@@ -247,7 +247,7 @@ function MyOrders() {
     e.target.onerror = null; // Prevent infinite error loops
     e.target.src = noCart;
   };
-
+  console.log('userOrders:', userOrders);
   return (
     <div className="bg-white min-h-screen">
       {/* Header - Responsive */}
@@ -441,12 +441,12 @@ function MyOrders() {
                                   <div className={`font-bold text-sm sm:text-base ${
                                     isCancelled ? 'text-red-800 line-through' : 'text-black'
                                   }`}>
-                                    ₹{item?.itemType === 'bundle' ? item?.bundleDetails?.bundlePrice : item?.productDetails?.price}
+                                    ₹{item?.itemType === 'bundle' ? item?.bundleId?.bundlePrice : item?.productId.price}
                                   </div>
                                   <div className={`text-xs ${
                                     isCancelled ? 'text-red-600' : 'text-gray-500'
                                   }`}>
-                                    Total: ₹{item?.itemTotal}
+                                    Total: ₹{item?.bundleId?.bundlePrice * item?.quantity || item?.productId.price * item?.quantity}
                                   </div>
                                 </div>
                               </div>
