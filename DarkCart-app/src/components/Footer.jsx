@@ -10,9 +10,12 @@ import {
   FaHeart,
 } from "react-icons/fa";
 import { Link } from "react-router-dom";
+import { useSelector } from "react-redux";
 
 function Footer() {
   const currentYear = new Date().getFullYear();
+  const auth = useSelector((state) => state.auth);
+  const user = auth?.user;
 
   return (
     <footer className="bg-gradient-to-b from-white to-gray-50 border-t border-gray-200">
@@ -67,8 +70,8 @@ function Footer() {
               {[
                 { to: "/faq", label: "FAQ" },
                 { to: "/shipping-returns", label: "Shipping & Returns" },
-                { to: "/dashboard/myorders", label: "My Orders" },
-                { to: "/dashboard/profile", label: "My Account" },
+                { to: user ? "/dashboard/myorders" : "/login", label: "My Orders" },
+                { to: user ? "/dashboard/profile" : "/login", label: "My Account" },
               ].map(({ to, label }, idx) => (
                 <li key={idx}>
                   <Link to={to} className="text-gray-600 hover:text-black flex items-center transition-all duration-300 group font-['Poppins']">

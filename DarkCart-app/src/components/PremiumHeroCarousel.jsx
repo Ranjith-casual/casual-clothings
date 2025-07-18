@@ -225,9 +225,7 @@ const PremiumHeroCarousel = () => {
         </div>
 
         {/* Magazine-style Typography Credit */}
-        <div className="absolute bottom-8 left-8 z-20 text-white/40 text-xs tracking-widest uppercase">
-          <span>Vol. 01</span>
-        </div>
+       
       </section>
 
       {/* Mobile Premium Design - Innovative Vertical Stack */}
@@ -312,62 +310,7 @@ const PremiumHeroCarousel = () => {
 
         {/* Mobile Content Cards - Scrollable */}
         <div className="bg-white py-8">
-          <div className="px-4 space-y-6">
-            {heroSlides.map((slide, index) => (
-              <motion.div
-                key={slide.id}
-                initial={{ opacity: 0, y: 30 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true, margin: "-50px" }}
-                transition={{ duration: 0.6, delay: index * 0.1 }}
-                onClick={() => goToSlide(index)}
-                className={`relative overflow-hidden rounded-lg transition-all duration-500 cursor-pointer ${
-                  selectedIndex === index 
-                    ? 'shadow-lg border-2 border-black' 
-                    : 'shadow-sm border border-gray-200 hover:shadow-md'
-                }`}
-              >
-                <div className="flex items-center h-24">
-                  {/* Image Preview */}
-                  <div className="w-24 h-24 flex-shrink-0 relative overflow-hidden">
-                    <img
-                      src={slide.src}
-                      alt={slide.title}
-                      className="w-full h-full object-cover transition-transform duration-300 hover:scale-105"
-                      style={{
-                        filter: selectedIndex === index 
-                          ? 'grayscale(0%) contrast(1) brightness(1)' 
-                          : 'grayscale(100%) contrast(1.1) brightness(0.8)'
-                      }}
-                    />
-                  </div>
-                  
-                  {/* Content */}
-                  <div className="flex-1 p-4">
-                    <h3 className={`font-medium tracking-wide transition-colors duration-300 ${
-                      selectedIndex === index ? 'text-black' : 'text-gray-600'
-                    }`}>
-                      {slide.title}
-                    </h3>
-                    <p className="text-xs text-gray-500 mt-1 tracking-wide">
-                      {slide.subtitle}
-                    </p>
-                  </div>
-
-                  {/* Active Indicator */}
-                  {selectedIndex === index && (
-                    <motion.div
-                      initial={{ scale: 0 }}
-                      animate={{ scale: 1 }}
-                      className="absolute right-4 top-1/2 -translate-y-1/2"
-                    >
-                      <div className="w-2 h-2 bg-black rounded-full" />
-                    </motion.div>
-                  )}
-                </div>
-              </motion.div>
-            ))}
-          </div>
+         
 
           {/* Mobile CTA */}
           <div className="px-4 mt-8">

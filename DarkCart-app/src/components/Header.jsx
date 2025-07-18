@@ -101,6 +101,15 @@ function Header() {
       window.removeEventListener("resize", handleResize);
     };
   }, [showUserMenue, location.pathname]);
+  
+  // Close fashion/prime deals dropdowns when route changes
+  useEffect(() => {
+    if (location.pathname !== prevPathRef.current) {
+      setShowFashionDropdown(false);
+      setShowPrimeDealsDropdown(false);
+      prevPathRef.current = location.pathname;
+    }
+  }, [location.pathname]);
 
   const handleUserMenu = () => {
     setShowUserMenue(false);
@@ -640,7 +649,7 @@ function Header() {
                           }}
                         >
                           <div className="flex items-center gap-3 w-full">
-                            <FaRegHeart className="w-5 h-5 text-gray-800 group-hover:scale-110 transition-transform duration-300" />
+                            {/* <FaRegHeart className="w-5 h-5 text-gray-800 group-hover:scale-110 transition-transform duration-300" /> */}
                             <span className="tracking-wide">My Wishlist</span>
                           </div>
                         </Link>
@@ -656,7 +665,7 @@ function Header() {
                           }}
                         >
                           <div className="flex items-center gap-3 w-full">
-                            <FaGift className="w-5 h-5 text-gray-800 group-hover:scale-110 transition-transform duration-300" />
+                            {/* <FaGift className="w-5 h-5 text-gray-800 group-hover:scale-110 transition-transform duration-300" /> */}
                             <span className="tracking-wide">My Order</span>
                           </div>
                         </Link>
@@ -672,7 +681,7 @@ function Header() {
                           }}
                         >
                           <div className="flex items-center gap-3 w-full">
-                            <FaMapMarkerAlt className="w-5 h-5 text-gray-800 group-hover:scale-110 transition-transform duration-300" />
+                            {/* <FaMapMarkerAlt className="w-5 h-5 text-gray-800 group-hover:scale-110 transition-transform duration-300" /> */}
                             <span className="tracking-wide">My Address</span>
                           </div>
                         </Link>
@@ -720,9 +729,7 @@ function Header() {
                           }}
                         >
                           <div className="flex items-center gap-3 w-full">
-                            <svg className="w-5 h-5 text-gray-800 group-hover:scale-110 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-                            </svg>
+                           
                             <span className="tracking-wide">Logout</span>
                           </div>
                         </button>
@@ -732,7 +739,7 @@ function Header() {
                     <div className="border-b border-gray-100 my-2"></div>
                     
                     {/* Prime Deals Section - Mobile */}
-                    <div className="flex flex-col">
+                    <div className="flex flex-col prime-deals-trigger">
                       <button
                         className="flex items-center justify-between text-gray-700 hover:text-black hover:bg-black/5 px-5 py-3 text-sm transition-all duration-300"
                         onClick={() => setShowPrimeDealsDropdown(!showPrimeDealsDropdown)}
@@ -744,7 +751,6 @@ function Header() {
                         }}
                       >
                         <div className="flex items-center">
-                          <span className="w-1.5 h-1.5 bg-amber-500 rounded-full mr-3"></span>
                           <div className="flex items-center tracking-wide">
                             PRIME DEALS
                           </div>
@@ -771,7 +777,10 @@ function Header() {
                         <Link
                           to="/bundle-offers"
                           className="flex items-center text-gray-600 hover:text-black hover:bg-black/5 pl-10 pr-5 py-2.5 text-sm transition-all duration-300"
-                          onClick={() => setTimeout(() => setMobileMenuOpen(false), 200)}
+                          onClick={() => {
+                            setShowPrimeDealsDropdown(false);
+                            setTimeout(() => setMobileMenuOpen(false), 200);
+                          }}
                           style={{ 
                             fontFamily: "'Inter', sans-serif",
                             fontWeight: '300',
@@ -783,7 +792,10 @@ function Header() {
                         <Link
                           to="/seasonal-sale"
                           className="flex items-center text-gray-600 hover:text-black hover:bg-black/5 pl-10 pr-5 py-2.5 text-sm transition-all duration-300"
-                          onClick={() => setTimeout(() => setMobileMenuOpen(false), 200)}
+                          onClick={() => {
+                            setShowPrimeDealsDropdown(false);
+                            setTimeout(() => setMobileMenuOpen(false), 200);
+                          }}
                           style={{ 
                             fontFamily: "'Inter', sans-serif",
                             fontWeight: '300',
@@ -796,7 +808,7 @@ function Header() {
                     </div>
 
                     {/* Fashion Section - Mobile */}
-                    <div className="flex flex-col">
+                    <div className="flex flex-col fashion-menu-trigger">
                       <button
                         className="flex items-center justify-between text-gray-700 hover:text-black hover:bg-black/5 px-5 py-3 text-sm transition-all duration-300"
                         onClick={() => setShowFashionDropdown(!showFashionDropdown)}
@@ -808,9 +820,8 @@ function Header() {
                         }}
                       >
                         <div className="flex items-center">
-                          <span className="w-1.5 h-1.5 bg-black rounded-full mr-3"></span>
                           <div className="flex items-center tracking-wide">
-                            <FaTshirt className="mr-1.5 text-black" size={16} />
+                           
                             FASHION
                           </div>
                         </div>
@@ -832,75 +843,51 @@ function Header() {
                           : 'max-h-0 opacity-0'
                         }`}
                       >
-                        <div className="grid grid-cols-3 gap-2 px-5 py-3">
+                        <div className="flex flex-col px-5 py-3">
                           <Link
                             to="/search?gender=Men"
-                            className="flex flex-col items-center transition-all duration-300 group"
-                            onClick={() => setTimeout(() => setMobileMenuOpen(false), 200)}
+                            className="text-gray-700 hover:text-black hover:bg-black/5 py-2 px-3 rounded-md transition-all duration-300"
+                            onClick={() => {
+                              setShowFashionDropdown(false);
+                              setTimeout(() => setMobileMenuOpen(false), 200);
+                            }}
+                            style={{ 
+                              fontFamily: "'Inter', sans-serif",
+                              fontWeight: '400',
+                              letterSpacing: '0.03em',
+                            }}
                           >
-                            <div className="w-12 h-12 overflow-hidden transition-transform duration-500 group-hover:scale-105">
-                              <img 
-                                src="https://images.unsplash.com/photo-1617137968427-85924c800a22?ixlib=rb-1.2.1&ixid=MnwxMjA3fDB8MHxzZWFyY2h8M3x8bWVuJTIwZmFzaGlvbnxlbnwwfHwwfHw%3D&w=200&q=80" 
-                                alt="Men" 
-                                className="w-full h-full object-cover filter grayscale hover:grayscale-0 transition-all duration-500" 
-                              />
-                            </div>
-                            <span 
-                              className="text-xs text-gray-700 mt-1 group-hover:text-black transition-all duration-300"
-                              style={{ 
-                                fontFamily: "'Inter', sans-serif",
-                                fontWeight: '300',
-                                letterSpacing: '0.03em',
-                              }}
-                            >
-                              Men
-                            </span>
+                            Men
                           </Link>
                           <Link
                             to="/search?gender=Women"
-                            className="flex flex-col items-center transition-all duration-300 group"
-                            onClick={() => setTimeout(() => setMobileMenuOpen(false), 200)}
+                            className="text-gray-700 hover:text-black hover:bg-black/5 py-2 px-3 rounded-md transition-all duration-300"
+                            onClick={() => {
+                              setShowFashionDropdown(false);
+                              setTimeout(() => setMobileMenuOpen(false), 200);
+                            }}
+                            style={{ 
+                              fontFamily: "'Inter', sans-serif",
+                              fontWeight: '400',
+                              letterSpacing: '0.03em',
+                            }}
                           >
-                            <div className="w-12 h-12 overflow-hidden transition-transform duration-500 group-hover:scale-105">
-                              <img 
-                                src="https://images.unsplash.com/photo-1618244972963-dbad64b98bad?ixlib=rb-1.2.1&ixid=MnwxMjA3fDB8MHxzZWFyY2h8NXx8d29tZW4lMjBmYXNoaW9ufGVufDB8fDB8fA%3D%3D&w=200&q=80" 
-                                alt="Women" 
-                                className="w-full h-full object-cover filter grayscale hover:grayscale-0 transition-all duration-500" 
-                              />
-                            </div>
-                            <span 
-                              className="text-xs text-gray-700 mt-1 group-hover:text-black transition-all duration-300"
-                              style={{ 
-                                fontFamily: "'Inter', sans-serif",
-                                fontWeight: '300',
-                                letterSpacing: '0.03em',
-                              }}
-                            >
-                              Women
-                            </span>
+                            Women
                           </Link>
                           <Link
                             to="/search?gender=Kids"
-                            className="flex flex-col items-center transition-all duration-300 group"
-                            onClick={() => setTimeout(() => setMobileMenuOpen(false), 200)}
+                            className="text-gray-700 hover:text-black hover:bg-black/5 py-2 px-3 rounded-md transition-all duration-300"
+                            onClick={() => {
+                              setShowFashionDropdown(false);
+                              setTimeout(() => setMobileMenuOpen(false), 200);
+                            }}
+                            style={{ 
+                              fontFamily: "'Inter', sans-serif",
+                              fontWeight: '400',
+                              letterSpacing: '0.03em',
+                            }}
                           >
-                            <div className="w-12 h-12 overflow-hidden transition-transform duration-500 group-hover:scale-105">
-                              <img 
-                                src="https://images.unsplash.com/photo-1622290291468-a28f7a7dc6a8?ixlib=rb-1.2.1&ixid=MnwxMjA3fDB8MHxzZWFyY2h8M3x8a2lkcyUyMGZhc2hpb258ZW58MHx8MHx8&w=200&q=80" 
-                                alt="Kids" 
-                                className="w-full h-full object-cover filter grayscale hover:grayscale-0 transition-all duration-500" 
-                              />
-                            </div>
-                            <span 
-                              className="text-xs text-gray-700 mt-1 group-hover:text-black transition-all duration-300"
-                              style={{ 
-                                fontFamily: "'Inter', sans-serif",
-                                fontWeight: '300',
-                                letterSpacing: '0.03em',
-                              }}
-                            >
-                              Kids
-                            </span>
+                            Kids
                           </Link>
                         </div>
                       </div>
@@ -919,7 +906,6 @@ function Header() {
                         letterSpacing: '0.05em',
                       }}
                     >
-                      <span className="w-1.5 h-1.5 bg-black rounded-full mr-3"></span>
                       ABOUT
                     </Link>
                   </div>

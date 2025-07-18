@@ -509,8 +509,8 @@ body{
   
   /* "Desktop Site" mode fixes on mobile */
   section.h-screen, 
-  section.h-[90vh], 
-  div.h-[60vh] {
+  section.h-\[90vh\], 
+  div.h-\[60vh\] {
     height: auto !important;
     min-height: 80vh !important;
     max-height: 100vh !important;
@@ -545,8 +545,8 @@ body{
   
   /* Additional "Desktop Site" fixes for smaller screens */
   section.h-screen, 
-  section.h-[90vh], 
-  div.h-[60vh] {
+  section.h-\[90vh\], 
+  div.h-\[60vh\] {
     height: auto !important;
     min-height: 70vh !important;
   }
