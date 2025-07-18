@@ -13,13 +13,18 @@
 
 html{
     scroll-behavior: smooth;
+    height: 100%; /* Ensure html takes full height */
 }
 
 body{
     font-family: "Inter", sans-serif;
     font-weight: 400;
     color: var(--fashion-text);
-    @apply scroll-smooth bg-gray-50
+    scroll-behavior: smooth;
+    background-color: rgb(249 250 251); /* bg-gray-50 equivalent */
+    min-height: 100%; /* Ensure body takes at least full height */
+    position: relative; /* Create positioning context */
+    overflow-y: auto !important; /* Force vertical scrolling */
 }
 
 .fashion-heading {
@@ -28,15 +33,44 @@ body{
 }
 
 .fashion-card {
-  @apply bg-white rounded-lg shadow-sm hover:shadow-md transition-all duration-300 border border-gray-100;
+  background-color: white;
+  border-radius: 0.5rem;
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  transition-property: all;
+  transition-duration: 300ms;
+  border: 1px solid rgb(243, 244, 246);
+}
+.fashion-card:hover {
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
 }
 
 .fashion-btn-primary {
-  @apply bg-black text-white px-6 py-3 rounded-none hover:bg-gray-800 transition-all duration-300 font-medium tracking-wide;
+  background-color: black;
+  color: white;
+  padding: 0.75rem 1.5rem;
+  border-radius: 0;
+  font-weight: 500;
+  letter-spacing: 0.025em;
+  transition-property: all;
+  transition-duration: 300ms;
+}
+.fashion-btn-primary:hover {
+  background-color: rgb(31, 41, 55);
 }
 
 .fashion-btn-secondary {
-  @apply border-2 border-black text-black px-6 py-3 rounded-none hover:bg-black hover:text-white transition-all duration-300 font-medium tracking-wide;
+  border: 2px solid black;
+  color: black;
+  padding: 0.75rem 1.5rem;
+  border-radius: 0;
+  font-weight: 500;
+  letter-spacing: 0.025em;
+  transition-property: all;
+  transition-duration: 300ms;
+}
+.fashion-btn-secondary:hover {
+  background-color: black;
+  color: white;
 }
 
 .no-scrollbar {
@@ -237,6 +271,27 @@ body{
     backdrop-filter: none;
     background: rgba(0, 0, 0, 0.4);
   }
+
+  /* Fix "Desktop Site" mode on mobile */
+  html.desktop-mode,
+  body.desktop-mode {
+    height: auto !important;
+    min-height: 100% !important;
+    overflow-y: auto !important;
+  }
+
+  /* Adjust hero section height in desktop mode on mobile */
+  .desktop-mode .h-screen {
+    height: 100vh !important;
+    min-height: 0 !important;
+    max-height: 100vh !important;
+  }
+
+  /* Ensure content scrolls properly */
+  .desktop-mode #root {
+    height: auto !important;
+    overflow: visible !important;
+  }
 }
 
 /* Smooth scroll behavior for users who prefer motion */
@@ -276,6 +331,46 @@ body{
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeSpeed;
+}
+
+/* Fix for desktop site mode on mobile */
+@media (min-width: 768px) {
+  body, html {
+    height: auto !important;
+    overflow-y: auto !important;
+  }
+  
+  #root {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+  
+  main {
+    flex: 1;
+  }
+}
+
+/* Add specific fix for desktop site mode */
+@media screen and (max-width: 1024px) {
+  html.desktop-mode body {
+    /* Override any problematic height settings */
+    min-height: auto !important;
+    height: auto !important;
+    overflow-y: scroll !important;
+  }
+  
+  html.desktop-mode #root {
+    /* Ensure layout flows naturally */
+    height: auto !important;
+    min-height: auto !important;
+  }
+  
+  html.desktop-mode main {
+    /* Make content visible and scrollable */
+    visibility: visible !important;
+    overflow: visible !important;
+  }
 }
 
 /* Optimize transitions for smooth 60fps */
@@ -411,6 +506,28 @@ body{
   .card-carousel-card {
     box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
   }
+  
+  /* "Desktop Site" mode fixes on mobile */
+  section.h-screen, 
+  section.h-[90vh], 
+  div.h-[60vh] {
+    height: auto !important;
+    min-height: 80vh !important;
+    max-height: 100vh !important;
+  }
+  
+  /* Force content visibility */
+  #root > main {
+    display: block !important;
+    visibility: visible !important;
+    overflow: visible !important;
+    height: auto !important;
+  }
+  
+  /* Ensure page can scroll */
+  body {
+    overflow-y: scroll !important;
+  }
 }
 
 @media (max-width: 480px) {
@@ -424,5 +541,13 @@ body{
   
   .card-carousel-card {
     box-shadow: 0 6px 20px rgba(0, 0, 0, 0.12);
+  }
+  
+  /* Additional "Desktop Site" fixes for smaller screens */
+  section.h-screen, 
+  section.h-[90vh], 
+  div.h-[60vh] {
+    height: auto !important;
+    min-height: 70vh !important;
   }
 }

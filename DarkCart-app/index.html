@@ -5,6 +5,26 @@
     <link rel="icon" type="image/svg+xml" href="src/assets/Logo/Black_White_Minimalist_Initials_Monogram_Jewelry_Logo-removebg-preview.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Casual Clothing Fashion</title>
+    <script>
+      // Detect if the user is on mobile and using "Desktop Site" mode
+      function detectDesktopMode() {
+        // Check if we're on a mobile device
+        const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+        // Check if the viewport width is significantly larger than the device width
+        // indicating "Desktop Site" mode is active
+        const deviceWidth = window.screen.width;
+        const viewportWidth = window.innerWidth;
+        
+        if (isMobile && viewportWidth >= deviceWidth * 0.9) {
+          document.documentElement.classList.add('desktop-mode');
+          document.body.classList.add('desktop-mode');
+        }
+      }
+      
+      // Run on load and resize
+      window.addEventListener('load', detectDesktopMode);
+      window.addEventListener('resize', detectDesktopMode);
+    </script>
     <style>
       /* Prevent white flash during loading */
       html, body {

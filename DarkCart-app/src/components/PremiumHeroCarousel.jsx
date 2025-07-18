@@ -72,7 +72,7 @@ const PremiumHeroCarousel = () => {
   return (
     <>
       {/* Desktop Carousel - Original Design */}
-      <section className="relative h-screen bg-black overflow-hidden select-none hidden md:block">
+      <section className="relative h-[90vh] max-h-screen bg-black overflow-hidden select-none hidden md:block">
         {/* Embla Carousel */}
         <div className="h-full touch-pan-x" ref={emblaRef}>
           <div className="flex h-full">
@@ -233,7 +233,7 @@ const PremiumHeroCarousel = () => {
       {/* Mobile Premium Design - Innovative Vertical Stack */}
       <section className="md:hidden bg-white">
         {/* Mobile Hero Header */}
-        <div className="relative h-[60vh] bg-black overflow-hidden">
+        <div className="relative h-[60vh] max-h-[70vh] bg-black overflow-hidden">
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
