@@ -187,38 +187,40 @@ const AddAddress = ({ close }) => {
   }, [selectedCountry, selectedState]);
 
   return (
-    <section className="bg-black/70 backdrop-blur-sm fixed top-0 left-0 right-0 bottom-0 z-50 overflow-auto h-screen flex items-start justify-center px-4 py-6 sm:py-12 font-poppins">
-      <div className="bg-white p-6 sm:p-8 w-full max-w-xl mx-auto rounded-xl shadow-2xl relative border border-gray-100 animate-fadeIn">
+    <section className="bg-black/50 fixed top-0 left-0 right-0 bottom-0 z-50 overflow-auto h-screen flex items-center justify-center px-3 py-3 sm:py-8">
+      <div className="bg-white p-4 sm:p-6 w-full max-w-md mx-auto rounded-lg shadow-xl relative border border-gray-100 animate-fadeIn font-sans">
         <button
-          className="absolute top-4 right-6 text-gray-400 hover:text-gray-800 text-3xl transition-all hover:rotate-90 hover:scale-110 duration-300"
+          className="absolute top-3 right-3 text-gray-400 hover:text-gray-800 transition-colors"
           onClick={close}
           aria-label="Close"
         >
-          &times;
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+            <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+          </svg>
         </button>
-        <div className="border-b border-gray-100 pb-4 mb-6">
-          <h2 className="font-bold text-2xl md:text-2xl text-gray-900 font-sans mb-2 tracking-tight">Add New Address</h2>
-          <p className="text-gray-600 text-sm md:text-base">Please fill in your delivery address details</p>
+        <div className="border-b border-gray-100 pb-3 mb-4">
+          <h2 className="font-bold text-lg sm:text-xl text-gray-900 mb-1 tracking-wider">Add New Address</h2>
+          <p className="text-gray-600 text-xs sm:text-sm tracking-wide">Please fill in your delivery address details</p>
         </div>
         
-        <form action="" className="mt-4 grid gap-5 sm:gap-6 font-sans" onSubmit={handleSubmit(onSubmit)}>
-          <div className="grid gap-2">
-            <label htmlFor="addressline" className="font-medium text-gray-700 tracking-wide font-sans">Address Line:</label>
+        <form action="" className="mt-2 grid gap-3 sm:gap-4" onSubmit={handleSubmit(onSubmit)}>
+          <div className="grid gap-1.5">
+            <label htmlFor="addressline" className="font-medium text-gray-700 tracking-wider text-xs sm:text-sm">Address Line:</label>
             <input
               type="text"
               id="addressline"
-              className="border border-gray-300 bg-gray-50 p-3 rounded-md outline-none focus:border-black focus:bg-white focus:ring-2 focus:ring-gray-200 transition-all shadow-sm font-sans"
+              className="border border-gray-300 bg-gray-50 p-2 sm:p-3 rounded-md outline-none focus:border-black focus:bg-white focus:ring-1 focus:ring-black transition-all shadow-sm tracking-wide text-xs sm:text-sm"
               placeholder="Enter your street address"
               {...register("addressline",{required: true})}
             />
           </div>
 
-          <div className="grid gap-2">
-            <label htmlFor="country" className="font-medium text-gray-700 tracking-wide">Country:</label>
+          <div className="grid gap-1.5">
+            <label htmlFor="country" className="font-medium text-gray-700 tracking-wider text-xs sm:text-sm">Country:</label>
             <div className="relative">
               <select
                 id="country"
-                className="border border-gray-300 bg-gray-50 p-3 rounded-md outline-none focus:border-black focus:bg-white focus:ring-2 focus:ring-gray-200 transition-all shadow-sm appearance-none cursor-pointer w-full font-sans"
+                className="border border-gray-300 bg-gray-50 p-2 sm:p-3 rounded-md outline-none focus:border-black focus:bg-white focus:ring-1 focus:ring-black transition-all shadow-sm appearance-none cursor-pointer w-full tracking-wide text-xs sm:text-sm"
                 {...register("country", { required: true })}
                 disabled={isLoadingCountries}
               >
@@ -234,19 +236,19 @@ const AddAddress = ({ close }) => {
                 )}
               </select>
               <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-700">
-                <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
+                <svg className="fill-current h-3 w-3 sm:h-4 sm:w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
                   <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z" />
                 </svg>
               </div>
             </div>
           </div>
 
-          <div className="grid gap-2">
-            <label htmlFor="state" className="font-medium text-gray-700 tracking-wide">State:</label>
+          <div className="grid gap-1.5">
+            <label htmlFor="state" className="font-medium text-gray-700 tracking-wider text-xs sm:text-sm">State:</label>
             <div className="relative">
               <select
                 id="state"
-                className="border border-gray-300 bg-gray-50 p-3 rounded-md outline-none focus:border-black focus:bg-white focus:ring-2 focus:ring-gray-200 transition-all shadow-sm w-full appearance-none cursor-pointer font-sans"
+                className="border border-gray-300 bg-gray-50 p-2 sm:p-3 rounded-md outline-none focus:border-black focus:bg-white focus:ring-1 focus:ring-black transition-all shadow-sm w-full appearance-none cursor-pointer tracking-wide text-xs sm:text-sm"
                 {...register("state", { required: true })}
                 disabled={!selectedCountry || isLoadingStates}
               >
@@ -262,19 +264,19 @@ const AddAddress = ({ close }) => {
                 )}
               </select>
               <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-700">
-                <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
+                <svg className="fill-current h-3 w-3 sm:h-4 sm:w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
                   <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z" />
                 </svg>
               </div>
             </div>
           </div>
 
-          <div className="grid gap-2">
-            <label htmlFor="city" className="font-medium text-gray-700 tracking-wide">City:</label>
+          <div className="grid gap-1.5">
+            <label htmlFor="city" className="font-medium text-gray-700 tracking-wider text-xs sm:text-sm">City:</label>
             <div className="relative">
               <select
                 id="city"
-                className="border border-gray-300 bg-gray-50 p-3 rounded-md outline-none focus:border-black focus:bg-white focus:ring-2 focus:ring-gray-200 transition-all shadow-sm w-full appearance-none cursor-pointer font-sans"
+                className="border border-gray-300 bg-gray-50 p-2 sm:p-3 rounded-md outline-none focus:border-black focus:bg-white focus:ring-1 focus:ring-black transition-all shadow-sm w-full appearance-none cursor-pointer tracking-wide text-xs sm:text-sm"
                 {...register("city", { required: true })}
                 disabled={!selectedState || isLoadingCities}
               >
@@ -290,21 +292,21 @@ const AddAddress = ({ close }) => {
                 )}
               </select>
               <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-700">
-                <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
+                <svg className="fill-current h-3 w-3 sm:h-4 sm:w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
                   <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z" />
                 </svg>
               </div>
             </div>
           </div>
 
-          <div className="md:grid md:grid-cols-2 md:gap-6 space-y-5 md:space-y-0">
-            <div className="grid gap-2">
-              <label htmlFor="pincode" className="font-medium text-gray-700 tracking-wide">Pincode:</label>
+          <div className="grid grid-cols-1 sm:grid-cols-2 sm:gap-4 gap-3">
+            <div className="grid gap-1.5">
+              <label htmlFor="pincode" className="font-medium text-gray-700 tracking-wider text-xs sm:text-sm">Pincode:</label>
               <div className="relative">
                 <input
                   type="text"
                   id="pincode"
-                  className="border border-gray-300 bg-gray-50 p-3 rounded-md outline-none focus:border-black focus:bg-white focus:ring-2 focus:ring-gray-200 transition-all shadow-sm"
+                  className="border border-gray-300 bg-gray-50 p-2 sm:p-3 rounded-md outline-none focus:border-black focus:bg-white focus:ring-1 focus:ring-black transition-all shadow-sm tracking-wide text-xs sm:text-sm"
                   placeholder={selectedCountry === "India" ? "Enter 6-digit pincode" : "Enter your pincode"}
                   {...register("pincode", {
                     required: true,
@@ -317,18 +319,18 @@ const AddAddress = ({ close }) => {
                   })}
                 />
                 {selectedCountry === "India" && (
-                  <p className="text-xs text-gray-600 mt-1 italic">* For India,6-digit pincode is required</p>
+                  <p className="text-xs text-gray-500 mt-1 italic tracking-wide text-[10px] sm:text-xs">* For India, 6-digit pincode is required</p>
                 )}
               </div>
             </div>
 
-            <div className="grid gap-2">
-              <label htmlFor="mobile" className="font-medium text-gray-700 tracking-wide font-sans">Mobile Number:</label>
+            <div className="grid gap-1.5">
+              <label htmlFor="mobile" className="font-medium text-gray-700 tracking-wider text-xs sm:text-sm">Mobile Number:</label>
               <div className="relative">
                 <input
                   type="tel"
                   id="mobile"
-                  className="border border-gray-300 bg-gray-50 p-3 rounded-md outline-none focus:border-black focus:bg-white focus:ring-2 focus:ring-gray-200 transition-all shadow-sm font-sans"
+                  className="border border-gray-300 bg-gray-50 p-2 sm:p-3 rounded-md outline-none focus:border-black focus:bg-white focus:ring-1 focus:ring-black transition-all shadow-sm tracking-wide text-xs sm:text-sm"
                   placeholder={selectedCountry === "India" ? "Enter 10-digit mobile number" : "Enter your mobile number"}
                   {...register("mobile", { 
                     required: true,
@@ -341,21 +343,21 @@ const AddAddress = ({ close }) => {
                   })}
                 />
                 {selectedCountry === "India" && (
-                  <p className="text-xs text-gray-600 mt-1 italic">* For India, a 10-digit number is required</p>
+                  <p className="text-xs text-gray-500 mt-1 italic tracking-wide text-[10px] sm:text-xs">* For India, a 10-digit number is required</p>
                 )}
               </div>
             </div>
           </div>
           
-          <div className="grid gap-2">
-            <label htmlFor="addIframe" className="font-medium text-gray-700 tracking-wide font-sans">
+          <div className="grid gap-1.5">
+            <label htmlFor="addIframe" className="font-medium text-gray-700 tracking-wider text-xs sm:text-sm">
               Add Iframe:
-              <span className="text-gray-500 text-sm ml-1 font-normal"> Go to Google Maps and copy the iframe embed code</span>
+              <span className="text-gray-500 text-xs ml-1 font-normal tracking-wide"> Google Maps embed code (optional)</span>
             </label>
             <input
               type="text"
               id="addIframe"
-              className="border border-gray-300 bg-gray-50 p-3 rounded-md outline-none focus:border-black focus:bg-white focus:ring-2 focus:ring-gray-200 transition-all shadow-sm font-sans"
+              className="border border-gray-300 bg-gray-50 p-2 sm:p-3 rounded-md outline-none focus:border-black focus:bg-white focus:ring-1 focus:ring-black transition-all shadow-sm tracking-wide text-xs sm:text-sm"
               placeholder="Enter iframe URL (optional)"
               {...register("addIframe")}
             />
@@ -363,7 +365,7 @@ const AddAddress = ({ close }) => {
 
           <button 
             type="submit" 
-            className="bg-black hover:bg-gray-800 text-white w-full p-3.5 rounded-md mt-8 transition-all font-semibold tracking-wider text-lg shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 font-sans"
+            className="bg-black hover:bg-gray-800 text-white w-full p-2.5 sm:p-3 rounded-md mt-4 sm:mt-6 transition-all font-semibold tracking-wider text-sm sm:text-base shadow-sm hover:shadow-md transform hover:-translate-y-0.5 active:translate-y-0 focus:outline-none focus:ring-2 focus:ring-black focus:ring-opacity-50"
           >
             Add Address
           </button>
