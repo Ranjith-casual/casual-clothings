@@ -124,7 +124,7 @@ export const requestOrderCancellation = async (req, res) => {
                         </ul>
                         
                         <p>Thank you for your patience.</p>
-                        <p>Best regards,<br>DarkCart Team</p>
+                        <p>Best regards,<br>casualclothings Team</p>
                     </div>
                 `
             });
@@ -159,7 +159,20 @@ export const getUserCancellationRequests = async (req, res) => {
         const requests = await orderCancellationModel.find({
             userId: userId
         })
-        .populate('orderId', 'orderId totalAmt orderDate orderStatus paymentMethod')
+        .populate({
+            path: 'orderId',
+            select: 'orderId totalAmt orderDate orderStatus paymentMethod paymentStatus items subTotalAmt totalQuantity orderQuantity productDetails',
+            populate: [
+                {
+                    path: 'items.productId',
+                    select: 'name title image price'
+                },
+                {
+                    path: 'items.bundleId',
+                    select: 'title name image price'
+                }
+            ]
+        })
         .populate('userId', 'name email')
         .sort({ createdAt: -1 });
 
@@ -191,7 +204,20 @@ export const getCancellationRequests = async (req, res) => {
         }
 
         const requests = await orderCancellationModel.find(filter)
-            .populate('orderId', 'orderId totalAmt orderDate orderStatus')
+            .populate({
+                path: 'orderId',
+                select: 'orderId totalAmt orderDate orderStatus paymentMethod paymentStatus items subTotalAmt totalQuantity orderQuantity productDetails',
+                populate: [
+                    {
+                        path: 'items.productId',
+                        select: 'name title image price'
+                    },
+                    {
+                        path: 'items.bundleId',
+                        select: 'title name image price'
+                    }
+                ]
+            })
             .populate('userId', 'name email')
             .populate('adminResponse.processedBy', 'name')
             .sort({ requestDate: -1 })
@@ -236,7 +262,19 @@ export const processCancellationRequest = async (req, res) => {
         }
 
         const cancellationRequest = await orderCancellationModel.findById(requestId)
-            .populate('orderId')
+            .populate({
+                path: 'orderId',
+                populate: [
+                    {
+                        path: 'items.productId',
+                        select: 'name title image price'
+                    },
+                    {
+                        path: 'items.bundleId',
+                        select: 'title name image price'
+                    }
+                ]
+            })
             .populate('userId');
 
         if (!cancellationRequest) {
@@ -307,7 +345,7 @@ export const processCancellationRequest = async (req, res) => {
                         <p>Your refund will be processed within 5-7 business days and will be credited to your original payment method.</p>
                         
                         <p>Thank you for your understanding.</p>
-                        <p>Best regards,<br>DarkCart Team</p>
+                        <p>Best regards,<br>casualclothings Team</p>
                     </div>
                 `
                 : `
@@ -325,7 +363,7 @@ export const processCancellationRequest = async (req, res) => {
                         <p>Your order will continue to be processed as normal. If you have any concerns, please contact our customer support team.</p>
                         
                         <p>Thank you for your understanding.</p>
-                        <p>Best regards,<br>DarkCart Team</p>
+                        <p>Best regards,<br>casualclothings Team</p>
                     </div>
                 `;
 
@@ -439,7 +477,7 @@ export const completeRefund = async (req, res) => {
                         <p>The refund has been processed to your original payment method. It may take 2-5 business days to reflect in your account, depending on your bank's policies.</p>
                         
                         <p>Thank you for your patience and understanding.</p>
-                        <p>Best regards,<br>DarkCart Team</p>
+                        <p>Best regards,<br>casualclothings Team</p>
                     </div>
                 `
             });
@@ -484,7 +522,20 @@ export const getAllRefunds = async (req, res) => {
         }
 
         const refunds = await orderCancellationModel.find(filter)
-            .populate('orderId', 'orderId totalAmt orderDate orderStatus paymentStatus paymentMethod')
+            .populate({
+                path: 'orderId',
+                select: 'orderId totalAmt orderDate orderStatus paymentStatus paymentMethod items subTotalAmt totalQuantity orderQuantity productDetails',
+                populate: [
+                    {
+                        path: 'items.productId',
+                        select: 'name title image price'
+                    },
+                    {
+                        path: 'items.bundleId',
+                        select: 'title name image price'
+                    }
+                ]
+            })
             .populate('userId', 'name email')
             .populate('adminResponse.processedBy', 'name')
             .sort({ 'refundDetails.refundDate': -1, 'adminResponse.processedDate': -1 })

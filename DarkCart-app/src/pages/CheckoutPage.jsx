@@ -499,7 +499,7 @@ const CheckoutPage = () => {
         <div className="container mx-auto px-4 py-3">
           <div className="flex items-center justify-between">
             <div className="w-24">
-              <img src={Logo} alt="DarkCart Logo" className="h-10" />
+              <img src={Logo} alt="casualclothings Logo" className="h-10" />
             </div>
             <div className="flex items-center space-x-2">
               <div className="text-xs uppercase tracking-wide text-gray-500">BAG</div>

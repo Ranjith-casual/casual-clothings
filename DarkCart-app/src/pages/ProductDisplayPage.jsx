@@ -503,7 +503,7 @@ const ProductDisplayPage = () => {
               <div className="flex">
                 <div className="font-medium text-gray-600 w-32 font-['Poppins']">Imported By</div>
                 <div className="text-gray-800 font-['Poppins']">
-                  : {data.importedBy || "DarkCart Trading (India) Pvt. Ltd."}
+                  : {data.importedBy || "casualclothings Trading (India) Pvt. Ltd."}
                 </div>
               </div>
               
@@ -515,7 +515,7 @@ const ProductDisplayPage = () => {
               <div className="flex">
                 <div className="font-medium text-gray-600 w-32 font-['Poppins']">Customer Care Address</div>
                 <div className="text-gray-800 font-['Poppins']">
-                  : Tower-B, 7th Floor, DarkCart Office, Knowledge Park, Main Road, Bengaluru, Karnataka - 560029
+                  : Tower-B, 7th Floor, casualclothings Office, Knowledge Park, Main Road, Bengaluru, Karnataka - 560029
                 </div>
               </div>
             </div>
@@ -664,7 +664,7 @@ const ProductDisplayPage = () => {
               <div>
                 {/* Brand/Category name */}
                 <h1 className="text-sm font-light uppercase tracking-[0.15em] text-gray-500 mb-2 font-['Poppins']">
-                  {data.category?.name || "DARK CART"}
+                  {data.category?.name || "casualclothings"}
                 </h1>
                 
                 {/* Product name */}

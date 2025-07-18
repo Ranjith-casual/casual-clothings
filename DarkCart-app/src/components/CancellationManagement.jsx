@@ -270,13 +270,175 @@ function CancellationManagement() {
                                     </div>
                                     <div className="flex flex-wrap justify-between items-center gap-2">
                                         <span className="text-gray-600 font-medium">Payment Method:</span>
-                                        <span className="font-semibold text-gray-800">{selectedRequest.orderId?.paymentMethod}</span>
+                                        <span className="font-semibold text-gray-800">
+                                            {selectedRequest.orderId?.paymentMethod || 
+                                             (selectedRequest.orderId?.paymentStatus === 'CASH ON DELIVERY' ? 'Cash on Delivery' : 'Online Payment')}
+                                        </span>
                                     </div>
                                     <div className="flex flex-wrap justify-between items-center gap-2">
                                         <span className="text-gray-600 font-medium">Order Status:</span>
                                         <span className="font-semibold text-gray-800">{selectedRequest.orderId?.orderStatus}</span>
                                     </div>
                                 </div>
+                            </div>
+                        </div>
+
+                        {/* Product Details */}
+                        <div className="mb-6">
+                            <h3 className="font-semibold text-lg sm:text-xl text-gray-800 mb-4 tracking-tight">Product Details</h3>
+                            <div className="bg-gray-50 p-4 sm:p-5 rounded-xl border border-gray-100 shadow-sm hover:shadow-md transition-all duration-300">
+                                {selectedRequest.orderId?.items && selectedRequest.orderId.items.length > 0 ? (
+                                    <div className="space-y-4">
+                                        {selectedRequest.orderId.items.map((item, index) => {
+                                            // Enhanced product name resolution
+                                            const getProductName = () => {
+                                                if (item.productId && typeof item.productId === 'object') {
+                                                    return item.productId.name || item.productId.title;
+                                                }
+                                                if (item.productDetails) {
+                                                    return item.productDetails.name || item.productDetails.title;
+                                                }
+                                                if (item.bundleId && typeof item.bundleId === 'object') {
+                                                    return item.bundleId.title || item.bundleId.name;
+                                                }
+                                                if (item.bundleDetails) {
+                                                    return item.bundleDetails.title || item.bundleDetails.name;
+                                                }
+                                                return 'Product Item';
+                                            };
+
+                                            const getProductImage = () => {
+                                                if (item.productId && typeof item.productId === 'object' && item.productId.image?.[0]) {
+                                                    return item.productId.image[0];
+                                                }
+                                                if (item.productDetails?.image?.[0]) {
+                                                    return item.productDetails.image[0];
+                                                }
+                                                if (item.bundleId && typeof item.bundleId === 'object' && item.bundleId.image?.[0]) {
+                                                    return item.bundleId.image[0];
+                                                }
+                                                if (item.bundleDetails?.image?.[0]) {
+                                                    return item.bundleDetails.image[0];
+                                                }
+                                                return null;
+                                            };
+
+                                            const getUnitPrice = () => {
+                                                if (item.productId && typeof item.productId === 'object' && item.productId.price) {
+                                                    return item.productId.price;
+                                                }
+                                                if (item.productDetails?.price) {
+                                                    return item.productDetails.price;
+                                                }
+                                                if (item.bundleId && typeof item.bundleId === 'object' && item.bundleId.price) {
+                                                    return item.bundleId.price;
+                                                }
+                                                if (item.bundleDetails?.price) {
+                                                    return item.bundleDetails.price;
+                                                }
+                                                if (item.itemTotal && item.quantity) {
+                                                    return item.itemTotal / item.quantity;
+                                                }
+                                                return 0;
+                                            };
+
+                                            return (
+                                                <div key={index} className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
+                                                    <div className="flex items-start gap-4">
+                                                        <div className="w-16 h-16 rounded-lg overflow-hidden bg-gray-100 border border-gray-200 flex-shrink-0">
+                                                            {getProductImage() ? (
+                                                                <img 
+                                                                    src={getProductImage()} 
+                                                                    alt={getProductName()}
+                                                                    className="w-full h-full object-cover"
+                                                                    onError={(e) => {
+                                                                        e.target.style.display = 'none';
+                                                                    }}
+                                                                />
+                                                            ) : (
+                                                                <div className="w-full h-full flex items-center justify-center">
+                                                                    <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                                                                    </svg>
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                        <div className="flex-grow">
+                                                            <h4 className="font-semibold text-gray-900 mb-2">{getProductName()}</h4>
+                                                            <div className="grid grid-cols-2 gap-4 text-sm">
+                                                                <div>
+                                                                    <span className="text-gray-600">Quantity:</span>
+                                                                    <span className="font-medium text-gray-800 ml-2">{item.quantity}</span>
+                                                                </div>
+                                                                <div>
+                                                                    <span className="text-gray-600">Unit Price:</span>
+                                                                    <span className="font-medium text-gray-800 ml-2">₹{getUnitPrice().toFixed(2)}</span>
+                                                                </div>
+                                                                <div>
+                                                                    <span className="text-gray-600">Item Total:</span>
+                                                                    <span className="font-medium text-gray-800 ml-2">₹{(item.itemTotal || getUnitPrice() * item.quantity).toFixed(2)}</span>
+                                                                </div>
+                                                                <div>
+                                                                    <span className="text-gray-600">Type:</span>
+                                                                    <span className="font-medium text-gray-800 ml-2">{item.itemType === 'bundle' ? 'Bundle' : 'Product'}</span>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                ) : (
+                                    // Fallback for legacy order structure
+                                    <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
+                                        <div className="flex items-start gap-4">
+                                            <div className="w-16 h-16 rounded-lg overflow-hidden bg-gray-100 border border-gray-200 flex-shrink-0">
+                                                {selectedRequest.orderId?.productDetails?.image?.[0] ? (
+                                                    <img 
+                                                        src={selectedRequest.orderId.productDetails.image[0]} 
+                                                        alt={selectedRequest.orderId.productDetails.name || 'Product'}
+                                                        className="w-full h-full object-cover"
+                                                        onError={(e) => {
+                                                            e.target.style.display = 'none';
+                                                        }}
+                                                    />
+                                                ) : (
+                                                    <div className="w-full h-full flex items-center justify-center">
+                                                        <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                                                        </svg>
+                                                    </div>
+                                                )}
+                                            </div>
+                                            <div className="flex-grow">
+                                                <h4 className="font-semibold text-gray-900 mb-2">
+                                                    {selectedRequest.orderId?.productDetails?.name || 
+                                                     selectedRequest.orderId?.productDetails?.title || 
+                                                     'Product Item'}
+                                                </h4>
+                                                <div className="grid grid-cols-2 gap-4 text-sm">
+                                                    <div>
+                                                        <span className="text-gray-600">Quantity:</span>
+                                                        <span className="font-medium text-gray-800 ml-2">{selectedRequest.orderId?.orderQuantity || selectedRequest.orderId?.totalQuantity || 1}</span>
+                                                    </div>
+                                                    <div>
+                                                        <span className="text-gray-600">Unit Price:</span>
+                                                        <span className="font-medium text-gray-800 ml-2">₹{(selectedRequest.orderId?.productDetails?.price || selectedRequest.orderId?.subTotalAmt || 0).toFixed(2)}</span>
+                                                    </div>
+                                                    <div>
+                                                        <span className="text-gray-600">Total:</span>
+                                                        <span className="font-medium text-gray-800 ml-2">₹{(selectedRequest.orderId?.subTotalAmt || selectedRequest.orderId?.totalAmt || 0).toFixed(2)}</span>
+                                                    </div>
+                                                    <div>
+                                                        <span className="text-gray-600">Type:</span>
+                                                        <span className="font-medium text-gray-800 ml-2">Product</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         </div>
 
@@ -390,7 +552,15 @@ function CancellationManagement() {
                                     </div>
                                     <div className="mb-3 flex flex-wrap justify-between items-center">
                                         <span className="font-semibold text-gray-700">Response Date: </span>
-                                        <span className="text-gray-800 font-medium">{formatDate(selectedRequest.adminResponse.respondedAt)}</span>
+                                        <span className="text-gray-800 font-medium">
+                                            {selectedRequest.adminResponse?.respondedAt 
+                                                ? formatDate(selectedRequest.adminResponse.respondedAt)
+                                                : selectedRequest.adminResponse?.createdAt 
+                                                    ? formatDate(selectedRequest.adminResponse.createdAt)
+                                                    : selectedRequest.updatedAt 
+                                                        ? formatDate(selectedRequest.updatedAt)
+                                                        : 'Invalid Date'}
+                                        </span>
                                     </div>
                                     <div className="mb-3 flex flex-wrap justify-between items-center">
                                         <span className="font-semibold text-gray-700">Refund Percentage: </span>

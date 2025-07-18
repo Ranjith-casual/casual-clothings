@@ -47,13 +47,13 @@ function InvoiceModal({ payment, onClose }) {
                     {/* Invoice Header */}
                     <div className="flex justify-between items-start mb-8">
                         <div>
-                            <h1 className="text-3xl font-bold text-black">DarkCart</h1>
+                            <h1 className="text-3xl font-bold text-black">casualclothings</h1>
                             <p className="text-gray-600 mt-1">Fashion & Lifestyle Store</p>
                             <div className="mt-4 text-sm text-gray-600">
                                 <p>123 Fashion Street</p>
                                 <p>Tirupur, Tamil Nadu 641601</p>
                                 <p>Phone: +91 98765 43210</p>
-                                <p>Email: orders@darkcart.com</p>
+                                <p>Email: orders@casualclothings.com</p>
                                 <p>GST: 33ABCDE1234F1Z5</p>
                             </div>
                         </div>
@@ -154,29 +154,107 @@ function InvoiceModal({ payment, onClose }) {
                                     </tr>
                                 </thead>
                                 <tbody className="bg-white">
-                                    {payment.items?.map((item, index) => (
-                                        <tr key={index} className="border-b border-gray-200">
+                                    {/* Debug payment data structure */}
+                                    {console.log('Payment data structure:', payment)}
+                                    {payment.items && payment.items.length > 0 ? (
+                                        payment.items.map((item, index) => {
+                                            console.log('Item structure:', item);
+                                            // Enhanced product name resolution
+                                            const getProductName = () => {
+                                                // Check if productId is populated object
+                                                if (item.productId && typeof item.productId === 'object') {
+                                                    return item.productId.name || item.productId.title;
+                                                }
+                                                // Check productDetails
+                                                if (item.productDetails) {
+                                                    return item.productDetails.name || item.productDetails.title;
+                                                }
+                                                // Check if bundleId is populated object
+                                                if (item.bundleId && typeof item.bundleId === 'object') {
+                                                    return item.bundleId.title || item.bundleId.name;
+                                                }
+                                                // Check bundleDetails
+                                                if (item.bundleDetails) {
+                                                    return item.bundleDetails.title || item.bundleDetails.name;
+                                                }
+                                                return 'Product Item';
+                                            };
+
+                                            // Enhanced price calculation
+                                            const getUnitPrice = () => {
+                                                // Try to get unit price from product details first
+                                                if (item.productId && typeof item.productId === 'object' && item.productId.price) {
+                                                    return item.productId.price;
+                                                }
+                                                if (item.productDetails && item.productDetails.price) {
+                                                    return item.productDetails.price;
+                                                }
+                                                if (item.bundleId && typeof item.bundleId === 'object' && item.bundleId.price) {
+                                                    return item.bundleId.price;
+                                                }
+                                                if (item.bundleDetails && item.bundleDetails.price) {
+                                                    return item.bundleDetails.price;
+                                                }
+                                                // Fallback to calculating from itemTotal and quantity
+                                                if (item.itemTotal && item.quantity) {
+                                                    return item.itemTotal / item.quantity;
+                                                }
+                                                // Last resort: use payment total divided by quantity
+                                                if (payment.subTotalAmt && item.quantity) {
+                                                    return payment.subTotalAmt / item.quantity;
+                                                }
+                                                return 0;
+                                            };
+
+                                            const unitPrice = getUnitPrice();
+                                            const itemTotal = item.itemTotal || (unitPrice * item.quantity) || payment.subTotalAmt || 0;
+
+                                            return (
+                                                <tr key={index} className="border-b border-gray-200">
+                                                    <td className="px-4 py-3">
+                                                        <div>
+                                                            <p className="font-medium text-gray-900">
+                                                                {getProductName()}
+                                                            </p>
+                                                            <p className="text-sm text-gray-500">
+                                                                {item.itemType === 'bundle' ? 'Bundle' : 'Product'}
+                                                            </p>
+                                                        </div>
+                                                    </td>
+                                                    <td className="px-4 py-3 text-center text-gray-900">
+                                                        {item.quantity}
+                                                    </td>
+                                                    <td className="px-4 py-3 text-right text-gray-900">
+                                                        {formatCurrency(unitPrice)}
+                                                    </td>
+                                                    <td className="px-4 py-3 text-right font-medium text-gray-900">
+                                                        {formatCurrency(itemTotal)}
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })
+                                    ) : (
+                                        // Fallback for legacy order structure
+                                        <tr className="border-b border-gray-200">
                                             <td className="px-4 py-3">
                                                 <div>
                                                     <p className="font-medium text-gray-900">
-                                                        {item.productDetails?.name || item.bundleDetails?.title || 'Product'}
+                                                        {payment.productDetails?.name || payment.productDetails?.title || 'Product Item'}
                                                     </p>
-                                                    <p className="text-sm text-gray-500">
-                                                        {item.itemType === 'bundle' ? 'Bundle' : 'Product'}
-                                                    </p>
+                                                    <p className="text-sm text-gray-500">Product</p>
                                                 </div>
                                             </td>
                                             <td className="px-4 py-3 text-center text-gray-900">
-                                                {item.quantity}
+                                                {payment.orderQuantity || payment.totalQuantity || 1}
                                             </td>
                                             <td className="px-4 py-3 text-right text-gray-900">
-                                                {formatCurrency(item.itemTotal / item.quantity)}
+                                                {formatCurrency(payment.productDetails?.price || (payment.subTotalAmt / (payment.orderQuantity || payment.totalQuantity || 1)))}
                                             </td>
                                             <td className="px-4 py-3 text-right font-medium text-gray-900">
-                                                {formatCurrency(item.itemTotal)}
+                                                {formatCurrency(payment.subTotalAmt || payment.totalAmt)}
                                             </td>
                                         </tr>
-                                    ))}
+                                    )}
                                 </tbody>
                             </table>
                         </div>
@@ -216,8 +294,8 @@ function InvoiceModal({ payment, onClose }) {
                     {/* Footer */}
                     <div className="mt-8 pt-6 border-t border-gray-200">
                         <div className="text-center text-sm text-gray-600">
-                            <p className="mb-2"><strong>Thank you for shopping with DarkCart!</strong></p>
-                            <p>For any queries, contact us at orders@darkcart.com or call +91 98765 43210</p>
+                            <p className="mb-2"><strong>Thank you for shopping with casualclothings!</strong></p>
+                            <p>For any queries, contact us at orders@casualclothings.com or call +91 98765 43210</p>
                             <p className="mt-2">This is a computer generated invoice and does not require signature.</p>
                         </div>
                     </div>

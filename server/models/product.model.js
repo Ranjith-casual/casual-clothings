@@ -56,11 +56,11 @@ const productSchema = mongoose.Schema({
     },
     marketedBy: {
         type: String,
-        default: "DarkCart Trading (India) Pvt. Ltd."
+        default: "casualclothings Trading (India) Pvt. Ltd."
     },
     importedBy: {
         type: String,
-        default: "DarkCart Trading (India) Pvt. Ltd."
+        default: "casualclothings Trading (India) Pvt. Ltd."
     },
     countryOfOrigin: {
         type: String,
@@ -68,7 +68,7 @@ const productSchema = mongoose.Schema({
     },
     customerCareAddress: {
         type: String,
-        default: "Tower-B, 7th Floor, DarkCart Office, Knowledge Park, Main Road, Bengaluru, Karnataka - 560029"
+        default: "Tower-B, 7th Floor, casualclothings Office, Knowledge Park, Main Road, Bengaluru, Karnataka - 560029"
     },
     publish: {
         type: Boolean,

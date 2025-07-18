@@ -232,7 +232,15 @@ export const downloadInvoice = async (req, res) => {
         // Find the order
         const order = await orderModel.findOne({ orderId })
             .populate('userId', 'name email')
-            .populate('deliveryAddress');
+            .populate('deliveryAddress')
+            .populate({
+                path: 'items.productId',
+                select: 'name title image price'
+            })
+            .populate({
+                path: 'items.bundleId',
+                select: 'title name image price'
+            });
         
         if (!order) {
             return res.status(404).json({

@@ -337,7 +337,7 @@ const PaymentPage = () => {
           <div className="flex items-center justify-between">
             <div className="w-24">
               <Link to="/">
-                <img src={Logo} alt="DarkCart Logo" className="h-10" />
+                <img src={Logo} alt="casualclothings Logo" className="h-10" />
               </Link>
             </div>
             <div className="flex items-center space-x-2">
