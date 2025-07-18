@@ -133,6 +133,9 @@ function UserMenue({close}) {
                                 <Link onClick={handleClose} to="/dashboard/cancellation-management" className='block p-2 hover:bg-gray-50 transition-colors rounded text-gray-600 hover:text-black'>
                                     Cancellation Management
                                 </Link>
+                                <Link onClick={handleClose} to="/dashboard/refund-management" className='block p-2 hover:bg-gray-50 transition-colors rounded text-gray-600 hover:text-black'>
+                                    Refund Management   
+                                </Link>
                             </div>
                         )}
                     </div>

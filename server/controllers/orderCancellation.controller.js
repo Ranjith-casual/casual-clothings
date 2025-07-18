@@ -413,7 +413,7 @@ export const completeRefund = async (req, res) => {
         const order = cancellationRequest.orderId;
         await orderModel.findByIdAndUpdate(order._id, {
             orderStatus: 'CANCELLED',
-            paymentStatus: 'REFUND_SUCCESSFUL'
+            paymentStatus: 'REFUND_SUCCESSFUL' // This status will be used to calculate net revenue in payment stats
         });
 
         // Send email to user

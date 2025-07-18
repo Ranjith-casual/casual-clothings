@@ -158,7 +158,10 @@ export const getPaymentStats = async (req, res) => {
                     refundedAmount: {
                         $sum: {
                             $cond: [
-                                { $eq: ["$paymentStatus", "REFUNDED"] },
+                                { $or: [
+                                    { $eq: ["$paymentStatus", "REFUNDED"] },
+                                    { $eq: ["$paymentStatus", "REFUND_SUCCESSFUL"] }
+                                ]},
                                 "$totalAmt",
                                 0
                             ]
@@ -187,12 +190,20 @@ export const getPaymentStats = async (req, res) => {
             refundedAmount: 0,
             pendingPayments: 0
         };
+
+        // Calculate net revenue (total revenue minus refunded amounts)
+        const netRevenue = result.totalRevenue - result.refundedAmount;
         
         return res.status(200).json({
             success: true,
             error: false,
             message: "Payment statistics retrieved successfully",
-            data: result
+            data: {
+                ...result,
+                netRevenue: netRevenue, // Net revenue after refunds
+                grossRevenue: result.totalRevenue, // Original total revenue before refunds
+                totalRevenue: netRevenue // Update totalRevenue to be net revenue
+            }
         });
         
     } catch (error) {
