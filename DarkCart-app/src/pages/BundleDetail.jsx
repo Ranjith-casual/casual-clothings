@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { FaGift, FaShoppingCart, FaHeart, FaStar, FaArrowLeft, FaCheck, FaShoppingBag, FaChevronLeft, FaChevronRight, FaTimes, FaEye } from "react-icons/fa";
 import { motion, AnimatePresence } from "framer-motion";
 import { Link, useParams, useNavigate } from "react-router-dom";
@@ -33,18 +33,24 @@ const BundleDetail = () => {
   const fetchBundleDetails = async () => {
     try {
       setLoading(true);
-      const response = await Axios.get(`${SummaryApi.getBundles.url}/${bundleId}`);
+      // Extract the actual ID if it comes from a URL like "/bundle/name-id"
+      const actualBundleId = bundleId.includes('-') 
+        ? bundleId.split('-').pop() 
+        : bundleId;
+        
+      console.log("Fetching bundle with ID:", actualBundleId);
+      const response = await Axios.get(`${SummaryApi.getBundles.url}/${actualBundleId}`);
       
       if (response.data.success) {
         setBundle(response.data.data);
       } else {
         toast.error("Bundle not found");
-        navigate('/bundle-offers');
+        // Don't auto-navigate, let user go back manually
       }
     } catch (error) {
       console.error("Error fetching bundle details:", error);
       toast.error("Failed to load bundle details");
-      navigate('/bundle-offers');
+      // Don't auto-navigate, let user go back manually
     } finally {
       setLoading(false);
     }
@@ -268,6 +274,21 @@ const BundleDetail = () => {
   if (loading) {
     return (
       <div className="min-h-screen bg-white">
+        {/* Navigation with back button */}
+        <div className="bg-gray-50 border-b border-gray-200 py-4">
+          <div className="container mx-auto px-4">
+            <div className="flex justify-between items-center">
+              <div className="h-5 bg-gray-300 rounded w-32 animate-pulse"></div>
+              <button 
+                onClick={() => navigate(-1)} 
+                className="text-sm text-gray-600 hover:text-black flex items-center"
+              >
+                <span className="mr-1">←</span> Back
+              </button>
+            </div>
+          </div>
+        </div>
+        
         {/* Loading skeleton */}
         <div className="container mx-auto px-4 py-8">
           <div className="animate-pulse">
@@ -289,17 +310,25 @@ const BundleDetail = () => {
 
   if (!bundle) {
     return (
-      <div className="min-h-screen bg-white flex items-center justify-center">
+      <div className="min-h-screen bg-white flex flex-col items-center justify-center">
         <div className="text-center">
           <FaGift className="text-6xl text-gray-400 mx-auto mb-4" />
           <h2 className="text-2xl font-bold text-black mb-2">Bundle Not Found</h2>
-          <p className="text-gray-600 mb-4">The bundle you're looking for doesn't exist.</p>
-          <Link
-            to="/bundle-offers"
-            className="bg-black text-white px-6 py-2 rounded-lg font-semibold hover:bg-gray-800 transition-colors"
-          >
-            Back to Bundle Offers
-          </Link>
+          <p className="text-gray-600 mb-6">We couldn't find the bundle you're looking for.</p>
+          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            <button
+              onClick={() => navigate(-1)}
+              className="bg-gray-200 text-gray-800 px-6 py-2 rounded-lg font-semibold hover:bg-gray-300 transition-colors"
+            >
+              ← Go Back
+            </button>
+            <Link
+              to="/bundle-offers"
+              className="bg-black text-white px-6 py-2 rounded-lg font-semibold hover:bg-gray-800 transition-colors"
+            >
+              View All Bundles
+            </Link>
+          </div>
         </div>
       </div>
     );
@@ -310,17 +339,26 @@ const BundleDetail = () => {
       {/* Breadcrumb */}
       <div className="bg-gray-50 border-b border-gray-200 py-4">
         <div className="container mx-auto px-4">
-          <nav className="flex items-center space-x-2 text-sm">
-            <Link to="/" className="text-gray-600 hover:text-black">Home</Link>
-            <span className="text-gray-400">/</span>
-            <Link to="/bundle-offers" className="text-gray-600 hover:text-black">Bundle Offers</Link>
-            <span className="text-gray-400">/</span>
-            <span className="text-black font-medium">{bundle.title}</span>
-          </nav>
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-2 md:gap-0">
+            <nav className="flex items-center space-x-2 text-sm">
+              <Link to="/" className="text-gray-600 hover:text-black">Home</Link>
+              <span className="text-gray-400">/</span>
+              <Link to="/bundle-offers" className="text-gray-600 hover:text-black">Bundle Offers</Link>
+              <span className="text-gray-400">/</span>
+              <span className="text-black font-medium">{bundle.title}</span>
+            </nav>
+            
+            <button 
+              onClick={() => navigate(-1)}
+              className="text-sm text-gray-600 hover:text-black flex items-center"
+            >
+              <span className="mr-1">←</span> Back
+            </button>
+          </div>
         </div>
       </div>
 
-      {/* Back Button */}
+      {/* Content Area */}
       <div className="container mx-auto px-4 py-4">
         <button
           onClick={() => navigate(-1)}

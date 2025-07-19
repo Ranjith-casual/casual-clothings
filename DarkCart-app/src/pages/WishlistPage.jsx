@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { useGlobalContext } from "../provider/GlobalProvider";
 import { Link } from "react-router-dom";
-import { FaRegHeart, FaHeart, FaShoppingCart, FaTrash } from "react-icons/fa";
+import { FaRegHeart, FaHeart, FaShoppingCart, FaTrash ,FaChevronRight ,FaSearch} from "react-icons/fa";
 import { DisplayPriceInRupees } from "../utils/DisplayPriceInRupees";
 import { pricewithDiscount } from "../utils/PriceWithDiscount";
 import AddToCartButton from "../components/AddToCartButton";
@@ -12,16 +12,27 @@ import toast from "react-hot-toast";
 const WishlistPage = () => {
   const dispatch = useDispatch();
   const { fetchWishlist, removeFromWishlist } = useGlobalContext();
-  const wishlistItems = useSelector((state) => state?.wishlist?.wishlistItems || []);
-  const loading = useSelector((state) => state?.wishlist?.loading || false);
+  const wishlistItems = useSelector((state) => state.wishlist.wishlistItems);
+  const loading = useSelector((state) => state.wishlist.loading);
   const [imageLoaded, setImageLoaded] = useState({});
 
   useEffect(() => {
     fetchWishlist();
   }, []);
 
+  // Debug: Log wishlist items
+  useEffect(() => {
+    console.log("Wishlist Items:", wishlistItems);
+  }, [wishlistItems]);
+
   const handleRemoveFromWishlist = async (itemId) => {
-    await removeFromWishlist(itemId);
+    const toastId = toast.loading("Removing from wishlist...");
+    try {
+      await removeFromWishlist(itemId);
+      toast.success("Item removed from wishlist", { id: toastId });
+    } catch (error) {
+      toast.error("Failed to remove item", { id: toastId });
+    }
   };
 
   const handleImageLoad = (itemId) => {
@@ -38,7 +49,7 @@ const WishlistPage = () => {
         <div className="bg-black text-white p-6 rounded-lg shadow-md mb-6">
           <h1 className="text-2xl font-bold font-serif mb-2">My Wishlist</h1>
           <p className="text-teal-300 text-sm">
-            {(wishlistItems?.length || 0)} {(wishlistItems?.length || 0) === 1 ? 'item' : 'items'} saved
+            {wishlistItems.length} {wishlistItems.length === 1 ? 'item' : 'items'} saved
           </p>
         </div>
 
@@ -54,7 +65,7 @@ const WishlistPage = () => {
               </div>
             ))}
           </div>
-        ) : (wishlistItems?.length || 0) === 0 ? (
+        ) : wishlistItems.length === 0 ? (
           <div className="bg-white rounded-lg shadow-md p-8 text-center">
             <FaRegHeart className="text-gray-400 w-16 h-16 mx-auto mb-4" />
             <h2 className="text-xl font-medium text-gray-800 mb-2">Your wishlist is empty</h2>
@@ -70,74 +81,76 @@ const WishlistPage = () => {
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-            {(wishlistItems || []).map((item) => {
-              // Handle both products and bundles
-              const product = item.productId;
-              const bundle = item.bundleId;
+            {wishlistItems.map((item) => {
+              // Handle both product and bundle items
+              const product = item.productId || item.bundleId;
+              if (!product) return null;
               
-              if (!product && !bundle) return null;
+              const isBundle = !!item.bundleId;
               
-              // Use product or bundle data accordingly
-              const isBundle = !!bundle;
-              const itemData = isBundle ? bundle : product;
-              const itemId = itemData._id;
+              // Handle different pricing structures
+              let price, discount, discountedPrice, productImage, productName;
               
-              const price = isBundle ? (itemData.bundlePrice || 0) : (itemData.price || 0);
-              const originalPrice = isBundle ? (itemData.originalPrice || 0) : (itemData.price || 0);
-              const discount = isBundle ? 
-                (originalPrice > price ? Math.round(((originalPrice - price) / originalPrice) * 100) : 0) : 
-                (itemData.discount || 0);
-              const discountedPrice = isBundle ? price : pricewithDiscount(price, discount);
-              const itemImage = isBundle ? 
-                (itemData.images?.[0] || '') : 
-                (itemData.image?.[0] || '');
-              const itemName = isBundle ? itemData.title : itemData.name;
-              const itemUrl = isBundle ? 
-                `/bundle/${itemId}` : 
-                `/product/${itemName?.replace(/\s+/g, '-').toLowerCase()}-${itemId}`;
+              if (isBundle) {
+                price = product.originalPrice || 0;
+                discount = product.discount || 0;
+                discountedPrice = product.bundlePrice || price;
+                productImage = product.images?.[0] || '';
+                productName = product.title || 'Bundle';
+              } else {
+                price = product.price || 0;
+                discount = product.discount || 0;
+                discountedPrice = pricewithDiscount(price, discount);
+                productImage = product.image?.[0] || '';
+                productName = product.name || 'Product';
+              }
+              
+              // Create clean URL-friendly name
+              const cleanName = productName
+                .trim()
+                .toLowerCase()
+                .replace(/[^\w\s-]/g, '')  // Remove special chars except spaces and hyphens
+                .replace(/\s+/g, '-');      // Replace spaces with hyphens
+                
+              const productUrl = isBundle
+                ? `/bundle/${cleanName}-${product._id}`
+                : `/product/${cleanName}-${product._id}`;
               
               return (
-                <div key={itemId} className="bg-white rounded-lg shadow-md overflow-hidden border border-gray-200 hover:shadow-lg transition-shadow duration-300 relative group">
+                <div key={item._id} className="bg-white rounded-lg shadow-md overflow-hidden border border-gray-200 hover:shadow-lg transition-shadow duration-300 relative group">
                   {/* Remove from wishlist button */}
                   <button
-                    onClick={() => handleRemoveFromWishlist(itemId)}
+                    onClick={() => handleRemoveFromWishlist(item._id)}
                     className="absolute top-2 right-2 p-2 bg-white/90 rounded-full shadow-sm z-10 opacity-0 group-hover:opacity-100 transition-opacity duration-300"
                     title="Remove from wishlist"
                   >
                     <FaTrash className="text-red-500 w-4 h-4" />
                   </button>
 
-                  {/* Item Type Badge */}
-                  {isBundle && (
-                    <div className="absolute top-2 left-2 bg-black text-white px-2 py-1 rounded-md text-xs font-medium z-10">
-                      Bundle
-                    </div>
-                  )}
-
-                  {/* Product/Bundle Link */}
-                  <Link to={itemUrl} className="block">
-                    {/* Product/Bundle Image */}
+                  {/* Product Link */}
+                  <Link to={productUrl} className="block">
+                    {/* Product Image */}
                     <div className="w-full h-48 overflow-hidden bg-gray-100 relative">
-                      {!imageLoaded[itemId] && (
+                      {!imageLoaded[item._id] && (
                         <div className="absolute inset-0 bg-gray-200 animate-pulse"></div>
                       )}
                       <img
-                        src={itemImage || '/placeholder-image.jpg'}
-                        alt={itemName}
+                        src={productImage}
+                        alt={productName}
                         className={`w-full h-full object-contain transition-all duration-500 ${
-                          imageLoaded[itemId] ? 'opacity-100' : 'opacity-0'
+                          imageLoaded[item._id] ? 'opacity-100' : 'opacity-0'
                         }`}
-                        onLoad={() => handleImageLoad(itemId)}
+                        onLoad={() => handleImageLoad(item._id)}
                       />
                     </div>
                     
-                    {/* Item Info */}
+                    {/* Product Info */}
                     <div className="p-4">
                       <div className="text-xs text-gray-500 uppercase tracking-wider font-medium mb-2">
-                        {isBundle ? 'Bundle' : (itemData.category?.[0]?.name || 'Fashion')}
+                        {isBundle ? 'Bundle' : (product.category?.[0]?.name || 'Fashion')}
                       </div>
                       <h3 className="text-gray-900 font-medium text-sm line-clamp-2 h-10 mb-2">
-                        {itemName}
+                        {productName}
                       </h3>
                       <div className="flex items-center gap-2 mb-4">
                         <span className="font-bold text-gray-900">
@@ -145,7 +158,7 @@ const WishlistPage = () => {
                         </span>
                         {discount > 0 && (
                           <span className="text-sm text-gray-500 line-through">
-                            {DisplayPriceInRupees(isBundle ? originalPrice : price)}
+                            {DisplayPriceInRupees(price)}
                           </span>
                         )}
                         {discount > 0 && (
@@ -155,16 +168,7 @@ const WishlistPage = () => {
                         )}
                       </div>
                       <div className="mt-2">
-                        {isBundle ? (
-                          <Link
-                            to={itemUrl}
-                            className="w-full bg-black text-white py-2 px-4 rounded-md font-medium hover:bg-gray-800 transition-colors duration-300 text-center block text-sm"
-                          >
-                            View Bundle
-                          </Link>
-                        ) : (
-                          <AddToCartButton data={itemData} customClass="w-full py-2" />
-                        )}
+                        <AddToCartButton data={product} customClass="w-full py-2" />
                       </div>
                     </div>
                   </Link>

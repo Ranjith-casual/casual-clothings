@@ -1,7 +1,9 @@
-import React, { useState } from "react";
-import { FaRegEye } from "react-icons/fa";
-import { FaRegEyeSlash } from "react-icons/fa";
+import React, { useState, useEffect } from "react";
+import { FaRegEye, FaRegEyeSlash, FaUserPlus } from "react-icons/fa";
 import { FcGoogle } from "react-icons/fc";
+import { motion } from "framer-motion";
+import AOS from "aos";
+import "aos/dist/aos.css";
 import { signInWithPopup } from "firebase/auth";
 import { auth, googleProvider } from "../utils/firebase";
 import toast from "react-hot-toast";
@@ -21,35 +23,43 @@ function Register() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const navigate = useNavigate();
 
-  const checkAllFields = () => {
-    if(userInfo.name === "" || userInfo.email === "" || userInfo.password === "" || userInfo.confirmPassword === ""){
-      return false;
-    }
-    return true;
-    }
+  useEffect(() => {
+    AOS.init({
+      duration: 800,
+      easing: 'ease-out',
+      once: true
+    });
+  }, []);
 
+  const checkAllFields = () => {
+    return (
+      userInfo.name !== "" &&
+      userInfo.email !== "" &&
+      userInfo.password !== "" &&
+      userInfo.confirmPassword !== ""
+    );
+  };
 
   const handleShowPassword = () => {
     setShowPassword((prev) => !prev);
   };
+
   const handleShowConfirmPassword = () => {
     setShowConfirmPassword((prev) => !prev);
   };
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setUserInfo((prev) => {
-      return {
-        ...prev,
-        [name]: value,
-      };
-    });
+    setUserInfo((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
   };
 
-  const handleSubmit = async(e) => { 
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    
-    if(userInfo.password !== userInfo.confirmPassword){
+
+    if (userInfo.password !== userInfo.confirmPassword) {
       toast.error("Password and Confirm Password should be same");
       return;
     }
@@ -61,13 +71,12 @@ function Register() {
         data: userInfo,
       });
 
-      console.log(response.data);
-
-      if(response.data.error){
+      if (response.data.error) {
         toast.error(response.data.message);
+        return;
       }
 
-      if(response.data.success){
+      if (response.data.success) {
         toast.success(response.data.message);
         setUserInfo({
           name: "",
@@ -77,11 +86,10 @@ function Register() {
         });
         navigate("/login");
       }
-
     } catch (error) {
       AxiosTostError(error);
     }
-  }
+  };
 
   const handleGoogleSignIn = async () => {
     try {
@@ -103,6 +111,7 @@ function Register() {
 
       if (response.data.error) {
         toast.error(response.data.message);
+        return;
       }
 
       if (response.data.success) {
@@ -114,112 +123,145 @@ function Register() {
     }
   };
 
+  const containerVariants = {
+    hidden: { opacity: 0 },
+    visible: {
+      opacity: 1,
+      transition: {
+        duration: 0.4,
+        when: "beforeChildren",
+        staggerChildren: 0.1,
+      },
+    },
+  };
+
+  const itemVariants = {
+    hidden: { y: 20, opacity: 0 },
+    visible: { y: 0, opacity: 1, transition: { duration: 0.4 } },
+  };
+
   return (
-    <section className="w-full container mx-auto p-4 min-h-screen bg-gray-50 flex items-center justify-center">
-      <div className="bg-white w-full max-w-lg mx-auto p-8 rounded-lg shadow-xl border border-gray-200">
-        
-        <div className="text-center mb-6">
-          <h2 className="text-2xl font-bold text-gray-900 font-serif mb-2">Create Account</h2>
-          <p className="text-gray-600">Join us for exclusive fashion deals</p>
+    <section className="w-full container mx-auto py-10 px-4 min-h-screen bg-gray-50 flex items-center justify-center">
+      <motion.div
+        className="bg-white w-full max-w-lg mx-auto rounded-lg shadow-xl border border-gray-100 overflow-hidden"
+        variants={containerVariants}
+        initial="hidden"
+        animate="visible"
+      >
+        <div className="bg-gradient-to-r from-gray-50 to-white border-b border-gray-100 px-8 py-6">
+          <motion.div variants={itemVariants} className="text-center">
+            <div className="mx-auto mb-4 bg-black/5 rounded-full w-16 h-16 flex items-center justify-center">
+              <FaUserPlus className="text-gray-800 text-xl" />
+            </div>
+            <h2 className="fashion-heading text-2xl text-gray-900 mb-2 tracking-wide">
+              Create Account
+            </h2>
+            <p className="text-gray-500 text-sm" style={{ fontFamily: "'Inter', sans-serif", fontWeight: 300, letterSpacing: "0.03em" }}>
+              Join us for exclusive fashion deals
+            </p>
+          </motion.div>
         </div>
 
-        <form method="POST" action="" className="grid gap-6 mt-6" onSubmit={handleSubmit}>
-          <div className="grid gap-2">
-            <label htmlFor="name" className="font-medium text-gray-700">Full Name:</label>
-            <input
-              autoFocus
-              id="name"
-              className="w-full bg-gray-50 p-3 border border-gray-300 rounded-md outline-none focus:border-black focus:bg-white transition-colors"
-              name="name"
-              value={userInfo.name}
-              onChange={handleChange}
-              type="text"
-              placeholder="Enter your full name"
-            />
-          </div>
-          <div className="grid gap-2">
-            <label htmlFor="email" className="font-medium text-gray-700">Email Address:</label>
-            <input
-              id="email"
-              className="w-full bg-gray-50 p-3 border border-gray-300 rounded-md outline-none focus:border-black focus:bg-white transition-colors"
-              name="email"
-              value={userInfo.email}
-              onChange={handleChange}
-              type="email"
-              placeholder="Enter your email address"
-            />
-          </div>
-          <div className="grid gap-2">
-            <label htmlFor="password" className="font-medium text-gray-700">Password:</label>
-            <div className="w-full bg-gray-50 p-3 rounded-md border-gray-300 flex items-center focus-within:border-black focus-within:bg-white border transition-colors">
+        <div className="p-8">
+          <form method="POST" action="" className="grid gap-5" onSubmit={handleSubmit}>
+            <div className="grid gap-2">
+              <label htmlFor="name" className="font-medium text-gray-700">Full Name:</label>
               <input
-                id="password"
-                className="w-full outline-none bg-transparent"
-                name="password"
-                value={userInfo.password}
+                autoFocus
+                id="name"
+                className="w-full bg-gray-50 p-3 border border-gray-300 rounded-md outline-none focus:border-black focus:bg-white transition-colors"
+                name="name"
+                value={userInfo.name}
                 onChange={handleChange}
-                type={showPassword ? "text" : "password"}
-                placeholder="Enter your password"
+                type="text"
+                placeholder="Enter your full name"
               />
+            </div>
 
-              <div
-                onClick={handleShowPassword}
-                className="text-xl cursor-pointer text-gray-500 hover:text-gray-700 transition-colors"
-              >
-                {showPassword ? <FaRegEyeSlash /> : <FaRegEye />}
+            <div className="grid gap-2">
+              <label htmlFor="email" className="font-medium text-gray-700">Email Address:</label>
+              <input
+                id="email"
+                className="w-full bg-gray-50 p-3 border border-gray-300 rounded-md outline-none focus:border-black focus:bg-white transition-colors"
+                name="email"
+                value={userInfo.email}
+                onChange={handleChange}
+                type="email"
+                placeholder="Enter your email address"
+              />
+            </div>
+
+            <div className="grid gap-2">
+              <label htmlFor="password" className="font-medium text-gray-700">Password:</label>
+              <div className="w-full bg-gray-50 p-3 rounded-md border-gray-300 flex items-center focus-within:border-black focus-within:bg-white border transition-colors">
+                <input
+                  id="password"
+                  className="w-full outline-none bg-transparent"
+                  name="password"
+                  value={userInfo.password}
+                  onChange={handleChange}
+                  type={showPassword ? "text" : "password"}
+                  placeholder="Enter your password"
+                />
+                <div onClick={handleShowPassword} className="text-xl cursor-pointer text-gray-500 hover:text-gray-700 transition-colors">
+                  {showPassword ? <FaRegEyeSlash /> : <FaRegEye />}
+                </div>
               </div>
             </div>
-          </div>
-          <div className="grid gap-2">
-            <label htmlFor="confirmPassword" className="font-medium text-gray-700">Confirm Password:</label>
-            <div className="w-full bg-gray-50 p-3 rounded-md border-gray-300 flex items-center focus-within:border-black focus-within:bg-white border transition-colors">
-              <input
-                id="confirmPassword"
-                className="w-full outline-none bg-transparent"
-                name="confirmPassword"
-                value={userInfo.confirmPassword}
-                onChange={handleChange}
-                type={showConfirmPassword ? "text" : "password"}
-                placeholder="Confirm your password"
-              />
-              <div>
-                <div
-                  onClick={handleShowConfirmPassword}
-                  className="text-xl cursor-pointer text-gray-500 hover:text-gray-700 transition-colors"
-                >
+
+            <div className="grid gap-2">
+              <label htmlFor="confirmPassword" className="font-medium text-gray-700">Confirm Password:</label>
+              <div className="w-full bg-gray-50 p-3 rounded-md border-gray-300 flex items-center focus-within:border-black focus-within:bg-white border transition-colors">
+                <input
+                  id="confirmPassword"
+                  className="w-full outline-none bg-transparent"
+                  name="confirmPassword"
+                  value={userInfo.confirmPassword}
+                  onChange={handleChange}
+                  type={showConfirmPassword ? "text" : "password"}
+                  placeholder="Confirm your password"
+                />
+                <div onClick={handleShowConfirmPassword} className="text-xl cursor-pointer text-gray-500 hover:text-gray-700 transition-colors">
                   {showConfirmPassword ? <FaRegEyeSlash /> : <FaRegEye />}
                 </div>
               </div>
             </div>
-          </div>
 
-          <button disabled={!checkAllFields()} className={`w-full px-4 py-3 rounded-md font-semibold tracking-wide transition-colors ${ checkAllFields() ? "bg-black hover:bg-gray-800 text-white" : "bg-gray-200 text-gray-500 cursor-not-allowed" }`}>
-            Create Account
-          </button>
-          
-          <div className="flex items-center my-4">
-            <div className="flex-1 h-px bg-gray-300"></div>
-            <span className="px-4 text-gray-500 text-sm">or</span>
-            <div className="flex-1 h-px bg-gray-300"></div>
-          </div>
-          
-          <button 
-            type="button"
-            onClick={handleGoogleSignIn}
-            className="w-full px-4 py-3 rounded-md font-semibold tracking-wide transition-colors bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 flex items-center justify-center gap-2"
-          >
-            <FcGoogle className="text-xl" />
-            Continue with Google
-          </button>
-        </form>
+            <button
+              disabled={!checkAllFields()}
+              className={`w-full px-4 py-3 rounded-md font-semibold tracking-wide transition-colors ${
+                checkAllFields()
+                  ? "bg-black hover:bg-gray-800 text-white"
+                  : "bg-gray-200 text-gray-500 cursor-not-allowed"
+              }`}
+            >
+              Create Account
+            </button>
 
-        <p className="text-center mt-6 text-gray-600">
-          Already have an account? 
-          <Link className="text-black hover:text-gray-800 font-medium ml-1 underline" to={"/login"}>
-            Sign In
-          </Link>
-        </p>
-      </div>
+            <div className="flex items-center my-4">
+              <div className="flex-1 h-px bg-gray-300"></div>
+              <span className="px-4 text-gray-500 text-sm">or</span>
+              <div className="flex-1 h-px bg-gray-300"></div>
+            </div>
+
+            <button
+              type="button"
+              onClick={handleGoogleSignIn}
+              className="w-full px-4 py-3 rounded-md font-semibold tracking-wide transition-colors bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 flex items-center justify-center gap-2"
+            >
+              <FcGoogle className="text-xl" />
+              Continue with Google
+            </button>
+          </form>
+
+          <p className="text-center mt-6 text-gray-600">
+            Already have an account?
+            <Link className="text-black hover:text-gray-800 font-medium ml-1 underline" to={"/login"}>
+              Sign In
+            </Link>
+          </p>
+        </div>
+      </motion.div>
     </section>
   );
 }
