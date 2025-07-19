@@ -835,51 +835,114 @@ const AdminOrderDashboard = () => {
                               })()}
                             </div>
                             <div className="flex flex-col">
-                              <span className="font-medium text-gray-900">
-                                {/* Enhanced product name resolution */}
+                              <div className="flex items-center gap-2">
+                                <span className="font-medium text-gray-900">
+                                  {/* Enhanced product name resolution */}
+                                  {(() => {
+                                    // Check for items array first (new order structure)
+                                    if (order.items && order.items.length > 0) {
+                                      const firstItem = order.items[0];
+                                      let productName = '';
+                                      let isBundle = false;
+                                      
+                                      // Check if productId is populated object
+                                      if (firstItem.productId && typeof firstItem.productId === 'object') {
+                                        productName = firstItem.productId.name || firstItem.productId.title || 'Product';
+                                      }
+                                      // Check productDetails
+                                      else if (firstItem.productDetails) {
+                                        productName = firstItem.productDetails.name || firstItem.productDetails.title || 'Product';
+                                      }
+                                      // Check bundleDetails
+                                      else if (firstItem.bundleDetails) {
+                                        productName = firstItem.bundleDetails.title || firstItem.bundleDetails.name || 'Bundle';
+                                        isBundle = true;
+                                      }
+                                      // Check if bundleId is populated object
+                                      else if (firstItem.bundleId && typeof firstItem.bundleId === 'object') {
+                                        productName = firstItem.bundleId.title || firstItem.bundleId.name || 'Bundle';
+                                        isBundle = true;
+                                      }
+                                      // Check itemType
+                                      else if (firstItem.itemType === 'bundle') {
+                                        productName = 'Bundle Item';
+                                        isBundle = true;
+                                      } else if (firstItem.itemType === 'product') {
+                                        productName = 'Product Item';
+                                      }
+                                      
+                                      // If multiple items, show count
+                                      if (order.items.length > 1) {
+                                        productName += ` (+${order.items.length - 1} more)`;
+                                      }
+                                      
+                                      return productName;
+                                    }
+                                    
+                                    // Fall back to old structure
+                                    if (order.productDetails) {
+                                      return order.productDetails.name || order.productDetails.title || 'Product';
+                                    }
+                                    
+                                    // Last resort
+                                    return `${order.items?.length || 1} Item${order.items?.length > 1 ? 's' : ''}`;
+                                  })()}
+                                </span>
+                                
+                                {/* Bundle indicator */}
                                 {(() => {
-                                  // Check for items array first (new order structure)
                                   if (order.items && order.items.length > 0) {
                                     const firstItem = order.items[0];
+                                    const isBundle = firstItem.itemType === 'bundle' || 
+                                                   firstItem.bundleId || 
+                                                   firstItem.bundleDetails;
                                     
-                                    // Check if productId is populated object
-                                    if (firstItem.productId && typeof firstItem.productId === 'object') {
-                                      return firstItem.productId.name || firstItem.productId.title || 'Product';
-                                    }
-                                    
-                                    // Check productDetails
-                                    if (firstItem.productDetails) {
-                                      return firstItem.productDetails.name || firstItem.productDetails.title || 'Product';
-                                    }
-                                    
-                                    // Check bundleDetails
-                                    if (firstItem.bundleDetails) {
-                                      return firstItem.bundleDetails.title || firstItem.bundleDetails.name || 'Bundle';
-                                    }
-                                    
-                                    // Check if bundleId is populated object
-                                    if (firstItem.bundleId && typeof firstItem.bundleId === 'object') {
-                                      return firstItem.bundleId.title || firstItem.bundleId.name || 'Bundle';
-                                    }
-                                    
-                                    // Check itemType
-                                    if (firstItem.itemType === 'bundle') {
-                                      return 'Bundle Item';
-                                    } else if (firstItem.itemType === 'product') {
-                                      return 'Product Item';
+                                    if (isBundle) {
+                                      return (
+                                        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                          Bundle
+                                        </span>
+                                      );
                                     }
                                   }
-                                  
-                                  // Fall back to old structure
-                                  if (order.productDetails) {
-                                    return order.productDetails.name || order.productDetails.title || 'Product';
-                                  }
-                                  
-                                  // Last resort
-                                  return `${order.items?.length || 1} Item${order.items?.length > 1 ? 's' : ''}`;
+                                  return null;
                                 })()}
-                              </span>
+                              </div>
+                              
                               <span className="text-xs text-gray-500">{order.orderId}</span>
+                              
+                              {/* Bundle items preview */}
+                              {(() => {
+                                if (order.items && order.items.length > 0) {
+                                  const firstItem = order.items[0];
+                                  const isBundle = firstItem.itemType === 'bundle';
+                                  
+                                  if (isBundle) {
+                                    // Get bundle items count
+                                    let bundleItemsCount = 0;
+                                    if (firstItem.bundleId && typeof firstItem.bundleId === 'object' && firstItem.bundleId.items) {
+                                      bundleItemsCount = firstItem.bundleId.items.length;
+                                    } else if (firstItem.bundleDetails && firstItem.bundleDetails.items) {
+                                      bundleItemsCount = firstItem.bundleDetails.items.length;
+                                    }
+                                    
+                                    if (bundleItemsCount > 0) {
+                                      return (
+                                        <span className="text-xs text-blue-600 mt-1">
+                                          Contains {bundleItemsCount} items
+                                        </span>
+                                      );
+                                    } else {
+                                      return (
+                                        <span className="text-xs text-amber-600 mt-1">
+                                          Bundle details pending
+                                        </span>
+                                      );
+                                    }
+                                  }
+                                }
+                                return null;
+                              })()}
                             </div>
                           </div>
                         </td>

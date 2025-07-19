@@ -670,8 +670,8 @@ export const getOrderController = async (req, res) => {
         const userId = req.userId;
         const orders = await orderModel.find({ userId: userId })
           .sort({createdAt: -1})
-          .populate("items.productId", "name image price stock") // Updated populate path
-          .populate("items.bundleId", "title image images bundlePrice stock") // Include both image and images
+          .populate("items.productId", "name image price stock discount") // Updated populate path
+          .populate("items.bundleId", "title description image images bundlePrice originalPrice stock items") // Include items array
           .populate("deliveryAddress", "address_line city state pincode country")
           .populate("userId", "name email");
           
@@ -696,8 +696,8 @@ export const getAllOrdersController = async (req, res) => {
         const orders = await orderModel.find({})
           .sort({createdAt: -1})
           .populate("userId", "name email")
-          .populate("items.productId", "name image price stock") // Updated populate path
-          .populate("items.bundleId", "title image images bundlePrice stock") // Include both image and images
+          .populate("items.productId", "name image price stock discount") // Updated populate path
+          .populate("items.bundleId", "title description image images bundlePrice originalPrice stock items") // Include items array
           .populate("deliveryAddress", "address_line city state pincode country");
           
         return res.json({

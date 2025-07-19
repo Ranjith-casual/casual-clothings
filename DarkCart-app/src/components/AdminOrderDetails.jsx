@@ -255,26 +255,63 @@ const AdminOrderDetails = ({ order, onClose }) => {
             {order.items && order.items.length > 0 ? (
               <div className="space-y-4">
                 {order.items.map((item, index) => {
-                  // Handle both populated and non-populated productId
-                  const productInfo = item.productId && typeof item.productId === 'object' 
-                    ? item.productId  // If populated, use the populated data
-                    : item.productDetails || item.bundleDetails; // Use productDetails or bundleDetails
+                  // Determine item type
+                  const isBundle = item.itemType === 'bundle';
                   
-                  const productId = item.productId && typeof item.productId === 'object'
-                    ? item.productId._id  // If populated, get the _id
-                    : item.productId;     // Otherwise, use the ID string
+                  // Handle both populated and non-populated productId/bundleId
+                  let productInfo = null;
+                  let productId = null;
+                  
+                  if (isBundle) {
+                    productInfo = item.bundleId && typeof item.bundleId === 'object' 
+                      ? item.bundleId  // If populated, use the populated data
+                      : item.bundleDetails; // Use bundleDetails
+                    
+                    productId = item.bundleId && typeof item.bundleId === 'object'
+                      ? item.bundleId._id  // If populated, get the _id
+                      : item.bundleId;     // Otherwise, use the ID string
+                  } else {
+                    productInfo = item.productId && typeof item.productId === 'object' 
+                      ? item.productId  // If populated, use the populated data
+                      : item.productDetails; // Use productDetails
+                    
+                    productId = item.productId && typeof item.productId === 'object'
+                      ? item.productId._id  // If populated, get the _id
+                      : item.productId;     // Otherwise, use the ID string
+                  }
                   
                   // Calculate item total if not available
-                  const itemTotal = item.itemTotal || (item.quantity * (productInfo?.price || 0));
-                  const unitPrice = productInfo?.price || (item.itemTotal / item.quantity) || 0;
+                  const itemTotal = item.itemTotal || (item.quantity * (productInfo?.price || productInfo?.bundlePrice || 0));
+                  const unitPrice = isBundle 
+                    ? (productInfo?.bundlePrice || productInfo?.price || (item.itemTotal / item.quantity) || 0)
+                    : (productInfo?.price || (item.itemTotal / item.quantity) || 0);
+                  
+                  // Get bundle items if it's a bundle
+                  const getBundleItems = () => {
+                    if (!isBundle) return [];
+                    
+                    if (item.bundleId && typeof item.bundleId === 'object' && item.bundleId.items) {
+                      return item.bundleId.items;
+                    }
+                    if (item.bundleDetails && item.bundleDetails.items) {
+                      return item.bundleDetails.items;
+                    }
+                    return [];
+                  };
+
+                  const bundleItems = getBundleItems();
                   
                   return (
                     <div key={index} className="bg-white border border-gray-200 rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow">
                       <div className="flex flex-col md:flex-row items-start p-4 sm:p-5 gap-4">
                         <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-md overflow-hidden bg-gray-100 flex-shrink-0 border border-gray-100 shadow-sm">
-                          {productInfo?.image && productInfo.image.length > 0 && (
+                          {((isBundle && (productInfo?.images?.[0] || productInfo?.image?.[0])) || 
+                            (!isBundle && productInfo?.image?.[0])) && (
                             <img 
-                              src={productInfo.image[0]} 
+                              src={isBundle 
+                                ? (productInfo.images?.[0] || productInfo.image?.[0])
+                                : productInfo.image[0]
+                              } 
                               alt={productInfo?.name || productInfo?.title} 
                               className="w-full h-full object-cover"
                               onError={(e) => {
@@ -284,10 +321,18 @@ const AdminOrderDetails = ({ order, onClose }) => {
                           )}
                         </div>
                         <div className="flex-grow">
-                          <h4 className="font-semibold text-gray-900 mb-3 tracking-tight text-base sm:text-lg">
-                            {productInfo?.name || productInfo?.title || 'Product Name'}
-                          </h4>
-                          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 sm:gap-5 text-sm">
+                          <div className="flex items-center gap-2 mb-3">
+                            <h4 className="font-semibold text-gray-900 tracking-tight text-base sm:text-lg">
+                              {productInfo?.name || productInfo?.title || (isBundle ? 'Bundle Product' : 'Product Name')}
+                            </h4>
+                            {isBundle && (
+                              <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                Bundle
+                              </span>
+                            )}
+                          </div>
+                          
+                          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 sm:gap-5 text-sm mb-4">
                             <div className="bg-gray-50 p-2.5 rounded-md border border-gray-100">
                               <span className="text-gray-500 font-medium block mb-1">Quantity</span>
                               <p className="font-semibold text-gray-800">{item.quantity}</p>
@@ -301,15 +346,63 @@ const AdminOrderDetails = ({ order, onClose }) => {
                               <p className="font-semibold text-gray-800">₹{itemTotal?.toFixed(2)}</p>
                             </div>
                             <div className="bg-gray-50 p-2.5 rounded-md border border-gray-100">
-                              <span className="text-gray-500 font-medium block mb-1">Product ID</span>
+                              <span className="text-gray-500 font-medium block mb-1">{isBundle ? 'Bundle ID' : 'Product ID'}</span>
                               <p className="font-medium text-gray-800 text-xs break-all">
                                 {typeof productId === 'string' ? productId : productId?.toString()}
                               </p>
                             </div>
                           </div>
+                          
+                          {/* Bundle Items Details */}
+                          {isBundle && bundleItems.length > 0 && (
+                            <div className="bg-blue-50 border border-blue-200 rounded-md p-3 mb-3">
+                              <h5 className="text-sm font-semibold text-blue-800 mb-2">Bundle Items ({bundleItems.length}):</h5>
+                              <div className="space-y-2">
+                                {bundleItems.map((bundleItem, bundleIndex) => (
+                                  <div key={bundleIndex} className="flex items-center gap-3 p-2 bg-white rounded border">
+                                    <div className="w-8 h-8 rounded overflow-hidden bg-gray-200 flex-shrink-0">
+                                      {bundleItem.image?.[0] || bundleItem.images?.[0] ? (
+                                        <img 
+                                          src={bundleItem.image?.[0] || bundleItem.images?.[0]} 
+                                          alt={bundleItem.name || bundleItem.title}
+                                          className="w-full h-full object-cover"
+                                          onError={(e) => {
+                                            e.target.style.display = 'none';
+                                          }}
+                                        />
+                                      ) : (
+                                        <div className="w-full h-full flex items-center justify-center">
+                                          <FaBox className="w-3 h-3 text-gray-400" />
+                                        </div>
+                                      )}
+                                    </div>
+                                    <div className="flex-grow">
+                                      <div className="text-sm font-medium text-blue-900">
+                                        {bundleItem.name || bundleItem.title || 'Bundle Item'}
+                                      </div>
+                                      <div className="text-xs text-blue-700">
+                                        Qty: {bundleItem.quantity || 1} • Price: ₹{(bundleItem.price || 0).toFixed(2)}
+                                      </div>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                          
+                          {/* Bundle Items Placeholder for bundles without items */}
+                          {isBundle && bundleItems.length === 0 && (
+                            <div className="bg-amber-50 border border-amber-200 rounded-md p-3 mb-3">
+                              <div className="text-sm text-amber-700 flex items-center">
+                                <FaExclamationCircle className="mr-2 text-amber-600" />
+                                Bundle items details are not available in this view
+                              </div>
+                            </div>
+                          )}
+                          
                           {/* Stock info if available from populated data */}
                           {productInfo?.stock !== undefined && (
-                            <div className="mt-3 text-sm bg-gray-50 p-2.5 rounded-md inline-block border border-gray-100">
+                            <div className="text-sm bg-gray-50 p-2.5 rounded-md inline-block border border-gray-100">
                               <span className="text-gray-600 font-medium">Current Stock: </span>
                               <span className={`font-semibold ${productInfo.stock > 0 ? 'text-green-600' : 'text-red-600'}`}>
                                 {productInfo.stock} units

@@ -102,9 +102,6 @@ const CheckoutPage = () => {
   const [isCalculatingDelivery, setIsCalculatingDelivery] = useState(false);
   const [deliveryDistance, setDeliveryDistance] = useState(null);
 
-  // Add state for estimated delivery dates
-  const [deliveryDates, setDeliveryDates] = useState([]);
-
   const GEOCODING_API_KEY = "038cafabde4449718e8dc2303a78956f";
   const SHOP_LOCATION = "Tirupur";
 
@@ -454,36 +451,6 @@ const CheckoutPage = () => {
     }
   };
 
-  // Calculate estimated delivery dates for products
-  useEffect(() => {
-    try {
-      if (checkoutItems && checkoutItems.length > 0) {
-        const today = new Date();
-        const deliveryEstimates = checkoutItems.map((item, idx) => {
-          const deliveryDays = Math.floor(Math.random() * 5) + 3;
-          const deliveryDate = new Date(today);
-          deliveryDate.setDate(today.getDate() + deliveryDays);
-          
-          const itemId = item?._id || 
-                        item?.productId?._id || 
-                        `temp-${idx}-${Math.random().toString(36).substr(2, 9)}`;
-          
-          return {
-            productId: itemId,
-            deliveryDate: deliveryDate,
-            formattedDate: `${deliveryDate.getDate()} ${deliveryDate.toLocaleString('default', { month: 'short' })} ${deliveryDate.getFullYear()}`
-          };
-        });
-        
-        setDeliveryDates(deliveryEstimates);
-      } else {
-        setDeliveryDates([]);
-      }
-    } catch (error) {
-      console.error("Error calculating delivery dates:", error);
-    }
-  }, [checkoutItems]);
-
   // Redirect if no items selected
   useEffect(() => {
     if (selectedCartItemIds.length === 0) {
@@ -610,79 +577,6 @@ const CheckoutPage = () => {
                 </div>
               </div>
             </div>
-            
-            {/* Product Display Section with Delivery Estimates */}
-            <div className="bg-white rounded shadow">
-              <div className="p-4 border-b">
-                <h2 className="text-lg font-medium">DELIVERY ESTIMATES ({selectedTotals.totalQty} items)</h2>
-              </div>
-              <div className="p-4">
-                {checkoutItems.map((item, index) => {
-                  const itemId = getProductProperty(item, '_id', `item-${index}`);
-                  const deliveryInfo = deliveryDates.find(d => d.productId === itemId);
-                  const pricing = calculateItemPricing(item);
-                  
-                  // Get image source safely - handle both products and bundles
-                  let imageSrc = noCart;
-                  if (item.productId && item.productId._id) {
-                    imageSrc = item.productId.image?.[0] || item.productId.primaryImage || noCart;
-                  } else if (item.bundleId && item.bundleId._id) {
-                    imageSrc = item.bundleId.images?.[0] || item.bundleId.image || noCart;
-                  } else {
-                    imageSrc = item.image?.[0] || item.images?.[0] || item.primaryImage || item.image || noCart;
-                  }
-                  
-                  // Get size safely
-                  const size = item.size || getProductProperty(item, 'size', 'Standard');
-                  
-                  return (
-                    <div key={`checkout-item-${itemId}-${index}`} className="flex border-b last:border-b-0 py-4">
-                      <div className="w-20 h-24 flex-shrink-0">
-                        <img 
-                          src={imageSrc} 
-                          alt={pricing.productTitle}
-                          className="w-full h-full object-cover rounded"
-                          onError={(e) => {
-                            e.target.onerror = null;
-                            e.target.src = noCart;
-                          }}
-                        />
-                      </div>
-                      
-                      <div className="ml-4 flex-1">
-                        <h3 className="font-medium">{pricing.productTitle}</h3>
-                        {pricing.isBundle && (
-                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 mt-1">
-                            Bundle
-                          </span>
-                        )}
-                        <p className="text-sm text-gray-500 mt-1">
-                          Size: {size} • Qty: {pricing.quantity}
-                        </p>
-                        <p className="text-sm font-semibold text-gray-900 mt-1">
-                          {DisplayPriceInRupees(pricing.totalPrice)}
-                          {pricing.quantity > 1 && (
-                            <span className="text-xs text-gray-500 ml-1">
-                              ({DisplayPriceInRupees(pricing.finalPrice)} each)
-                            </span>
-                          )}
-                        </p>
-                        
-                        <div className="flex items-center mt-3">
-                          <div className="text-sm">
-                            <span className="text-gray-700 font-medium">
-                              Estimated delivery by {
-                                deliveryInfo?.formattedDate || 'Next Week'
-                              }
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
           </div>
           
           {/* Right Column */}
@@ -696,7 +590,6 @@ const CheckoutPage = () => {
                 <div className="space-y-3">
                   {checkoutItems.map((item, index) => {
                     const itemId = getProductProperty(item, '_id', `item-${index}`);
-                    const deliveryInfo = deliveryDates.find(d => d.productId === itemId);
                     const pricing = calculateItemPricing(item);
                     
                     // Get image source safely - handle both products and bundles
@@ -771,12 +664,6 @@ const CheckoutPage = () => {
                                 </span>
                               </>
                             )}
-                          </div>
-                          
-                          <div className="mt-1">
-                            <span className="text-xs text-teal-700 font-medium">
-                              Delivery by {deliveryInfo?.formattedDate || 'Next Week'}
-                            </span>
                           </div>
                         </div>
                       </div>

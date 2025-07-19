@@ -7,6 +7,7 @@ import SummaryApi from '../common/SummaryApi';
 import Axios from '../utils/Axios';
 import OrderTimeline from '../components/OrderTimeline';
 import OrderCancellationModal from '../components/OrderCancellationModal';
+import ProductDetailsModal from '../components/ProductDetailsModal';
 import { useGlobalContext } from '../provider/GlobalProvider';
 import { setOrders } from '../store/orderSlice';
 import noCart from '../assets/noCart.jpg'; // Import fallback image
@@ -22,6 +23,13 @@ function MyOrders() {
   const [orderToCancel, setOrderToCancel] = useState(null);
   const [userOrders, setUserOrders] = useState([]);
   const [orderCancellationRequests, setOrderCancellationRequests] = useState([]);
+  
+  // Product Details Modal States
+  const [showProductModal, setShowProductModal] = useState(false);
+  const [selectedProduct, setSelectedProduct] = useState(null);
+  const [selectedProductType, setSelectedProductType] = useState('product');
+  const [orderContext, setOrderContext] = useState(null);
+  
   const { fetchOrders, refreshingOrders } = useGlobalContext();
   
   // Function to fetch current user's orders specifically (not all orders for admin)
@@ -113,6 +121,57 @@ function MyOrders() {
   const handleCancelOrder = (orderData) => {
     setOrderToCancel(orderData);
     setShowCancellationModal(true);
+  };
+
+  // Function to show product details in modal
+  const handleShowProductDetails = (item, order) => {
+    // Debug logging (can be removed in production)
+    if (process.env.NODE_ENV === 'development') {
+      console.log('🔍 MyOrders - Item clicked:', item);
+      console.log('🔍 MyOrders - Order context:', order);
+    }
+    
+    if (item?.itemType === 'bundle') {
+      const bundleData = item?.bundleId || item?.bundleDetails;
+      
+      // Debug bundle data
+      if (process.env.NODE_ENV === 'development') {
+        console.log('📦 MyOrders - Bundle data:', bundleData);
+        console.log('📦 Bundle has items?', bundleData?.items ? 'Yes' : 'No');
+        console.log('📦 Bundle items count:', bundleData?.items?.length || 0);
+      }
+      
+      setSelectedProduct(bundleData);
+      setSelectedProductType('bundle');
+    } else {
+      const productData = item?.productId || item?.productDetails;
+      
+      if (process.env.NODE_ENV === 'development') {
+        console.log('🏷️ MyOrders - Product data:', productData);
+      }
+      
+      setSelectedProduct(productData);
+      setSelectedProductType('product');
+    }
+    
+    // Set order context for additional information
+    setOrderContext({
+      quantity: item?.quantity,
+      orderStatus: order?.orderStatus,
+      orderDate: order?.createdAt,
+      size: item?.size,
+      orderId: order?._id
+    });
+    
+    setShowProductModal(true);
+  };
+
+  // Function to close product details modal
+  const handleCloseProductModal = () => {
+    setShowProductModal(false);
+    setSelectedProduct(null);
+    setSelectedProductType('product');
+    setOrderContext(null);
   };
 
   const handleCancellationRequested = () => {
@@ -395,10 +454,13 @@ function MyOrders() {
                           isCancelled ? 'bg-red-50 border-red-200' : 'bg-gray-50 border-gray-200'
                         }`}>
                           <div className="flex items-start gap-2 sm:gap-3">
-                            {/* Item image */}
-                            <div className={`w-12 h-12 sm:w-16 sm:h-16 rounded-md overflow-hidden border flex-shrink-0 ${
-                              isCancelled ? 'border-red-300' : 'border-gray-200'
-                            }`}>
+                            {/* Item image - Clickable */}
+                            <button
+                              onClick={() => handleShowProductDetails(item, order)}
+                              className={`w-12 h-12 sm:w-16 sm:h-16 rounded-md overflow-hidden border flex-shrink-0 hover:shadow-md transition-shadow cursor-pointer ${
+                                isCancelled ? 'border-red-300' : 'border-gray-200 hover:border-teal-300'
+                              }`}
+                            >
                               <img
                                 src={getImageSource(item)}
                                 alt={
@@ -411,17 +473,20 @@ function MyOrders() {
                                 }`}
                                 onError={(e) => handleImageError(e, item)}
                               />
-                            </div>
+                            </button>
                             
                             {/* Item details */}
                             <div className="flex-1 min-w-0">
                               <div className="flex items-start justify-between gap-2">
                                 <div className="flex-1 min-w-0">
-                                  <h4 className={`font-bold text-sm sm:text-base leading-tight truncate ${
-                                    isCancelled ? 'text-red-800 line-through' : 'text-black'
-                                  }`}>
+                                  <button
+                                    onClick={() => handleShowProductDetails(item, order)}
+                                    className={`font-bold text-sm sm:text-base leading-tight truncate text-left hover:text-teal-600 transition-colors cursor-pointer ${
+                                      isCancelled ? 'text-red-800 line-through' : 'text-black'
+                                    }`}
+                                  >
                                     {item?.itemType === 'bundle' ? item?.bundleDetails?.title : item?.productDetails?.name}
-                                  </h4>
+                                  </button>
                                   <div className="flex items-center gap-2 mt-1">
                                     <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
                                       item?.itemType === 'bundle' 
@@ -434,6 +499,12 @@ function MyOrders() {
                                       isCancelled ? 'text-red-600' : 'text-gray-600'
                                     }`}>
                                       Qty: {item?.quantity}
+                                    </span>
+                                    <span 
+                                      className="text-xs text-teal-600 font-medium cursor-pointer hover:text-teal-800"
+                                      onClick={() => handleShowProductDetails(item, order)}
+                                    >
+                                      👁️ View Details
                                     </span>
                                   </div>
                                 </div>
@@ -703,6 +774,15 @@ function MyOrders() {
           onCancellationRequested={handleCancellationRequested}
         />
       )}
+
+      {/* Product Details Modal */}
+      <ProductDetailsModal
+        isOpen={showProductModal}
+        onClose={handleCloseProductModal}
+        product={selectedProduct}
+        itemType={selectedProductType}
+        orderContext={orderContext}
+      />
     </div>
   )
 }

@@ -308,39 +308,146 @@ function CancellationManagement() {
                                             };
 
                                             const getProductImage = () => {
-                                                if (item.productId && typeof item.productId === 'object' && item.productId.image?.[0]) {
-                                                    return item.productId.image[0];
+                                                // Debug: Check what data we have
+                                                console.log('Image debug - item type:', item.itemType);
+                                                console.log('Image debug - bundleId exists:', !!item.bundleId);
+                                                console.log('Image debug - bundleDetails exists:', !!item.bundleDetails);
+                                                
+                                                // Try all possible image sources in order of preference
+                                                let imageUrl = null;
+                                                
+                                                // First try bundleId (most specific for bundles)
+                                                if (item.bundleId && typeof item.bundleId === 'object') {
+                                                    console.log('Checking bundleId images:', item.bundleId);
+                                                    console.log('bundleId.image type:', typeof item.bundleId.image);
+                                                    console.log('bundleId.image value:', item.bundleId.image);
+                                                    
+                                                    // Check if image is a string (URL) or array
+                                                    if (typeof item.bundleId.image === 'string') {
+                                                        imageUrl = item.bundleId.image;
+                                                    } else if (Array.isArray(item.bundleId.image) && item.bundleId.image.length > 0) {
+                                                        imageUrl = item.bundleId.image[0];
+                                                    } else if (Array.isArray(item.bundleId.images) && item.bundleId.images.length > 0) {
+                                                        imageUrl = item.bundleId.images[0];
+                                                    } else if (item.bundleId.bundleImage) {
+                                                        imageUrl = item.bundleId.bundleImage;
+                                                    }
+                                                    
+                                                    if (imageUrl) {
+                                                        console.log('Found bundleId image:', imageUrl);
+                                                        return imageUrl;
+                                                    }
+                                                    
+                                                    // Try to get image from first bundle item if main bundle doesn't have image
+                                                    if (item.bundleId.items && item.bundleId.items.length > 0) {
+                                                        const firstItem = item.bundleId.items[0];
+                                                        imageUrl = firstItem.images?.[0] || firstItem.image?.[0];
+                                                        if (imageUrl) {
+                                                            console.log('Found bundleId first item image:', imageUrl);
+                                                            return imageUrl;
+                                                        }
+                                                    }
                                                 }
-                                                if (item.productDetails?.image?.[0]) {
-                                                    return item.productDetails.image[0];
+                                                
+                                                // Then try bundleDetails
+                                                if (item.bundleDetails) {
+                                                    console.log('Checking bundleDetails images:', item.bundleDetails);
+                                                    console.log('bundleDetails.image type:', typeof item.bundleDetails.image);
+                                                    console.log('bundleDetails.image value:', item.bundleDetails.image);
+                                                    
+                                                    // Check if image is a string (URL) or array
+                                                    if (typeof item.bundleDetails.image === 'string') {
+                                                        imageUrl = item.bundleDetails.image;
+                                                    } else if (Array.isArray(item.bundleDetails.image) && item.bundleDetails.image.length > 0) {
+                                                        imageUrl = item.bundleDetails.image[0];
+                                                    } else if (Array.isArray(item.bundleDetails.images) && item.bundleDetails.images.length > 0) {
+                                                        imageUrl = item.bundleDetails.images[0];
+                                                    } else if (item.bundleDetails.bundleImage) {
+                                                        imageUrl = item.bundleDetails.bundleImage;
+                                                    }
+                                                    
+                                                    if (imageUrl) {
+                                                        console.log('Found bundleDetails image:', imageUrl);
+                                                        return imageUrl;
+                                                    }
+                                                    
+                                                    // Try to get image from first bundle item if main bundle doesn't have image
+                                                    if (item.bundleDetails.items && item.bundleDetails.items.length > 0) {
+                                                        const firstItem = item.bundleDetails.items[0];
+                                                        imageUrl = firstItem.images?.[0] || firstItem.image?.[0];
+                                                        if (imageUrl) {
+                                                            console.log('Found bundleDetails first item image:', imageUrl);
+                                                            return imageUrl;
+                                                        }
+                                                    }
                                                 }
-                                                if (item.bundleId && typeof item.bundleId === 'object' && item.bundleId.image?.[0]) {
-                                                    return item.bundleId.image[0];
+                                                
+                                                // Then try productId
+                                                if (item.productId && typeof item.productId === 'object') {
+                                                    console.log('Checking productId images:', item.productId);
+                                                    
+                                                    // Check if image is a string (URL) or array
+                                                    if (typeof item.productId.image === 'string') {
+                                                        imageUrl = item.productId.image;
+                                                    } else if (Array.isArray(item.productId.image) && item.productId.image.length > 0) {
+                                                        imageUrl = item.productId.image[0];
+                                                    } else if (Array.isArray(item.productId.images) && item.productId.images.length > 0) {
+                                                        imageUrl = item.productId.images[0];
+                                                    }
+                                                    
+                                                    if (imageUrl) {
+                                                        console.log('Found productId image:', imageUrl);
+                                                        return imageUrl;
+                                                    }
                                                 }
-                                                if (item.bundleDetails?.image?.[0]) {
-                                                    return item.bundleDetails.image[0];
+                                                
+                                                // Finally try productDetails
+                                                if (item.productDetails) {
+                                                    console.log('Checking productDetails images:', item.productDetails);
+                                                    
+                                                    // Check if image is a string (URL) or array
+                                                    if (typeof item.productDetails.image === 'string') {
+                                                        imageUrl = item.productDetails.image;
+                                                    } else if (Array.isArray(item.productDetails.image) && item.productDetails.image.length > 0) {
+                                                        imageUrl = item.productDetails.image[0];
+                                                    } else if (Array.isArray(item.productDetails.images) && item.productDetails.images.length > 0) {
+                                                        imageUrl = item.productDetails.images[0];
+                                                    }
+                                                    
+                                                    if (imageUrl) {
+                                                        console.log('Found productDetails image:', imageUrl);
+                                                        return imageUrl;
+                                                    }
                                                 }
+                                                
+                                                console.log('No image found anywhere');
                                                 return null;
                                             };
 
                                             const getUnitPrice = () => {
-                                                if (item.productId && typeof item.productId === 'object' && item.productId.price) {
-                                                    return item.productId.price;
-                                                }
-                                                if (item.productDetails?.price) {
-                                                    return item.productDetails.price;
-                                                }
-                                                if (item.bundleId && typeof item.bundleId === 'object' && item.bundleId.price) {
-                                                    return item.bundleId.price;
-                                                }
-                                                if (item.bundleDetails?.price) {
-                                                    return item.bundleDetails.price;
-                                                }
-                                                if (item.itemTotal && item.quantity) {
-                                                    return item.itemTotal / item.quantity;
-                                                }
-                                                return 0;
+                                                // For your requirement: unit price should equal total price
+                                                return item.itemTotal || 0;
                                             };
+
+                                            // Enhanced bundle detection - check multiple sources
+                                            const isBundle = item.itemType === 'bundle' || 
+                                                           (item.bundleId && typeof item.bundleId === 'object') ||
+                                                           (item.bundleDetails && typeof item.bundleDetails === 'object');
+                                            
+                                            // Get bundle items if it's a bundle
+                                            const getBundleItems = () => {
+                                                if (!isBundle) return [];
+                                                
+                                                if (item.bundleId && typeof item.bundleId === 'object' && item.bundleId.items) {
+                                                    return item.bundleId.items;
+                                                }
+                                                if (item.bundleDetails && item.bundleDetails.items) {
+                                                    return item.bundleDetails.items;
+                                                }
+                                                return [];
+                                            };
+
+                                            const bundleItems = getBundleItems();
 
                                             return (
                                                 <div key={index} className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
@@ -352,7 +459,18 @@ function CancellationManagement() {
                                                                     alt={getProductName()}
                                                                     className="w-full h-full object-cover"
                                                                     onError={(e) => {
+                                                                        console.log('Image failed to load:', getProductImage());
                                                                         e.target.style.display = 'none';
+                                                                        e.target.parentElement.innerHTML = `
+                                                                            <div class="w-full h-full flex items-center justify-center">
+                                                                                <svg class="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                                                                                </svg>
+                                                                            </div>
+                                                                        `;
+                                                                    }}
+                                                                    onLoad={() => {
+                                                                        console.log('Image loaded successfully:', getProductImage());
                                                                     }}
                                                                 />
                                                             ) : (
@@ -364,8 +482,15 @@ function CancellationManagement() {
                                                             )}
                                                         </div>
                                                         <div className="flex-grow">
-                                                            <h4 className="font-semibold text-gray-900 mb-2">{getProductName()}</h4>
-                                                            <div className="grid grid-cols-2 gap-4 text-sm">
+                                                            <div className="flex items-center gap-2 mb-2">
+                                                                <h4 className="font-semibold text-gray-900">{getProductName()}</h4>
+                                                                {isBundle && (
+                                                                    <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                                                        Bundle
+                                                                    </span>
+                                                                )}
+                                                            </div>
+                                                            <div className="grid grid-cols-2 gap-4 text-sm mb-3">
                                                                 <div>
                                                                     <span className="text-gray-600">Quantity:</span>
                                                                     <span className="font-medium text-gray-800 ml-2">{item.quantity}</span>
@@ -376,13 +501,61 @@ function CancellationManagement() {
                                                                 </div>
                                                                 <div>
                                                                     <span className="text-gray-600">Item Total:</span>
-                                                                    <span className="font-medium text-gray-800 ml-2">₹{(item.itemTotal || getUnitPrice() * item.quantity).toFixed(2)}</span>
+                                                                    <span className="font-medium text-gray-800 ml-2">₹{getUnitPrice().toFixed(2)}</span>
                                                                 </div>
                                                                 <div>
                                                                     <span className="text-gray-600">Type:</span>
-                                                                    <span className="font-medium text-gray-800 ml-2">{item.itemType === 'bundle' ? 'Bundle' : 'Product'}</span>
+                                                                    <span className="font-medium text-gray-800 ml-2">{isBundle ? 'Bundle' : 'Product'}</span>
                                                                 </div>
                                                             </div>
+                                                            
+                                                            {/* Bundle Items Details */}
+                                                            {isBundle && bundleItems.length > 0 && (
+                                                                <div className="border-t pt-3 mt-3">
+                                                                    <h5 className="text-sm font-semibold text-gray-700 mb-2">Bundle Items ({bundleItems.length}):</h5>
+                                                                    <div className="space-y-2">
+                                                                        {bundleItems.map((bundleItem, bundleIndex) => (
+                                                                            <div key={bundleIndex} className="flex items-center gap-3 p-2 bg-gray-50 rounded border">
+                                                                                <div className="w-10 h-10 rounded overflow-hidden bg-gray-200 flex-shrink-0">
+                                                                                    {bundleItem.image?.[0] || bundleItem.images?.[0] ? (
+                                                                                        <img 
+                                                                                            src={bundleItem.image?.[0] || bundleItem.images?.[0]} 
+                                                                                            alt={bundleItem.name || bundleItem.title}
+                                                                                            className="w-full h-full object-cover"
+                                                                                            onError={(e) => {
+                                                                                                e.target.style.display = 'none';
+                                                                                            }}
+                                                                                        />
+                                                                                    ) : (
+                                                                                        <div className="w-full h-full flex items-center justify-center">
+                                                                                            <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                                                                                            </svg>
+                                                                                        </div>
+                                                                                    )}
+                                                                                </div>
+                                                                                <div className="flex-grow">
+                                                                                    <div className="text-sm font-medium text-gray-800">
+                                                                                        {bundleItem.name || bundleItem.title || 'Bundle Item'}
+                                                                                    </div>
+                                                                                    <div className="text-xs text-gray-600">
+                                                                                        Qty: {bundleItem.quantity || 1} • Price: ₹{(bundleItem.price || 0).toFixed(2)}
+                                                                                    </div>
+                                                                                </div>
+                                                                            </div>
+                                                                        ))}
+                                                                    </div>
+                                                                </div>
+                                                            )}
+                                                            
+                                                            {/* Bundle Items Placeholder for bundles without items */}
+                                                            {isBundle && bundleItems.length === 0 && (
+                                                                <div className="border-t pt-3 mt-3">
+                                                                    <div className="text-sm text-amber-600 bg-amber-50 p-2 rounded border border-amber-200">
+                                                                        ⚠️ Bundle items details are not available in this view
+                                                                    </div>
+                                                                </div>
+                                                            )}
                                                         </div>
                                                     </div>
                                                 </div>

@@ -335,9 +335,11 @@ const RefundManagement = () => {
                                             // Debug: Log item structure to console
                                             console.log(`Item ${index}:`, item);
                                             
+                                            const isBundle = item.itemType === 'bundle';
+                                            
                                             // Get item name with enhanced fallback logic
                                             let itemName = 'Product';
-                                            if (item.itemType === 'bundle') {
+                                            if (isBundle) {
                                                 // Check all possible places where bundle name could be stored
                                                 if (item.bundleId && typeof item.bundleId === 'object') {
                                                     itemName = item.bundleId.title || item.bundleId.name || 'Bundle';
@@ -363,7 +365,7 @@ const RefundManagement = () => {
                                             
                                             // Get item price with enhanced fallback logic
                                             let itemPrice = 0;
-                                            if (item.itemType === 'bundle') {
+                                            if (isBundle) {
                                                 // Check all possible places where bundle price could be stored
                                                 if (item.bundleId && typeof item.bundleId === 'object') {
                                                     itemPrice = item.bundleId.bundlePrice || item.bundleId.price || 0;
@@ -385,33 +387,102 @@ const RefundManagement = () => {
                                                 }
                                             }
                                             
-                                            console.log(`Extracted name: ${itemName}, price: ${itemPrice}`);
+                                            // Get bundle items if it's a bundle
+                                            const getBundleItems = () => {
+                                                if (!isBundle) return [];
+                                                
+                                                if (item.bundleId && typeof item.bundleId === 'object' && item.bundleId.items) {
+                                                    return item.bundleId.items;
+                                                }
+                                                if (item.bundleDetails && item.bundleDetails.items) {
+                                                    return item.bundleDetails.items;
+                                                }
+                                                return [];
+                                            };
+
+                                            const bundleItems = getBundleItems();
+                                            
+                                            console.log(`Extracted name: ${itemName}, price: ${itemPrice}, isBundle: ${isBundle}, bundleItems: ${bundleItems.length}`);
                                             
                                             return (
-                                                <div key={index} className="border border-gray-200 rounded-lg p-3 flex items-center bg-white">
-                                                    <div className="flex-shrink-0 w-16 h-16 mr-4">
-                                                        <img 
-                                                            src={getImageSource(item)}
-                                                            alt={itemName}
-                                                            className="w-full h-full object-cover rounded"
-                                                            onError={(e) => {
-                                                                console.log("Image error, falling back to noCart");
-                                                                e.target.onerror = null; 
-                                                                e.target.src = noCart;
-                                                            }}
-                                                        />
-                                                    </div>
-                                                    <div className="flex-grow">
-                                                        <h4 className="font-medium">
-                                                            {itemName}
-                                                        </h4>
-                                                        <div className="text-sm text-gray-600 mt-1">
-                                                            <span>Quantity: {item.quantity || 1}</span>
-                                                            <span className="mx-2">•</span>
-                                                            <span>Price: {DisplayPriceInRupees(itemPrice)}</span>
+                                                <div key={index} className="border border-gray-200 rounded-lg p-3 bg-white">
+                                                    <div className="flex items-start">
+                                                        <div className="flex-shrink-0 w-16 h-16 mr-4">
+                                                            <img 
+                                                                src={getImageSource(item)}
+                                                                alt={itemName}
+                                                                className="w-full h-full object-cover rounded"
+                                                                onError={(e) => {
+                                                                    console.log("Image error, falling back to noCart");
+                                                                    e.target.onerror = null; 
+                                                                    e.target.src = noCart;
+                                                                }}
+                                                            />
                                                         </div>
-                                                        <div className="text-sm font-medium mt-1">
-                                                            Subtotal: {DisplayPriceInRupees(item.itemTotal || (itemPrice * (item.quantity || 1)))}
+                                                        <div className="flex-grow">
+                                                            <div className="flex items-center gap-2 mb-2">
+                                                                <h4 className="font-medium">{itemName}</h4>
+                                                                {isBundle && (
+                                                                    <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                                                        Bundle
+                                                                    </span>
+                                                                )}
+                                                            </div>
+                                                            <div className="text-sm text-gray-600 mb-2">
+                                                                <span>Quantity: {item.quantity || 1}</span>
+                                                                <span className="mx-2">•</span>
+                                                                <span>Price: {DisplayPriceInRupees(itemPrice)}</span>
+                                                                <span className="mx-2">•</span>
+                                                                <span className="font-medium">Subtotal: {DisplayPriceInRupees(item.itemTotal || (itemPrice * (item.quantity || 1)))}</span>
+                                                            </div>
+                                                            
+                                                            {/* Bundle Items Details */}
+                                                            {isBundle && bundleItems.length > 0 && (
+                                                                <div className="border-t pt-3 mt-3">
+                                                                    <h5 className="text-sm font-semibold text-gray-700 mb-2">Bundle Items ({bundleItems.length}):</h5>
+                                                                    <div className="space-y-2">
+                                                                        {bundleItems.map((bundleItem, bundleIndex) => (
+                                                                            <div key={bundleIndex} className="flex items-center gap-2 p-2 bg-gray-50 rounded border text-sm">
+                                                                                <div className="w-8 h-8 rounded overflow-hidden bg-gray-200 flex-shrink-0">
+                                                                                    {bundleItem.image?.[0] || bundleItem.images?.[0] ? (
+                                                                                        <img 
+                                                                                            src={bundleItem.image?.[0] || bundleItem.images?.[0]} 
+                                                                                            alt={bundleItem.name || bundleItem.title}
+                                                                                            className="w-full h-full object-cover"
+                                                                                            onError={(e) => {
+                                                                                                e.target.style.display = 'none';
+                                                                                            }}
+                                                                                        />
+                                                                                    ) : (
+                                                                                        <div className="w-full h-full flex items-center justify-center">
+                                                                                            <svg className="w-3 h-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                                                                                            </svg>
+                                                                                        </div>
+                                                                                    )}
+                                                                                </div>
+                                                                                <div className="flex-grow">
+                                                                                    <div className="font-medium text-gray-800">
+                                                                                        {bundleItem.name || bundleItem.title || 'Bundle Item'}
+                                                                                    </div>
+                                                                                    <div className="text-xs text-gray-600">
+                                                                                        Qty: {bundleItem.quantity || 1} • Price: {DisplayPriceInRupees(bundleItem.price || 0)}
+                                                                                    </div>
+                                                                                </div>
+                                                                            </div>
+                                                                        ))}
+                                                                    </div>
+                                                                </div>
+                                                            )}
+                                                            
+                                                            {/* Bundle Items Placeholder for bundles without items */}
+                                                            {isBundle && bundleItems.length === 0 && (
+                                                                <div className="border-t pt-3 mt-3">
+                                                                    <div className="text-sm text-amber-600 bg-amber-50 p-2 rounded border border-amber-200">
+                                                                        ⚠️ Bundle items details are not available in this view
+                                                                    </div>
+                                                                </div>
+                                                            )}
                                                         </div>
                                                     </div>
                                                 </div>

@@ -213,9 +213,10 @@ const AddressPage = () => {
   const [isCalculatingDelivery, setIsCalculatingDelivery] = useState(false);
   const [deliveryDistance, setDeliveryDistance] = useState(null);
   const [isDeliveryCalculated, setIsDeliveryCalculated] = useState(false);
-
-  // Add state for estimated delivery dates
-  const [deliveryDates, setDeliveryDates] = useState([]);
+  
+  // Delivery date calculation states
+  const [estimatedDeliveryDate, setEstimatedDeliveryDate] = useState(null);
+  const [deliveryDays, setDeliveryDays] = useState(null);
 
   const GEOCODING_API_KEY = "038cafabde4449718e8dc2303a78956f";
   const SHOP_LOCATION = "Tirupur"; // Your shop location (simplified like test.jsx)
@@ -378,11 +379,40 @@ const AddressPage = () => {
     return segments * chargePerSegment;
   };
 
+  // Calculate delivery days based on distance (1 day for every 200km)
+  const getDeliveryDaysFromDistance = (distance) => {
+    // Base delivery time: 1 day for local delivery
+    const baseDays = 1;
+    
+    // Additional days: 1 day for every 200km
+    // Formula: Base days + (distance / 200km) * 1 day
+    const daysPerSegment = 1; // 1 day
+    const kmPerSegment = 200; // per 200km
+    
+    // Calculate additional days (round up for partial segments)
+    const additionalDays = Math.ceil(distance / kmPerSegment) * daysPerSegment;
+    
+    return baseDays + additionalDays;
+  };
+
+  // Calculate estimated delivery date from days
+  const getEstimatedDeliveryDate = (days) => {
+    const deliveryDate = new Date();
+    deliveryDate.setDate(deliveryDate.getDate() + days);
+    
+    return {
+      date: deliveryDate,
+      formattedDate: `${deliveryDate.getDate()} ${deliveryDate.toLocaleString('default', { month: 'short' })} ${deliveryDate.getFullYear()}`
+    };
+  };
+
   const calculateDeliveryCharge = async (customerAddress) => {
     if (!customerAddress) {
       setDeliveryCharge(0);
       setDeliveryDistance(null);
       setIsDeliveryCalculated(false);
+      setEstimatedDeliveryDate(null);
+      setDeliveryDays(null);
       return;
     }
 
@@ -404,6 +434,13 @@ const AddressPage = () => {
       if (customerCity === shopCity) {
         setDeliveryDistance('0');
         setDeliveryCharge(50); // ₹50 for same place delivery
+        
+        // Calculate delivery date for same city (1 day)
+        const deliveryDaysCount = 1;
+        const deliveryDateInfo = getEstimatedDeliveryDate(deliveryDaysCount);
+        setDeliveryDays(deliveryDaysCount);
+        setEstimatedDeliveryDate(deliveryDateInfo.formattedDate);
+        
         setIsDeliveryCalculated(true);
         return;
       }
@@ -412,14 +449,22 @@ const AddressPage = () => {
       const roadDistance = await getRoadDistance(SHOP_LOCATION, normalizedCustomerCity);
       const deliveryCharge = getDeliveryChargeFromDistance(roadDistance);
       
+      // Calculate delivery days and date based on distance
+      const deliveryDaysCount = getDeliveryDaysFromDistance(roadDistance);
+      const deliveryDateInfo = getEstimatedDeliveryDate(deliveryDaysCount);
+      
       setDeliveryDistance(roadDistance.toFixed(2));
       setDeliveryCharge(deliveryCharge);
+      setDeliveryDays(deliveryDaysCount);
+      setEstimatedDeliveryDate(deliveryDateInfo.formattedDate);
       setIsDeliveryCalculated(true);
       
     } catch (error) {
       console.error("Error calculating delivery charge:", error);
       setDeliveryCharge(0); // Default to free delivery if calculation fails
       setDeliveryDistance(null);
+      setEstimatedDeliveryDate(null);
+      setDeliveryDays(null);
       setIsDeliveryCalculated(true); // Still mark as calculated even if failed
     } finally {
       setIsCalculatingDelivery(false);
@@ -450,6 +495,8 @@ const AddressPage = () => {
       setDeliveryCharge(0);
       setDeliveryDistance(null);
       setIsDeliveryCalculated(false);
+      setEstimatedDeliveryDate(null);
+      setDeliveryDays(null);
       return;
     }
     
@@ -519,52 +566,6 @@ const AddressPage = () => {
     setOpenEditAddress(true);
   };
 
-  // Calculate estimated delivery dates for products
-  useEffect(() => {
-    try {
-      if (checkoutItems && checkoutItems.length > 0) {
-        // Calculate delivery dates (current date + 3-5 days)
-        const today = new Date();
-        const deliveryEstimates = checkoutItems.map((item, idx) => {
-          // Random delivery estimate between 3-7 days
-          const deliveryDays = Math.floor(Math.random() * 5) + 3;
-          const deliveryDate = new Date(today);
-          deliveryDate.setDate(today.getDate() + deliveryDays);
-          
-          // Get a unique ID for each item
-          const itemId = item?._id || 
-                        item?.productId?._id || 
-                        `temp-${idx}-${Math.random().toString(36).substr(2, 9)}`;
-          
-          return {
-            productId: itemId,
-            deliveryDate: deliveryDate,
-            formattedDate: `${deliveryDate.getDate()} ${deliveryDate.toLocaleString('default', { month: 'short' })} ${deliveryDate.getFullYear()}`
-          };
-        });
-        
-        setDeliveryDates(deliveryEstimates);
-      } else {
-        // Reset delivery dates if no items
-        setDeliveryDates([]);
-      }
-    } catch (error) {
-      console.error("Error calculating delivery dates:", error);
-      
-      // Set fallback dates in case of error
-      const fallbackDate = new Date();
-      fallbackDate.setDate(fallbackDate.getDate() + 5); // Default 5-day delivery
-      
-      const fallbackEstimates = Array(checkoutItems?.length || 0).fill().map((_, i) => ({
-        productId: `fallback-${i}`,
-        deliveryDate: fallbackDate,
-        formattedDate: `${fallbackDate.getDate()} ${fallbackDate.toLocaleString('default', { month: 'short' })} ${fallbackDate.getFullYear()}`
-      }));
-      
-      setDeliveryDates(fallbackEstimates);
-    }
-  }, [checkoutItems]);
-
   const handleContinueToPayment = () => {
     // Check if there's a valid selected address
     if (selectedAddressIndex === null) {
@@ -596,7 +597,9 @@ const AddressPage = () => {
       state: { 
         selectedAddressId: addressList[selectedAddressIndex]._id,
         deliveryCharge: deliveryCharge, // Ensure we pass the calculated delivery charge
-        deliveryDistance: deliveryDistance
+        deliveryDistance: deliveryDistance,
+        estimatedDeliveryDate: estimatedDeliveryDate,
+        deliveryDays: deliveryDays
       } 
     });
   };
@@ -733,67 +736,6 @@ const AddressPage = () => {
                 </div>
               </div>
             </div>
-            
-            {/* Product Display Section with Delivery Estimates */}
-            <div className="bg-white rounded shadow">
-              <div className="p-4 border-b">
-                <h2 className="text-lg font-medium">DELIVERY ESTIMATES</h2>
-              </div>
-              <div className="p-4">
-                <div className="space-y-4">
-                  {checkoutItems.map((item, index) => {
-                    // Use our safe access helper to get all needed properties
-                    const itemId = getProductProperty(item, '_id', `item-${index}`);
-                    const deliveryInfo = deliveryDates.find(d => d.productId === itemId);
-                    
-                    // Get image source safely
-                    const imageSrc = getProductProperty(item, 'image[0]') || 
-                                    getProductProperty(item, 'primaryImage') ||
-                                    item.bundleId.images[0] ||
-                                    noCart; // Use local fallback image
-                    
-                    // Get product title/name safely
-                    const productTitle = getProductProperty(item, 'name', 'Product') || 
-                                        getProductProperty(item, 'title', 'Product');
-                    const size = getProductProperty(item, 'size', 'Standard');
-                    const quantity = getProductProperty(item, 'quantity', 1);
-                    
-                    return (
-                      <div key={`checkout-item-${itemId}-${index}`} className="flex border-b last:border-b-0 py-4">
-                        <div className="w-20 h-24 flex-shrink-0">
-                          <img 
-                            src={imageSrc} 
-                            alt={productTitle}
-                            className="w-full h-full object-cover rounded"
-                            onError={(e) => {
-                              e.target.onerror = null;
-                              e.target.src = noCart; // Use local fallback image
-                            }}
-                          />
-                        </div>
-                        
-                        <div className="ml-4 flex-1">
-                          <h3 className="font-medium">{productTitle}</h3>
-                          <p className="text-sm text-gray-500 mt-1">
-                            Size: {size} • Qty: {quantity}
-                          </p>
-                          
-                          <div className="flex items-center mt-3">
-                            <div className="text-sm">
-                              <span className="text-gray-700 font-medium">
-                                Estimated delivery by {
-                                  deliveryInfo?.formattedDate || 'Next Week'
-                                }
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            </div>
           </div>
           
           {/* Right Column */}
@@ -808,7 +750,6 @@ const AddressPage = () => {
                   {checkoutItems.map((item, index) => {
                     // Use our safe access helper to get all needed properties
                     const itemId = getProductProperty(item, '_id', `item-${index}`);
-                    const deliveryInfo = deliveryDates.find(d => d.productId === itemId);
                     const pricing = calculateItemPricing(item); // Use consistent pricing function
                     
                     // Get image source safely - handle both products and bundles
@@ -874,11 +815,19 @@ const AddressPage = () => {
                             )}
                           </div>
                           
-                          <div className="mt-1">
-                            <span className="text-xs text-teal-600 font-medium">
-                              Delivery by {deliveryInfo?.formattedDate || 'Next Week'}
-                            </span>
-                          </div>
+                          {/* Delivery Date Display */}
+                          {estimatedDeliveryDate && (
+                            <div className="mt-1">
+                              <span className="text-xs text-teal-600 font-medium">
+                                Delivery by {estimatedDeliveryDate}
+                                {deliveryDays && (
+                                  <span className="text-gray-500 ml-1">
+                                    ({deliveryDays} {deliveryDays === 1 ? 'day' : 'days'})
+                                  </span>
+                                )}
+                              </span>
+                            </div>
+                          )}
                         </div>
                       </div>
                     );
@@ -925,6 +874,21 @@ const AddressPage = () => {
                       </span>
                     )}
                   </div>
+                  
+                  {/* Delivery Date Information */}
+                  {estimatedDeliveryDate && isDeliveryCalculated && (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-700">Estimated Delivery</span>
+                      <span className="text-teal-600 font-medium">
+                        {estimatedDeliveryDate}
+                        {deliveryDistance && deliveryDistance !== '0' && (
+                          <div className="text-xs text-gray-500">
+                            ({deliveryDistance} km • {deliveryDays} {deliveryDays === 1 ? 'day' : 'days'})
+                          </div>
+                        )}
+                      </span>
+                    </div>
+                  )}
                   
                   <div className="border-t pt-3 mt-3">
                     <div className="flex justify-between font-semibold">
