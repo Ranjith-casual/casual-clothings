@@ -6,6 +6,7 @@ import ProductModel from "../models/product.model.js";
 import BundleModel from "../models/bundles.js"; // Add bundle model import
 import sendEmail from "../config/sendEmail.js";
 import fs from 'fs';
+import { disconnect } from "process";
 
 export const onlinePaymentOrderController = async (req, res) => {
   try {
@@ -178,6 +179,7 @@ export const onlinePaymentOrderController = async (req, res) => {
         if (!bundleDetails || !bundleDetails.title) {
           try {
             const bundle = await BundleModel.findById(bundleId);
+            console.log("Fetched bundle details:", bundle);
             if (bundle) {
               bundleDetails = {
                 title: bundle.title,
@@ -217,7 +219,8 @@ export const onlinePaymentOrderController = async (req, res) => {
               productDetails = {
                 name: product.name,
                 image: product.image,
-                price: product.price
+                price: product.price,
+                discount: product.discount
               };
             }
           } catch (error) {
@@ -440,13 +443,25 @@ export const cancelOrderController = async (req, res) => {
 
             // Restore stock for all items in the cancelled order
             for (const item of order.items) {
-                await ProductModel.findByIdAndUpdate(
-                    item.productId,
-                    { 
-                        $inc: { stock: item.quantity } // Add back the cancelled quantity
-                    },
-                    { session, new: true }
-                );
+                if (item.itemType === 'bundle') {
+                    // Restore bundle stock
+                    await BundleModel.findByIdAndUpdate(
+                        item.bundleId,
+                        { 
+                            $inc: { stock: item.quantity } // Add back the cancelled quantity
+                        },
+                        { session, new: true }
+                    );
+                } else {
+                    // Restore product stock
+                    await ProductModel.findByIdAndUpdate(
+                        item.productId,
+                        { 
+                            $inc: { stock: item.quantity } // Add back the cancelled quantity
+                        },
+                        { session, new: true }
+                    );
+                }
             }
 
             await session.commitTransaction();
@@ -475,7 +490,7 @@ export const cancelOrderController = async (req, res) => {
                               <h4>Cancelled Items:</h4>
                               ${order.items.map(item => `
                                 <div style="border-bottom: 1px solid #eee; padding: 5px 0;">
-                                  <p><strong>Product:</strong> ${item.productDetails.name}</p>
+                                  <p><strong>${item.itemType === 'bundle' ? 'Bundle' : 'Product'}:</strong> ${item.itemType === 'bundle' ? item.bundleDetails?.title : item.productDetails?.name}</p>
                                   <p><strong>Quantity:</strong> ${item.quantity} (Stock Restored)</p>
                                 </div>
                               `).join('')}
@@ -691,6 +706,89 @@ export const getOrderController = async (req, res) => {
     }
 }
 
+// Get single order by ID
+export const getOrderByIdController = async (req, res) => {
+    try {
+        const { orderId } = req.params;
+        const userId = req.userId;
+        
+        const order = await orderModel.findOne({ orderId: orderId, userId: userId })
+          .populate("items.productId", "name image price stock discount")
+          .populate("items.bundleId", "title description image images bundlePrice originalPrice stock items")
+          .populate("deliveryAddress", "address_line city state pincode country")
+          .populate("userId", "name email");
+          
+        if (!order) {
+            return res.status(404).json({
+                success: false,
+                error: true,
+                message: "Order not found"
+            });
+        }
+          
+        return res.json({
+            success: true,
+            error: false,
+            message: "Order fetched successfully",
+            data: order
+        });
+    } catch (error) {
+        return res.status(500).json({
+            success: false,
+            error: true,
+            message: "Error in fetching order",
+            details: error.message
+        });
+    }
+}
+
+// Get order statistics for admin dashboard
+export const getOrderStatsController = async (req, res) => {
+    try {
+        const totalOrders = await orderModel.countDocuments();
+        const pendingOrders = await orderModel.countDocuments({ orderStatus: "ORDER PLACED" });
+        const processingOrders = await orderModel.countDocuments({ orderStatus: "PROCESSING" });
+        const deliveredOrders = await orderModel.countDocuments({ orderStatus: "DELIVERED" });
+        const cancelledOrders = await orderModel.countDocuments({ orderStatus: "CANCELLED" });
+        
+        // Calculate total revenue from delivered orders
+        const revenueResult = await orderModel.aggregate([
+            { $match: { orderStatus: "DELIVERED" } },
+            { $group: { _id: null, totalRevenue: { $sum: "$totalAmt" } } }
+        ]);
+        const totalRevenue = revenueResult.length > 0 ? revenueResult[0].totalRevenue : 0;
+        
+        // Get recent orders (last 10)
+        const recentOrders = await orderModel.find({})
+          .sort({ createdAt: -1 })
+          .limit(10)
+          .populate("userId", "name email")
+          .populate("deliveryAddress", "city state");
+        
+        return res.json({
+            success: true,
+            error: false,
+            message: "Order statistics fetched successfully",
+            data: {
+                totalOrders,
+                pendingOrders,
+                processingOrders,
+                deliveredOrders,
+                cancelledOrders,
+                totalRevenue,
+                recentOrders
+            }
+        });
+    } catch (error) {
+        return res.status(500).json({
+            success: false,
+            error: true,
+            message: "Error in fetching order statistics",
+            details: error.message
+        });
+    }
+}
+
 export const getAllOrdersController = async (req, res) => {
     try {
         const orders = await orderModel.find({})
@@ -770,13 +868,25 @@ export const updateOrderStatusController = async (req, res) => {
             if (orderStatus === "CANCELLED" && previousStatus !== "CANCELLED") {
                 // Restore stock for all items when order is cancelled
                 for (const item of order.items) {
-                    await ProductModel.findByIdAndUpdate(
-                        item.productId,
-                        { 
-                            $inc: { stock: item.quantity }
-                        },
-                        { session, new: true }
-                    );
+                    if (item.itemType === 'bundle') {
+                        // Restore bundle stock
+                        await BundleModel.findByIdAndUpdate(
+                            item.bundleId,
+                            { 
+                                $inc: { stock: item.quantity }
+                            },
+                            { session, new: true }
+                        );
+                    } else {
+                        // Restore product stock
+                        await ProductModel.findByIdAndUpdate(
+                            item.productId,
+                            { 
+                                $inc: { stock: item.quantity }
+                            },
+                            { session, new: true }
+                        );
+                    }
                 }
             }
 
@@ -902,7 +1012,7 @@ export const updateOrderStatusController = async (req, res) => {
                                   ${orderStatus === "CANCELLED" ? `
                                     <p style="color: #d32f2f;"><strong>Stock Restored:</strong></p>
                                     ${order.items.map(item => `
-                                      <p style="color: #d32f2f; margin-left: 20px;">• ${item.productDetails?.name || 'Product'}: ${item.quantity} units restored</p>
+                                      <p style="color: #d32f2f; margin-left: 20px;">• ${item.itemType === 'bundle' ? item.bundleDetails?.title : item.productDetails?.name}: ${item.quantity} units restored</p>
                                     `).join('')}
                                   ` : ''}
                                 </div>
@@ -939,6 +1049,266 @@ export const updateOrderStatusController = async (req, res) => {
             success: false,
             error: true,
             message: "Error updating order status",
+            details: error.message
+        });
+    }
+}
+
+// Bulk update order status for multiple orders
+export const bulkUpdateOrderStatusController = async (req, res) => {
+    try {
+        const { orderIds, orderStatus } = req.body;
+        
+        if (!orderIds || !Array.isArray(orderIds) || orderIds.length === 0) {
+            return res.status(400).json({
+                success: false,
+                error: true,
+                message: "Order IDs array is required"
+            });
+        }
+        
+        if (!orderStatus) {
+            return res.status(400).json({
+                success: false,
+                error: true,
+                message: "Order status is required"
+            });
+        }
+        
+        const validStatuses = ["ORDER PLACED", "PROCESSING", "OUT FOR DELIVERY", "DELIVERED", "CANCELLED"];
+        if (!validStatuses.includes(orderStatus)) {
+            return res.status(400).json({
+                success: false,
+                error: true,
+                message: "Invalid order status value"
+            });
+        }
+        
+        const updatedOrders = [];
+        const errors = [];
+        
+        // Process each order individually to handle stock updates properly
+        for (const orderId of orderIds) {
+            try {
+                // Use the existing updateOrderStatusController logic for each order
+                const order = await orderModel.findOne({ orderId: orderId });
+                
+                if (!order) {
+                    errors.push({ orderId, error: "Order not found" });
+                    continue;
+                }
+                
+                const previousStatus = order.orderStatus;
+                const session = await mongoose.startSession();
+                session.startTransaction();
+                
+                try {
+                    const updateData = { orderStatus: orderStatus };
+                    
+                    if (orderStatus === "DELIVERED" && order.paymentStatus === "CASH ON DELIVERY") {
+                        updateData.paymentStatus = "PAID";
+                    }
+                    
+                    // Handle stock restoration for cancelled orders
+                    if (orderStatus === "CANCELLED" && previousStatus !== "CANCELLED") {
+                        for (const item of order.items) {
+                            if (item.itemType === 'bundle') {
+                                await BundleModel.findByIdAndUpdate(
+                                    item.bundleId,
+                                    { $inc: { stock: item.quantity } },
+                                    { session, new: true }
+                                );
+                            } else {
+                                await ProductModel.findByIdAndUpdate(
+                                    item.productId,
+                                    { $inc: { stock: item.quantity } },
+                                    { session, new: true }
+                                );
+                            }
+                        }
+                    }
+                    
+                    const updatedOrder = await orderModel.findOneAndUpdate(
+                        { orderId: orderId },
+                        updateData,
+                        { new: true, session }
+                    );
+                    
+                    await session.commitTransaction();
+                    updatedOrders.push(updatedOrder);
+                    
+                } catch (transactionError) {
+                    await session.abortTransaction();
+                    errors.push({ orderId, error: transactionError.message });
+                } finally {
+                    session.endSession();
+                }
+                
+            } catch (error) {
+                errors.push({ orderId, error: error.message });
+            }
+        }
+        
+        return res.json({
+            success: true,
+            error: false,
+            message: `Bulk update completed. ${updatedOrders.length} orders updated successfully.`,
+            data: {
+                updatedOrders,
+                errors,
+                totalProcessed: orderIds.length,
+                successful: updatedOrders.length,
+                failed: errors.length
+            }
+        });
+        
+    } catch (error) {
+        return res.status(500).json({
+            success: false,
+            error: true,
+            message: "Error in bulk order status update",
+            details: error.message
+        });
+    }
+}
+
+// Get orders by date range
+export const getOrdersByDateRangeController = async (req, res) => {
+    try {
+        const { startDate, endDate, userId } = req.query;
+        
+        if (!startDate || !endDate) {
+            return res.status(400).json({
+                success: false,
+                error: true,
+                message: "Start date and end date are required"
+            });
+        }
+        
+        const query = {
+            orderDate: {
+                $gte: new Date(startDate),
+                $lte: new Date(endDate)
+            }
+        };
+        
+        // If userId is provided, filter by user (for user-specific date range)
+        if (userId) {
+            query.userId = userId;
+        }
+        
+        const orders = await orderModel.find(query)
+          .sort({ createdAt: -1 })
+          .populate("userId", "name email")
+          .populate("items.productId", "name image price stock discount")
+          .populate("items.bundleId", "title description image images bundlePrice originalPrice stock items")
+          .populate("deliveryAddress", "address_line city state pincode country");
+        
+        return res.json({
+            success: true,
+            error: false,
+            message: "Orders fetched successfully",
+            data: {
+                orders,
+                count: orders.length,
+                dateRange: { startDate, endDate }
+            }
+        });
+        
+    } catch (error) {
+        return res.status(500).json({
+            success: false,
+            error: true,
+            message: "Error fetching orders by date range",
+            details: error.message
+        });
+    }
+}
+
+// Search orders by multiple criteria
+export const searchOrdersController = async (req, res) => {
+    try {
+        const { 
+            orderId, 
+            userEmail, 
+            orderStatus, 
+            paymentStatus, 
+            paymentMethod,
+            minAmount,
+            maxAmount,
+            page = 1,
+            limit = 10
+        } = req.query;
+        
+        const query = {};
+        
+        // Build search query
+        if (orderId) {
+            query.orderId = { $regex: orderId, $options: 'i' };
+        }
+        
+        if (orderStatus) {
+            query.orderStatus = orderStatus;
+        }
+        
+        if (paymentStatus) {
+            query.paymentStatus = paymentStatus;
+        }
+        
+        if (paymentMethod) {
+            query.paymentMethod = { $regex: paymentMethod, $options: 'i' };
+        }
+        
+        if (minAmount || maxAmount) {
+            query.totalAmt = {};
+            if (minAmount) query.totalAmt.$gte = parseFloat(minAmount);
+            if (maxAmount) query.totalAmt.$lte = parseFloat(maxAmount);
+        }
+        
+        // Calculate pagination
+        const skip = (parseInt(page) - 1) * parseInt(limit);
+        
+        let orders = await orderModel.find(query)
+          .sort({ createdAt: -1 })
+          .skip(skip)
+          .limit(parseInt(limit))
+          .populate("userId", "name email")
+          .populate("items.productId", "name image price stock discount")
+          .populate("items.bundleId", "title description image images bundlePrice originalPrice stock items")
+          .populate("deliveryAddress", "address_line city state pincode country");
+        
+        // Filter by user email if provided
+        if (userEmail) {
+            orders = orders.filter(order => 
+                order.userId?.email?.toLowerCase().includes(userEmail.toLowerCase())
+            );
+        }
+        
+        const totalOrders = await orderModel.countDocuments(query);
+        const totalPages = Math.ceil(totalOrders / parseInt(limit));
+        
+        return res.json({
+            success: true,
+            error: false,
+            message: "Orders searched successfully",
+            data: {
+                orders,
+                pagination: {
+                    currentPage: parseInt(page),
+                    totalPages,
+                    totalOrders,
+                    ordersPerPage: parseInt(limit),
+                    hasNextPage: parseInt(page) < totalPages,
+                    hasPrevPage: parseInt(page) > 1
+                }
+            }
+        });
+        
+    } catch (error) {
+        return res.status(500).json({
+            success: false,
+            error: true,
+            message: "Error searching orders",
             details: error.message
         });
     }

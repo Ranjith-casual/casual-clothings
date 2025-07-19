@@ -1,13 +1,17 @@
-import React, { useState } from 'react';  
-import { FaMapMarkerAlt, FaCity, FaFlag, FaTimes, FaUser, FaCalendarAlt, FaBox, FaMoneyBillWave, FaTruck, FaCheck, FaCog, FaBan, FaBoxOpen, FaInfoCircle, FaExclamationCircle, FaEnvelope } from 'react-icons/fa';
+import React, { useState, useEffect } from 'react';  
+import { FaMapMarkerAlt, FaCity, FaFlag, FaTimes, FaUser, FaCalendarAlt, FaBox, FaMoneyBillWave, FaTruck, FaCheck, FaCog, FaBan, FaBoxOpen, FaInfoCircle, FaExclamationCircle, FaEnvelope, FaUndo, FaCreditCard, FaSpinner } from 'react-icons/fa';
 import OrderTimeline from './OrderTimeline';
 import { useGlobalContext } from '../provider/GlobalProvider';
 import toast from 'react-hot-toast';
+import Axios from '../utils/Axios';
+import SummaryApi from '../common/SummaryApi';
 
 const AdminOrderDetails = ({ order, onClose }) => {
   const [updatingStatus, setUpdatingStatus] = useState(false);
   const [selectedStatus, setSelectedStatus] = useState(order?.orderStatus || '');
   const [localOrderStatus, setLocalOrderStatus] = useState(order?.orderStatus || '');
+  const [cancellationDetails, setCancellationDetails] = useState(null);
+  const [loadingCancellation, setLoadingCancellation] = useState(false);
   const { updateOrderStatus } = useGlobalContext();
 
   // Status options for dropdown
@@ -43,6 +47,11 @@ const AdminOrderDetails = ({ order, onClose }) => {
           order.orderStatus = selectedStatus;
         }
         
+        // If status is changed to cancelled, fetch cancellation details
+        if (selectedStatus === 'CANCELLED') {
+          fetchCancellationDetails();
+        }
+        
         setTimeout(() => {
           onClose();
         }, 1500);
@@ -54,12 +63,49 @@ const AdminOrderDetails = ({ order, onClose }) => {
     }
   };
 
+  // Fetch cancellation details for cancelled orders
+  const fetchCancellationDetails = async () => {
+    if (!order?.orderId) return;
+
+    setLoadingCancellation(true);
+    try {
+      const response = await Axios({
+        ...SummaryApi.getCancellationByOrderId,
+        url: `${SummaryApi.getCancellationByOrderId.url}/${order.orderId}`
+      });
+
+      if (response.data.success) {
+        setCancellationDetails(response.data.data);
+      }
+    } catch (error) {
+      console.error('Error fetching cancellation details:', error);
+      // Don't show error toast as this is optional information
+    } finally {
+      setLoadingCancellation(false);
+    }
+  };
+
+  // Fetch cancellation details when component mounts if order is cancelled
+  useEffect(() => {
+    if ((localOrderStatus === 'CANCELLED' || order?.orderStatus === 'CANCELLED')) {
+      fetchCancellationDetails();
+    }
+  }, [order?.orderId, localOrderStatus]);
+
   const formatDate = (dateString) => {
     const date = new Date(dateString);
     return new Intl.DateTimeFormat('en-US', {
       dateStyle: 'medium',
       timeStyle: 'short'
     }).format(date);
+  };
+
+  const formatCurrency = (amount) => {
+    return new Intl.NumberFormat('en-IN', {
+      style: 'currency',
+      currency: 'INR',
+      minimumFractionDigits: 2
+    }).format(amount);
   };
 
   if (!order) return null;
@@ -127,13 +173,146 @@ const AdminOrderDetails = ({ order, onClose }) => {
             )}
 
             {(localOrderStatus === 'CANCELLED' || order.orderStatus === 'CANCELLED') && (
-              <div className="mt-4 bg-red-50 border border-red-200 rounded-lg p-4 flex items-start">
-                <FaBan className="text-red-500 mt-0.5 mr-3 flex-shrink-0" />
-                <div>
-                  <p className="text-red-800 font-medium">This order has been cancelled.</p>
-                  <p className="text-red-700 text-sm mt-1">Please check the Refund Management section for details on any required refund processing.</p>
+              <>
+                <div className="mt-4 bg-red-50 border border-red-200 rounded-lg p-4 flex items-start">
+                  <FaBan className="text-red-500 mt-0.5 mr-3 flex-shrink-0" />
+                  <div>
+                    <p className="text-red-800 font-medium">This order has been cancelled.</p>
+                    <p className="text-red-700 text-sm mt-1">Refund information is displayed below if applicable.</p>
+                  </div>
                 </div>
-              </div>
+
+                {/* Refund Information Section */}
+                <div className="mt-4 bg-blue-50 border border-blue-200 rounded-lg p-4">
+                  <div className="flex items-center mb-3">
+                    <FaUndo className="text-blue-500 mr-2" />
+                    <h4 className="font-semibold text-blue-800">Refund Information</h4>
+                    {loadingCancellation && (
+                      <FaSpinner className="animate-spin text-blue-500 ml-2" />
+                    )}
+                  </div>
+                  
+                  {loadingCancellation ? (
+                    <div className="text-blue-700 text-sm">Loading refund details...</div>
+                  ) : cancellationDetails ? (
+                    <div className="space-y-3">
+                      {/* Cancellation Request Details */}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                        <div>
+                          <span className="font-medium text-blue-800">Request Date:</span>
+                          <div className="text-blue-700">{formatDate(cancellationDetails.requestDate)}</div>
+                        </div>
+                        <div>
+                          <span className="font-medium text-blue-800">Reason:</span>
+                          <div className="text-blue-700">{cancellationDetails.reason}</div>
+                        </div>
+                        {cancellationDetails.additionalReason && (
+                          <div className="md:col-span-2">
+                            <span className="font-medium text-blue-800">Additional Details:</span>
+                            <div className="text-blue-700">{cancellationDetails.additionalReason}</div>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Status Badge */}
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium text-blue-800">Status:</span>
+                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                          cancellationDetails.status === 'APPROVED' ? 'bg-green-100 text-green-800' :
+                          cancellationDetails.status === 'REJECTED' ? 'bg-red-100 text-red-800' :
+                          cancellationDetails.status === 'PROCESSED' ? 'bg-blue-100 text-blue-800' :
+                          'bg-yellow-100 text-yellow-800'
+                        }`}>
+                          {cancellationDetails.status}
+                        </span>
+                      </div>
+
+                      {/* Admin Response */}
+                      {cancellationDetails.adminResponse && (
+                        <div className="border-t border-blue-200 pt-3 mt-3">
+                          <h5 className="font-medium text-blue-800 mb-2">Admin Response</h5>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                            {cancellationDetails.adminResponse.processedBy && (
+                              <div>
+                                <span className="font-medium text-blue-800">Processed By:</span>
+                                <div className="text-blue-700">{cancellationDetails.adminResponse.processedBy.name}</div>
+                              </div>
+                            )}
+                            {cancellationDetails.adminResponse.processedDate && (
+                              <div>
+                                <span className="font-medium text-blue-800">Processed Date:</span>
+                                <div className="text-blue-700">{formatDate(cancellationDetails.adminResponse.processedDate)}</div>
+                              </div>
+                            )}
+                            {cancellationDetails.adminResponse.refundAmount > 0 && (
+                              <div>
+                                <span className="font-medium text-blue-800">Refund Amount:</span>
+                                <div className="text-blue-700 font-semibold">{formatCurrency(cancellationDetails.adminResponse.refundAmount)}</div>
+                              </div>
+                            )}
+                            {cancellationDetails.adminResponse.refundPercentage && (
+                              <div>
+                                <span className="font-medium text-blue-800">Refund Percentage:</span>
+                                <div className="text-blue-700">{cancellationDetails.adminResponse.refundPercentage}%</div>
+                              </div>
+                            )}
+                            {cancellationDetails.adminResponse.adminComments && (
+                              <div className="md:col-span-2">
+                                <span className="font-medium text-blue-800">Admin Comments:</span>
+                                <div className="text-blue-700">{cancellationDetails.adminResponse.adminComments}</div>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Refund Details */}
+                      {cancellationDetails.refundDetails && (
+                        <div className="border-t border-blue-200 pt-3 mt-3">
+                          <h5 className="font-medium text-blue-800 mb-2 flex items-center">
+                            <FaCreditCard className="mr-2" />
+                            Refund Processing Details
+                          </h5>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                            {cancellationDetails.refundDetails.refundId && (
+                              <div>
+                                <span className="font-medium text-blue-800">Refund ID:</span>
+                                <div className="text-blue-700 font-mono">{cancellationDetails.refundDetails.refundId}</div>
+                              </div>
+                            )}
+                            <div>
+                              <span className="font-medium text-blue-800">Refund Status:</span>
+                              <span className={`ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                                cancellationDetails.refundDetails.refundStatus === 'COMPLETED' ? 'bg-green-100 text-green-800' :
+                                cancellationDetails.refundDetails.refundStatus === 'FAILED' ? 'bg-red-100 text-red-800' :
+                                cancellationDetails.refundDetails.refundStatus === 'PROCESSING' ? 'bg-yellow-100 text-yellow-800' :
+                                'bg-gray-100 text-gray-800'
+                              }`}>
+                                {cancellationDetails.refundDetails.refundStatus}
+                              </span>
+                            </div>
+                            <div>
+                              <span className="font-medium text-blue-800">Refund Method:</span>
+                              <div className="text-blue-700">{cancellationDetails.refundDetails.refundMethod?.replace(/_/g, ' ')}</div>
+                            </div>
+                            {cancellationDetails.refundDetails.refundDate && (
+                              <div>
+                                <span className="font-medium text-blue-800">Refund Date:</span>
+                                <div className="text-blue-700">{formatDate(cancellationDetails.refundDetails.refundDate)}</div>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="text-blue-700 text-sm">
+                      <FaInfoCircle className="inline mr-1" />
+                      No cancellation request found for this order. The order may have been cancelled directly by admin.
+                    </div>
+                  )}
+                </div>
+              </>
             )}
           </div>
 

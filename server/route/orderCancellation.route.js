@@ -9,7 +9,8 @@ import {
     completeRefund,
     getAllRefunds,
     getUserRefunds,
-    getRefundInvoice
+    getRefundInvoice,
+    getCancellationByOrderId
 } from '../controllers/orderCancellation.controller.js';
 import { auth } from '../middleware/auth.js';
 import { admin } from '../middleware/Admin.js';
@@ -28,6 +29,7 @@ orderCancellationRoute.get('/admin/all', auth, admin, getCancellationRequests);
 orderCancellationRoute.put('/admin/process', auth, admin, processCancellationRequest);
 orderCancellationRoute.get('/admin/policy', auth, admin, getCancellationPolicy);
 orderCancellationRoute.put('/admin/policy', auth, admin, updateCancellationPolicy);
+orderCancellationRoute.get('/order/:orderId', auth, admin, getCancellationByOrderId); // Get cancellation by order ID
 
 // Refund Management
 orderCancellationRoute.put('/admin/refund/complete', auth, admin, completeRefund);

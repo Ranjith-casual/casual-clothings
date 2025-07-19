@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { useSelector, useDispatch } from 'react-redux'
-import { FaMapMarkerAlt, FaCity, FaFlag, FaMailBulk, FaBox, FaUser, FaEnvelope, FaCalendar, FaTimes, FaExclamationTriangle, FaBan, FaRedo, FaInfoCircle, FaCheck } from 'react-icons/fa'
+import { FaMapMarkerAlt, FaCity, FaFlag, FaMailBulk, FaBox, FaUser, FaEnvelope, FaCalendar, FaTimes, FaExclamationTriangle, FaBan, FaRedo, FaInfoCircle, FaCheck, FaSpinner, FaCreditCard, FaCog } from 'react-icons/fa'
 import AnimatedImage from '../components/NoData';
 import toast from 'react-hot-toast';
 import SummaryApi from '../common/SummaryApi';
@@ -181,6 +181,21 @@ function MyOrders() {
     setOrderToCancel(null);
   };
 
+  // Product Details Modal Handlers
+  const handleShowProductDetails = (product, type = 'product', order = null) => {
+    setSelectedProduct(product);
+    setSelectedProductType(type);
+    setOrderContext(order);
+    setShowProductModal(true);
+  };
+
+  const handleCloseProductModal = () => {
+    setShowProductModal(false);
+    setSelectedProduct(null);
+    setSelectedProductType('product');
+    setOrderContext(null);
+  };
+
   // Use the fetchOrders from GlobalContext instead of local implementation
   const refreshOrders = () => {
     // For MyOrders page, always fetch only current user's orders (not all orders even for admin)
@@ -282,15 +297,6 @@ function MyOrders() {
       }
     }
     
-    console.log('Image source for item:', {
-      itemType: item?.itemType,
-      finalImageSrc: imageSrc,
-      bundleId: item?.bundleId,
-      productId: item?.productId,
-      bundleDetails: item?.bundleDetails,
-      productDetails: item?.productDetails
-    });
-    
     return imageSrc;
   };
 
@@ -306,7 +312,98 @@ function MyOrders() {
     e.target.onerror = null; // Prevent infinite error loops
     e.target.src = noCart;
   };
-  console.log('userOrders:', userOrders);
+
+  // Function to get refund status from existing cancellation requests data
+  const getRefundStatusFromRequests = (orderId) => {
+    const cancellationRequest = orderCancellationRequests.find(request => 
+      (request.orderId === orderId || request.orderId?._id === orderId || request.orderId?.orderId === orderId)
+    );
+    
+    if (!cancellationRequest) {
+      return 'NOT_APPLICABLE';
+    }
+    
+    // Get refund status from the nested structure
+    let refundStatus = cancellationRequest.refundDetails?.refundStatus || 
+                      cancellationRequest.status || 
+                      'PENDING';
+    
+    // Map the status from the model enum to our display format
+    switch (refundStatus.toUpperCase()) {
+      case 'COMPLETED':
+        return 'COMPLETED';
+      case 'PROCESSING':
+        return 'PROCESSING';
+      case 'FAILED':
+        return 'FAILED';
+      case 'APPROVED':
+        // If cancellation is approved but refund not started yet
+        return 'PENDING';
+      case 'REJECTED':
+        return 'FAILED';
+      case 'PENDING':
+      default:
+        return 'PENDING';
+    }
+  };
+
+  // Function to display refund status badge
+  const getRefundStatusDisplay = (orderId, orderStatus) => {
+    if (orderStatus !== 'CANCELLED') {
+      return null; // Don't show refund status for non-cancelled orders
+    }
+
+    // Get refund status from existing cancellation requests data
+    const refundStatus = getRefundStatusFromRequests(orderId);
+
+    // Handle the four main status cases from the model
+    switch (refundStatus.toUpperCase()) {
+      case 'COMPLETED':
+        return (
+          <div className="inline-flex items-center px-3 py-2 rounded-lg text-sm font-medium bg-green-100 text-green-800 border border-green-200">
+            <FaCheck className="mr-2" size={14} />
+            <span>Refund Completed</span>
+          </div>
+        );
+      case 'PROCESSING':
+        return (
+          <div className="inline-flex items-center px-3 py-2 rounded-lg text-sm font-medium bg-yellow-100 text-yellow-800 border border-yellow-200">
+            <FaSpinner className="animate-spin mr-2" size={14} />
+            <span>Refund Processing</span>
+          </div>
+        );
+      case 'FAILED':
+        return (
+          <div className="inline-flex items-center px-3 py-2 rounded-lg text-sm font-medium bg-red-100 text-red-800 border border-red-200">
+            <FaTimes className="mr-2" size={14} />
+            <span>Refund Failed</span>
+          </div>
+        );
+      case 'PENDING':
+        return (
+          <div className="inline-flex items-center px-3 py-2 rounded-lg text-sm font-medium bg-orange-100 text-orange-800 border border-orange-200">
+            <FaCreditCard className="mr-2" size={14} />
+            <span>Refund Pending</span>
+          </div>
+        );
+      case 'NOT_APPLICABLE':
+        return (
+          <div className="inline-flex items-center px-3 py-2 rounded-lg text-sm font-medium bg-gray-100 text-gray-600 border border-gray-200">
+            <FaInfoCircle className="mr-2" size={14} />
+            <span>No Refund Required</span>
+          </div>
+        );
+      default:
+        // Default to pending for any unknown status
+        return (
+          <div className="inline-flex items-center px-3 py-2 rounded-lg text-sm font-medium bg-orange-100 text-orange-800 border border-orange-200">
+            <FaCreditCard className="mr-2" size={14} />
+            <span>Refund Pending</span>
+          </div>
+        );
+    }
+  };
+  
   return (
     <div className="bg-white min-h-screen">
       {/* Header - Responsive */}
@@ -372,6 +469,13 @@ function MyOrders() {
                 </div>
               )}
 
+              {/* Refund Status Display for Cancelled Orders */}
+              {isCancelled && (
+                <div className="absolute top-12 right-2 sm:top-14 sm:right-3 md:top-16 md:right-4">
+                  {getRefundStatusDisplay(order._id, order.orderStatus)}
+                </div>
+              )}
+
               {/* Cancelled Order Diagonal Stripe */}
               {isCancelled && (
                 <div className="absolute inset-0 pointer-events-none">
@@ -383,7 +487,14 @@ function MyOrders() {
                 
                 {/* Product/Bundle Image - Responsive */}
                 <div className='flex-shrink-0 order-1 xl:order-2 w-full xl:w-auto flex justify-center xl:justify-start'>
-                  <div className={`w-20 h-20 sm:w-24 sm:h-24 md:w-28 md:h-28 lg:w-32 lg:h-32 xl:w-36 xl:h-36 rounded-lg overflow-hidden border-2 relative ${isCancelled ? 'border-red-300 bg-red-50' : 'border-gray-200 bg-gray-50'}`}>
+                  <div 
+                    className={`w-20 h-20 sm:w-24 sm:h-24 md:w-28 md:h-28 lg:w-32 lg:h-32 xl:w-36 xl:h-36 rounded-lg overflow-hidden border-2 relative cursor-pointer transition-all duration-200 hover:scale-105 ${isCancelled ? 'border-red-300 bg-red-50' : 'border-gray-200 bg-gray-50'}`}
+                    onClick={() => handleShowProductDetails(
+                      order?.items[0]?.itemType === 'bundle' ? order?.items[0]?.bundleDetails : order?.items[0]?.productDetails,
+                      order?.items[0]?.itemType === 'bundle' ? 'bundle' : 'product',
+                      order
+                    )}
+                  >
                     {/* Display first item image - handle both bundles and products */}
                     <img
                       src={getImageSource(order?.items[0])}
@@ -454,12 +565,25 @@ function MyOrders() {
                           isCancelled ? 'bg-red-50 border-red-200' : 'bg-gray-50 border-gray-200'
                         }`}>
                           <div className="flex items-start gap-2 sm:gap-3">
+<<<<<<< HEAD
                             {/* Item image - Clickable */}
                             <button
                               onClick={() => handleShowProductDetails(item, order)}
                               className={`w-12 h-12 sm:w-16 sm:h-16 rounded-md overflow-hidden border flex-shrink-0 hover:shadow-md transition-shadow cursor-pointer ${
                                 isCancelled ? 'border-red-300' : 'border-gray-200 hover:border-teal-300'
                               }`}
+=======
+                            {/* Item image */}
+                            <div 
+                              className={`w-12 h-12 sm:w-16 sm:h-16 rounded-md overflow-hidden border flex-shrink-0 cursor-pointer transition-all duration-200 hover:scale-105 ${
+                                isCancelled ? 'border-red-300' : 'border-gray-200'
+                              }`}
+                              onClick={() => handleShowProductDetails(
+                                item?.itemType === 'bundle' ? item?.bundleDetails : item?.productDetails,
+                                item?.itemType === 'bundle' ? 'bundle' : 'product',
+                                order
+                              )}
+>>>>>>> 5f447ac19a869744c43a18ae8e5efa80b8fb7a86
                             >
                               <img
                                 src={getImageSource(item)}
@@ -479,11 +603,23 @@ function MyOrders() {
                             <div className="flex-1 min-w-0">
                               <div className="flex items-start justify-between gap-2">
                                 <div className="flex-1 min-w-0">
+<<<<<<< HEAD
                                   <button
                                     onClick={() => handleShowProductDetails(item, order)}
                                     className={`font-bold text-sm sm:text-base leading-tight truncate text-left hover:text-teal-600 transition-colors cursor-pointer ${
                                       isCancelled ? 'text-red-800 line-through' : 'text-black'
                                     }`}
+=======
+                                  <h4 
+                                    className={`font-bold text-sm sm:text-base leading-tight truncate cursor-pointer hover:underline transition-all duration-200 ${
+                                      isCancelled ? 'text-red-800 line-through' : 'text-black hover:text-blue-600'
+                                    }`}
+                                    onClick={() => handleShowProductDetails(
+                                      item?.itemType === 'bundle' ? item?.bundleDetails : item?.productDetails,
+                                      item?.itemType === 'bundle' ? 'bundle' : 'product',
+                                      order
+                                    )}
+>>>>>>> 5f447ac19a869744c43a18ae8e5efa80b8fb7a86
                                   >
                                     {item?.itemType === 'bundle' ? item?.bundleDetails?.title : item?.productDetails?.name}
                                   </button>
@@ -564,6 +700,40 @@ function MyOrders() {
                     </h4>
                     <OrderTimeline status={order?.orderStatus} />
                   </div>
+                  
+                  {/* Refund Status Section - Only for Cancelled Orders */}
+                  {isCancelled && (
+                    <div className="rounded-lg p-2 sm:p-3 md:p-4 border bg-orange-50 border-orange-200">
+                      <h4 className="font-semibold mb-2 sm:mb-3 flex items-center gap-2 text-sm sm:text-base text-orange-800">
+                        <FaCreditCard className="text-xs sm:text-sm text-orange-600" />
+                        Refund Status
+                      </h4>
+                      <div className="ml-4 sm:ml-6">
+                        {getRefundStatusDisplay(order._id, order.orderStatus)}
+                        <div className="mt-2 text-xs sm:text-sm text-orange-700">
+                          <p>
+                            {(() => {
+                              const status = getRefundStatusFromRequests(order._id)?.toUpperCase();
+                              switch (status) {
+                                case 'COMPLETED':
+                                  return "Your refund has been processed successfully. It may take 3-5 business days to reflect in your account.";
+                                case 'PROCESSING':
+                                  return "Your refund is currently being processed. You will receive an update soon.";
+                                case 'FAILED':
+                                  return "There was an issue processing your refund. Please contact support for assistance.";
+                                case 'PENDING':
+                                  return "Your refund request is pending. Our team will process it shortly.";
+                                case 'NOT_APPLICABLE':
+                                  return "This order does not require a refund or has already been handled.";
+                                default:
+                                  return "We are processing your refund. Please check back for updates.";
+                              }
+                            })()}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                   
                   {/* Customer Info - Responsive */}
                   <div className={`rounded-lg p-2 sm:p-3 md:p-4 border ${
@@ -776,6 +946,7 @@ function MyOrders() {
       )}
 
       {/* Product Details Modal */}
+<<<<<<< HEAD
       <ProductDetailsModal
         isOpen={showProductModal}
         onClose={handleCloseProductModal}
@@ -783,6 +954,16 @@ function MyOrders() {
         itemType={selectedProductType}
         orderContext={orderContext}
       />
+=======
+      {showProductModal && selectedProduct && (
+        <ProductDetailsModal
+          product={selectedProduct}
+          productType={selectedProductType}
+          onClose={handleCloseProductModal}
+          orderContext={orderContext}
+        />
+      )}
+>>>>>>> 5f447ac19a869744c43a18ae8e5efa80b8fb7a86
     </div>
   )
 }
