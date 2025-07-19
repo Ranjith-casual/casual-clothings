@@ -50,6 +50,7 @@ import PaymentManagement from "../pages/PaymentManagement";
 import CancellationManagementPage from "../pages/CancellationManagementPage";
 import CancellationPolicyPage from "../pages/CancellationPolicyPage";
 import RefundManagementPage from "../pages/RefundManagementPage";
+import BundleManagement from "../pages/BundleManagement";
 
 const router = createBrowserRouter([
     {
@@ -176,6 +177,10 @@ const router = createBrowserRouter([
                 {
                     path:"cancellation-policy",
                     element:<AdminPermision><CancellationPolicyPage/></AdminPermision>
+                },
+                {
+                    path:"bundle-management",
+                    element:<AdminPermision><BundleManagement/></AdminPermision>
                 },
                 {
                     path:"refund-management",

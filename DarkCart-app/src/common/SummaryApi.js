@@ -245,7 +245,7 @@ const SummaryApi = {
         method: 'get'
     },
     getBundleById: {
-        url: '/api/bundle',
+        url: '/api/bundle/:id',
         method: 'get'
     },
     updateBundle: {

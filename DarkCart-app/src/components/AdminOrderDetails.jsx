@@ -540,20 +540,62 @@ const AdminOrderDetails = ({ order, onClose }) => {
                                 {bundleItems.map((bundleItem, bundleIndex) => (
                                   <div key={bundleIndex} className="flex items-center gap-3 p-2 bg-white rounded border">
                                     <div className="w-8 h-8 rounded overflow-hidden bg-gray-200 flex-shrink-0">
-                                      {bundleItem.image?.[0] || bundleItem.images?.[0] ? (
-                                        <img 
-                                          src={bundleItem.image?.[0] || bundleItem.images?.[0]} 
-                                          alt={bundleItem.name || bundleItem.title}
-                                          className="w-full h-full object-cover"
-                                          onError={(e) => {
-                                            e.target.style.display = 'none';
-                                          }}
-                                        />
-                                      ) : (
-                                        <div className="w-full h-full flex items-center justify-center">
-                                          <FaBox className="w-3 h-3 text-gray-400" />
-                                        </div>
-                                      )}
+                                      {(() => {
+                                        // Enhanced image handling for bundle items
+                                        let imageUrl = null;
+                                        
+                                        // Check various image properties and formats
+                                        if (bundleItem.image) {
+                                          if (typeof bundleItem.image === 'string') {
+                                            imageUrl = bundleItem.image;
+                                          } else if (Array.isArray(bundleItem.image) && bundleItem.image.length > 0) {
+                                            imageUrl = bundleItem.image[0];
+                                          }
+                                        } else if (bundleItem.images) {
+                                          if (Array.isArray(bundleItem.images) && bundleItem.images.length > 0) {
+                                            imageUrl = bundleItem.images[0];
+                                          } else if (typeof bundleItem.images === 'string') {
+                                            imageUrl = bundleItem.images;
+                                          }
+                                        }
+                                        
+                                        // Check productId if it's populated
+                                        if (!imageUrl && bundleItem.productId && typeof bundleItem.productId === 'object') {
+                                          if (bundleItem.productId.image) {
+                                            if (Array.isArray(bundleItem.productId.image)) {
+                                              imageUrl = bundleItem.productId.image[0];
+                                            } else {
+                                              imageUrl = bundleItem.productId.image;
+                                            }
+                                          } else if (bundleItem.productId.images && Array.isArray(bundleItem.productId.images)) {
+                                            imageUrl = bundleItem.productId.images[0];
+                                          }
+                                        }
+                                        
+                                        console.log('Bundle item image debug:', {
+                                          bundleItem,
+                                          imageUrl,
+                                          hasImage: !!bundleItem.image,
+                                          hasImages: !!bundleItem.images,
+                                          imageType: typeof bundleItem.image,
+                                          imagesType: typeof bundleItem.images
+                                        });
+                                        
+                                        return imageUrl ? (
+                                          <img 
+                                            src={imageUrl} 
+                                            alt={bundleItem.name || bundleItem.title || 'Bundle Item'}
+                                            className="w-full h-full object-cover"
+                                            onError={(e) => {
+                                              e.target.style.display = 'none';
+                                            }}
+                                          />
+                                        ) : (
+                                          <div className="w-full h-full flex items-center justify-center">
+                                            <FaBox className="w-3 h-3 text-gray-400" />
+                                          </div>
+                                        );
+                                      })()}
                                     </div>
                                     <div className="flex-grow">
                                       <div className="text-sm font-medium text-blue-900">

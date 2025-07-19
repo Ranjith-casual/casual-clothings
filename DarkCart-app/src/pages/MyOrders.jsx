@@ -8,6 +8,7 @@ import Axios from '../utils/Axios';
 import OrderTimeline from '../components/OrderTimeline';
 import OrderCancellationModal from '../components/OrderCancellationModal';
 import ProductDetailsModal from '../components/ProductDetailsModal';
+import BundleItemsModal from '../components/BundleItemsModal';
 import { useGlobalContext } from '../provider/GlobalProvider';
 import { setOrders } from '../store/orderSlice';
 import noCart from '../assets/noCart.jpg'; // Import fallback image
@@ -29,6 +30,10 @@ function MyOrders() {
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [selectedProductType, setSelectedProductType] = useState('product');
   const [orderContext, setOrderContext] = useState(null);
+  
+  // Bundle Items Modal States
+  const [showBundleItemsModal, setShowBundleItemsModal] = useState(false);
+  const [selectedBundle, setSelectedBundle] = useState(null);
   
   const { fetchOrders, refreshingOrders } = useGlobalContext();
   
@@ -142,6 +147,19 @@ function MyOrders() {
     setShowProductModal(false);
     setSelectedProduct(null);
     setSelectedProductType('product');
+    setOrderContext(null);
+  };
+
+  // Bundle Items Modal Handlers
+  const handleShowBundleItems = (bundle, order = null) => {
+    setSelectedBundle(bundle);
+    setOrderContext(order);
+    setShowBundleItemsModal(true);
+  };
+
+  const handleCloseBundleItemsModal = () => {
+    setShowBundleItemsModal(false);
+    setSelectedBundle(null);
     setOrderContext(null);
   };
 
@@ -555,7 +573,7 @@ function MyOrders() {
                                   >
                                     {item?.itemType === 'bundle' ? item?.bundleDetails?.title : item?.productDetails?.name}
                                   </h4>
-                                  <div className="flex items-center gap-2 mt-1">
+                                  <div className="flex items-center gap-2 mt-1 flex-wrap">
                                     <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
                                       item?.itemType === 'bundle' 
                                         ? (isCancelled ? 'bg-red-100 text-red-700' : 'bg-blue-100 text-blue-800')
@@ -563,6 +581,46 @@ function MyOrders() {
                                     }`}>
                                       {item?.itemType === 'bundle' ? '📦 Bundle' : '🏷️ Product'}
                                     </span>
+                                    {item?.itemType === 'bundle' && (
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          // Enhanced bundle data collection
+                                          const bundleData = {
+                                            // Include the entire item
+                                            ...item,
+                                            // Merge bundleDetails if available
+                                            ...(item?.bundleDetails || {}),
+                                            // Merge bundleId if it's an object
+                                            ...(item?.bundleId && typeof item?.bundleId === 'object' ? item.bundleId : {}),
+                                            // Ensure we have a title
+                                            title: item?.bundleDetails?.title || 
+                                                   (item?.bundleId && typeof item?.bundleId === 'object' && item?.bundleId?.title) ||
+                                                   item?.title ||
+                                                   'Bundle',
+                                            // Debug info
+                                            _debug: {
+                                              originalItem: item,
+                                              itemType: item?.itemType,
+                                              hasBundleDetails: !!item?.bundleDetails,
+                                              hasBundleId: !!item?.bundleId,
+                                              bundleIdType: typeof item?.bundleId
+                                            }
+                                          };
+                                          console.log('Bundle button clicked - sending data:', bundleData);
+                                          handleShowBundleItems(bundleData, order);
+                                        }}
+                                        className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium transition-all duration-200 hover:scale-105 ${
+                                          isCancelled 
+                                            ? 'bg-gray-100 text-gray-600 hover:bg-gray-200' 
+                                            : 'bg-green-100 text-green-800 hover:bg-green-200'
+                                        }`}
+                                        title="View all items in this bundle"
+                                      >
+                                        <FaBox className="w-3 h-3 mr-1" />
+                                        View Items
+                                      </button>
+                                    )}
                                     <span className={`text-xs font-medium ${
                                       isCancelled ? 'text-red-600' : 'text-gray-600'
                                     }`}>
@@ -877,6 +935,16 @@ function MyOrders() {
           product={selectedProduct}
           productType={selectedProductType}
           onClose={handleCloseProductModal}
+          orderContext={orderContext}
+        />
+      )}
+
+      {/* Bundle Items Modal */}
+      {showBundleItemsModal && selectedBundle && (
+        <BundleItemsModal
+          bundle={selectedBundle}
+          isOpen={showBundleItemsModal}
+          onClose={handleCloseBundleItemsModal}
           orderContext={orderContext}
         />
       )}

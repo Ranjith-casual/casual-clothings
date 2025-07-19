@@ -1,61 +1,149 @@
-import React from 'react'
+import React, { useState, useEffect } from 'react'
 import { FaTimes, FaFileInvoice, FaCalendarAlt, FaUser, FaMapMarkerAlt, FaPhone } from 'react-icons/fa'
+import Axios from '../utils/Axios'
+import SummaryApi from '../common/SummaryApi'
 
 function InvoiceModal({ payment: originalPayment, onClose }) {
+    const [enhancedPayment, setEnhancedPayment] = useState(null)
+    const [loadingBundles, setLoadingBundles] = useState(false)
+    
     if (!originalPayment) return null
     
-    // Create a copy of payment and ensure refundDetails exists
-    const payment = {
+    // Enhanced bundle fetching logic
+    useEffect(() => {
+        const enhancePaymentWithBundles = async () => {
+            setLoadingBundles(true)
+            
+            // Create a copy of payment and ensure refundDetails exists
+            const payment = {
+                ...originalPayment,
+                refundDetails: originalPayment.refundDetails || {}
+            };
+            
+            // Calculate refund and retained amounts if not already set
+            console.log('Original payment data:', originalPayment);
+            console.log('Original refund details:', originalPayment.refundDetails);
+            
+            if (payment.paymentStatus && (
+                payment.paymentStatus.includes('REFUND') || 
+                payment.paymentStatus === 'REFUND_SUCCESSFUL' || 
+                payment.paymentStatus.toLowerCase().includes('refund')
+            )) {
+                // Ensure refundDetails exists
+                if (!payment.refundDetails) {
+                    payment.refundDetails = {};
+                }
+                
+                console.log('Before calculation - refundDetails:', payment.refundDetails);
+                
+                // If we have a refund percentage but no refund amount, calculate it
+                if (typeof payment.refundDetails.refundPercentage !== 'undefined' && !payment.refundDetails.refundAmount) {
+                    const percentage = parseFloat(payment.refundDetails.refundPercentage) || 0;
+                    payment.refundDetails.refundAmount = (payment.totalAmt || 0) * (percentage / 100);
+                }
+                
+                // If we have refund amount but no percentage, calculate it
+                if (payment.refundDetails.refundAmount && typeof payment.refundDetails.refundPercentage === 'undefined') {
+                    payment.refundDetails.refundPercentage = ((payment.refundDetails.refundAmount / (payment.totalAmt || 1)) * 100).toFixed(0);
+                }
+                
+                // Calculate retained amount if not set
+                if (!payment.refundDetails.retainedAmount) {
+                    payment.refundDetails.retainedAmount = (payment.totalAmt || 0) - (payment.refundDetails.refundAmount || 0);
+                }
+                
+                // Default to 75% refund if no percentage is set
+                if (typeof payment.refundDetails.refundPercentage === 'undefined' || payment.refundDetails.refundPercentage === null) {
+                    payment.refundDetails.refundPercentage = 75;
+                    payment.refundDetails.refundAmount = (payment.totalAmt || 0) * 0.75;
+                    payment.refundDetails.retainedAmount = (payment.totalAmt || 0) * 0.25;
+                }
+                
+                console.log('After calculation - refundDetails:', payment.refundDetails);
+            }
+            
+            // Enhanced bundle detection and fetching
+            if (payment.items && payment.items.length > 0) {
+                const enhancedItems = await Promise.all(
+                    payment.items.map(async (item) => {
+                        // Check if this is a bundle that needs enhancement
+                        const isBundle = item.itemType === 'bundle' || 
+                                       (item.bundleId && typeof item.bundleId === 'object') ||
+                                       (item.bundleDetails && typeof item.bundleDetails === 'object') ||
+                                       (typeof item.bundleId === 'string' && item.bundleId) ||
+                                       (item.type === 'Bundle') ||
+                                       (item.productType === 'bundle');
+                        
+                        if (isBundle) {
+                            let bundleIdToFetch = null;
+                            
+                            // Extract bundle ID from various possible sources
+                            if (typeof item.bundleId === 'string' && item.bundleId) {
+                                bundleIdToFetch = item.bundleId;
+                            } else if (typeof item.bundleId === 'object' && item.bundleId && item.bundleId._id) {
+                                bundleIdToFetch = item.bundleId._id;
+                            } else if (typeof item.bundleId === 'object' && item.bundleId && item.bundleId.id) {
+                                bundleIdToFetch = item.bundleId.id;
+                            }
+                            
+                            // Check if we need to fetch bundle details
+                            const needsBundleDetails = bundleIdToFetch && (
+                                !item.productDetails || 
+                                (typeof item.productDetails === 'object' && (!item.productDetails.length || item.productDetails.length === 0)) ||
+                                (Array.isArray(item.productDetails) && item.productDetails.length === 0) ||
+                                (item.productDetails && typeof item.productDetails === 'object' && Object.keys(item.productDetails).length <= 1)
+                            );
+                            
+                            if (needsBundleDetails) {
+                                // Bundle ID exists but bundle details are incomplete, need to fetch bundle details
+                                try {
+                                    console.log('Fetching bundle details for bundle ID:', bundleIdToFetch);
+                                    const response = await Axios({
+                                        ...SummaryApi.getBundleById,
+                                        url: SummaryApi.getBundleById.url.replace(':id', bundleIdToFetch)
+                                    });
+                                    
+                                    if (response.data.success && response.data.data) {
+                                        console.log('Successfully fetched bundle details:', response.data.data);
+                                        return {
+                                            ...item,
+                                            bundleDetails: response.data.data,
+                                            bundleId: response.data.data, // Also populate bundleId as object
+                                            productDetails: response.data.data.productDetails || response.data.data.items || []
+                                        };
+                                    } else {
+                                        console.log('Failed to fetch bundle details:', response.data);
+                                    }
+                                } catch (error) {
+                                    console.error('Error fetching bundle details:', error);
+                                }
+                            }
+                        }
+                        
+                        return item; // Return original item if no enhancement needed
+                    })
+                );
+                
+                payment.items = enhancedItems;
+            }
+            
+            // Debug: Check payment object structure
+            console.log('Enhanced payment object in InvoiceModal:', payment);
+            console.log('Payment status:', payment.paymentStatus);
+            console.log('Refund details (after calculation):', payment.refundDetails);
+            
+            setEnhancedPayment(payment);
+            setLoadingBundles(false);
+        };
+        
+        enhancePaymentWithBundles();
+    }, [originalPayment]);
+    
+    // Use enhanced payment if available, otherwise use original
+    const payment = enhancedPayment || {
         ...originalPayment,
         refundDetails: originalPayment.refundDetails || {}
     };
-    
-    // Calculate refund and retained amounts if not already set
-    console.log('Original payment data:', originalPayment);
-    console.log('Original refund details:', originalPayment.refundDetails);
-    
-    if (payment.paymentStatus && (
-        payment.paymentStatus.includes('REFUND') || 
-        payment.paymentStatus === 'REFUND_SUCCESSFUL' || 
-        payment.paymentStatus.toLowerCase().includes('refund')
-    )) {
-        // Ensure refundDetails exists
-        if (!payment.refundDetails) {
-            payment.refundDetails = {};
-        }
-        
-        console.log('Before calculation - refundDetails:', payment.refundDetails);
-        
-        // If we have a refund percentage but no refund amount, calculate it
-        if (typeof payment.refundDetails.refundPercentage !== 'undefined' && !payment.refundDetails.refundAmount) {
-            const percentage = parseFloat(payment.refundDetails.refundPercentage) || 0;
-            payment.refundDetails.refundAmount = (payment.totalAmt || 0) * (percentage / 100);
-        }
-        
-        // If we have refund amount but no percentage, calculate it
-        if (payment.refundDetails.refundAmount && typeof payment.refundDetails.refundPercentage === 'undefined') {
-            payment.refundDetails.refundPercentage = ((payment.refundDetails.refundAmount / (payment.totalAmt || 1)) * 100).toFixed(0);
-        }
-        
-        // Calculate retained amount if not set
-        if (!payment.refundDetails.retainedAmount) {
-            payment.refundDetails.retainedAmount = (payment.totalAmt || 0) - (payment.refundDetails.refundAmount || 0);
-        }
-        
-        // Default to 75% refund if no percentage is set
-        if (typeof payment.refundDetails.refundPercentage === 'undefined' || payment.refundDetails.refundPercentage === null) {
-            payment.refundDetails.refundPercentage = 75;
-            payment.refundDetails.refundAmount = (payment.totalAmt || 0) * 0.75;
-            payment.refundDetails.retainedAmount = (payment.totalAmt || 0) * 0.25;
-        }
-        
-        console.log('After calculation - refundDetails:', payment.refundDetails);
-    }
-    
-    // Debug: Check payment object structure
-    console.log('Payment object in InvoiceModal:', payment);
-    console.log('Payment status:', payment.paymentStatus);
-    console.log('Refund details (after calculation):', payment.refundDetails);
 
     const formatCurrency = (amount) => {
         return new Intl.NumberFormat('en-IN', {
@@ -95,7 +183,18 @@ function InvoiceModal({ payment: originalPayment, onClose }) {
                     </button>
                 </div>
 
+                {/* Loading State */}
+                {loadingBundles && (
+                    <div className="p-6 text-center">
+                        <div className="flex items-center justify-center">
+                            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                            <span className="ml-3 text-gray-600">Loading bundle details...</span>
+                        </div>
+                    </div>
+                )}
+
                 {/* Invoice Content */}
+                {!loadingBundles && (
                 <div id="invoice-content" className="p-6">
                     {/* Invoice Header */}
                     <div className="flex justify-between items-start mb-8">
@@ -374,7 +473,9 @@ function InvoiceModal({ payment: originalPayment, onClose }) {
                                             // Enhanced bundle detection - check multiple sources
                                             const isBundle = item.itemType === 'bundle' || 
                                                            (item.bundleId && typeof item.bundleId === 'object') ||
-                                                           (item.bundleDetails && typeof item.bundleDetails === 'object');
+                                                           (item.bundleDetails && typeof item.bundleDetails === 'object') ||
+                                                           (item.type === 'Bundle') ||
+                                                           (item.productType === 'bundle');
 
                                             return (
                                                 <tr key={index} className="border-b border-gray-200">
@@ -464,13 +565,301 @@ function InvoiceModal({ payment: originalPayment, onClose }) {
                                                                 
                                                                 {/* Bundle Items Details */}
                                                                 {isBundle && (() => {
-                                                                    // Get bundle items
-                                                                    let bundleItems = [];
-                                                                    if (item.bundleId && typeof item.bundleId === 'object' && item.bundleId.items) {
-                                                                        bundleItems = item.bundleId.items;
-                                                                    } else if (item.bundleDetails && item.bundleDetails.items) {
-                                                                        bundleItems = item.bundleDetails.items;
-                                                                    }
+                                                                    // Enhanced bundle items detection function
+                                                                    const getBundleItems = () => {
+                                                                        // Use bundle item data
+                                                                        const bundleData = item;
+                                                                        console.log('=== BUNDLE ITEMS DETECTION START ===');
+                                                                        console.log('Debug: Bundle item data received:', bundleData);
+                                                                        console.log('Item keys:', Object.keys(bundleData));
+                                                                        console.log('bundleId structure:', bundleData.bundleId);
+                                                                        console.log('bundleDetails structure:', bundleData.bundleDetails);
+                                                                        console.log('productDetails structure:', bundleData.productDetails);
+                                                                        
+                                                                        // 1. Check for direct bundle items array
+                                                                        if (bundleData.items && Array.isArray(bundleData.items) && bundleData.items.length > 0) {
+                                                                            console.log('✅ Found items in bundleData.items:', bundleData.items);
+                                                                            return bundleData.items;
+                                                                        }
+                                                                        
+                                                                        // 2. Check bundleDetails.items (most common for populated bundles)
+                                                                        if (bundleData.bundleDetails && bundleData.bundleDetails.items && Array.isArray(bundleData.bundleDetails.items)) {
+                                                                            console.log('✅ Found items in bundleData.bundleDetails.items:', bundleData.bundleDetails.items);
+                                                                            return bundleData.bundleDetails.items;
+                                                                        }
+                                                                        
+                                                                        // 2.1. Check bundleDetails.productDetails (newly fetched API structure)
+                                                                        if (bundleData.bundleDetails && bundleData.bundleDetails.productDetails && Array.isArray(bundleData.bundleDetails.productDetails) && bundleData.bundleDetails.productDetails.length > 0) {
+                                                                            console.log('✅ Found items in bundleData.bundleDetails.productDetails:', bundleData.bundleDetails.productDetails);
+                                                                            return bundleData.bundleDetails.productDetails;
+                                                                        }
+                                                                        
+                                                                        // 3. Check productDetails array (alternative structure for bundles)
+                                                                        if (bundleData.productDetails && Array.isArray(bundleData.productDetails) && bundleData.productDetails.length > 0) {
+                                                                            console.log('✅ Found items in bundleData.productDetails:', bundleData.productDetails);
+                                                                            return bundleData.productDetails;
+                                                                        }
+                                                                        
+                                                                        // 2.1. Enhanced bundleDetails check - look deeper into the object
+                                                                        if (bundleData.bundleDetails && typeof bundleData.bundleDetails === 'object') {
+                                                                            console.log('Detailed bundleDetails analysis:', bundleData.bundleDetails);
+                                                                            console.log('bundleDetails keys:', Object.keys(bundleData.bundleDetails));
+                                                                            
+                                                                            // Check all properties in bundleDetails for arrays
+                                                                            for (const [key, value] of Object.entries(bundleData.bundleDetails)) {
+                                                                                if (Array.isArray(value) && value.length > 0) {
+                                                                                    console.log(`Found array in bundleDetails.${key}:`, value);
+                                                                                    // Check if this array contains items that look like products/bundle items
+                                                                                    if (value[0] && (value[0].name || value[0].title || value[0].productId || value[0]._id)) {
+                                                                                        console.log(`Using bundleDetails.${key} as bundle items`);
+                                                                                        return value;
+                                                                                    }
+                                                                                }
+                                                                            }
+                                                                        }
+                                                                        
+                                                                        // 3. Check bundleId.items (if bundleId is populated object)
+                                                                        if (bundleData.bundleId && typeof bundleData.bundleId === 'object' && bundleData.bundleId.items && Array.isArray(bundleData.bundleId.items)) {
+                                                                            console.log('Found items in bundleData.bundleId.items:', bundleData.bundleId.items);
+                                                                            return bundleData.bundleId.items;
+                                                                        }
+                                                                        
+                                                                        // 3.1. Check bundleId.productDetails (newly fetched bundle structure)
+                                                                        if (bundleData.bundleId && typeof bundleData.bundleId === 'object' && bundleData.bundleId.productDetails && Array.isArray(bundleData.bundleId.productDetails) && bundleData.bundleId.productDetails.length > 0) {
+                                                                            console.log('✅ Found items in bundleData.bundleId.productDetails:', bundleData.bundleId.productDetails);
+                                                                            return bundleData.bundleId.productDetails;
+                                                                        }
+                                                                        
+                                                                        // 3.2. Enhanced bundleId check - look deeper into the object
+                                                                        if (bundleData.bundleId && typeof bundleData.bundleId === 'object') {
+                                                                            console.log('Detailed bundleId analysis:', bundleData.bundleId);
+                                                                            console.log('bundleId keys:', Object.keys(bundleData.bundleId));
+                                                                            
+                                                                            // Check all properties in bundleId for arrays
+                                                                            for (const [key, value] of Object.entries(bundleData.bundleId)) {
+                                                                                if (Array.isArray(value) && value.length > 0) {
+                                                                                    console.log(`Found array in bundleId.${key}:`, value);
+                                                                                    // Check if this array contains items that look like products/bundle items
+                                                                                    if (value[0] && (value[0].name || value[0].title || value[0].productId || value[0]._id)) {
+                                                                                        console.log(`Using bundleId.${key} as bundle items`);
+                                                                                        return value;
+                                                                                    }
+                                                                                }
+                                                                                
+                                                                                // Check nested objects for items arrays
+                                                                                if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
+                                                                                    for (const [nestedKey, nestedValue] of Object.entries(value)) {
+                                                                                        if (nestedKey === 'items' && Array.isArray(nestedValue) && nestedValue.length > 0) {
+                                                                                            console.log(`✅ Found items in bundleId.${key}.${nestedKey}:`, nestedValue);
+                                                                                            return nestedValue;
+                                                                                        }
+                                                                                    }
+                                                                                }
+                                                                            }
+                                                                        }
+                                                                        
+                                                                        // 4. Deep search in bundleDetails for items (check all properties)
+                                                                        if (bundleData.bundleDetails && typeof bundleData.bundleDetails === 'object') {
+                                                                            console.log('Searching bundleDetails for items:', Object.keys(bundleData.bundleDetails));
+                                                                            
+                                                                            // Check for items in different possible locations within bundleDetails
+                                                                            const searchForItems = (obj, path = 'bundleDetails') => {
+                                                                                if (!obj || typeof obj !== 'object') return null;
+                                                                                
+                                                                                for (const [key, value] of Object.entries(obj)) {
+                                                                                    if (key === 'items' && Array.isArray(value) && value.length > 0) {
+                                                                                        console.log(`Found items in ${path}.${key}:`, value);
+                                                                                        return value;
+                                                                                    }
+                                                                                    
+                                                                                    // Also check for products, bundleItems, etc.
+                                                                                    if ((key === 'products' || key === 'bundleItems') && Array.isArray(value) && value.length > 0) {
+                                                                                        console.log(`Found ${key} in ${path}.${key}:`, value);
+                                                                                        return value;
+                                                                                    }
+                                                                                    
+                                                                                    // Recursive search in nested objects
+                                                                                    if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
+                                                                                        const found = searchForItems(value, `${path}.${key}`);
+                                                                                        if (found) return found;
+                                                                                    }
+                                                                                }
+                                                                                return null;
+                                                                            };
+                                                                            
+                                                                            const foundItems = searchForItems(bundleData.bundleDetails);
+                                                                            if (foundItems) return foundItems;
+                                                                        }
+                                                                        
+                                                                        // 5. Deep search in bundleId for items (check all properties)
+                                                                        if (bundleData.bundleId && typeof bundleData.bundleId === 'object') {
+                                                                            console.log('Searching bundleId for items:', Object.keys(bundleData.bundleId));
+                                                                            
+                                                                            const searchForItems = (obj, path = 'bundleId') => {
+                                                                                if (!obj || typeof obj !== 'object') return null;
+                                                                                
+                                                                                for (const [key, value] of Object.entries(obj)) {
+                                                                                    if (key === 'items' && Array.isArray(value) && value.length > 0) {
+                                                                                        console.log(`Found items in ${path}.${key}:`, value);
+                                                                                        return value;
+                                                                                    }
+                                                                                    
+                                                                                    // Also check for products, bundleItems, etc.
+                                                                                    if ((key === 'products' || key === 'bundleItems') && Array.isArray(value) && value.length > 0) {
+                                                                                        console.log(`Found ${key} in ${path}.${key}:`, value);
+                                                                                        return value;
+                                                                                    }
+                                                                                    
+                                                                                    // Recursive search in nested objects
+                                                                                    if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
+                                                                                        const found = searchForItems(value, `${path}.${key}`);
+                                                                                        if (found) return found;
+                                                                                    }
+                                                                                }
+                                                                                return null;
+                                                                            };
+                                                                            
+                                                                            const foundItems = searchForItems(bundleData.bundleId);
+                                                                            if (foundItems) return foundItems;
+                                                                        }
+                                                                        
+                                                                        // 4. If bundle itself looks like bundleId object with items
+                                                                        if (bundleData._id && bundleData.title && bundleData.bundlePrice && bundleData.items && Array.isArray(bundleData.items)) {
+                                                                            console.log('Bundle looks like a populated bundleId object:', bundleData.items);
+                                                                            return bundleData.items;
+                                                                        }
+                                                                        
+                                                                        // 5. Search for nested bundle structures
+                                                                        const findBundleItemsRecursively = (obj, path = 'root', maxDepth = 2, currentDepth = 0) => {
+                                                                            if (!obj || typeof obj !== 'object' || currentDepth >= maxDepth) return null;
+                                                                            
+                                                                            for (const [key, value] of Object.entries(obj)) {
+                                                                                const currentPath = `${path}.${key}`;
+                                                                                
+                                                                                // Only look for bundle-specific item arrays
+                                                                                if (key === 'items' && Array.isArray(value) && value.length > 0) {
+                                                                                    // Check if this looks like bundle items
+                                                                                    if (path.includes('bundle') || path.includes('Bundle')) {
+                                                                                        console.log(`Found bundle items in ${currentPath}:`, value);
+                                                                                        return value;
+                                                                                    }
+                                                                                }
+                                                                                
+                                                                                // Look for bundleItems arrays (specific to bundles)
+                                                                                if (key === 'bundleItems' && Array.isArray(value) && value.length > 0) {
+                                                                                    console.log(`Found bundleItems in ${currentPath}:`, value);
+                                                                                    return value;
+                                                                                }
+                                                                                
+                                                                                // Continue recursive search only in bundle-related nested objects
+                                                                                if (typeof value === 'object' && value !== null) {
+                                                                                    if (key.toLowerCase().includes('bundle')) {
+                                                                                        const found = findBundleItemsRecursively(value, currentPath, maxDepth, currentDepth + 1);
+                                                                                        if (found) return found;
+                                                                                    }
+                                                                                }
+                                                                            }
+                                                                            return null;
+                                                                        };
+                                                                        
+                                                                        const foundBundleItems = findBundleItemsRecursively(bundleData);
+                                                                        if (foundBundleItems) {
+                                                                            return foundBundleItems;
+                                                                        }
+                                                                        
+                                                                        // 7. Check productDetails array (alternative structure for bundles)
+                                                                        if (bundleData.productDetails && Array.isArray(bundleData.productDetails) && bundleData.productDetails.length > 0) {
+                                                                            console.log('Found items in bundleData.productDetails:', bundleData.productDetails);
+                                                                            return bundleData.productDetails;
+                                                                        }
+                                                                        
+                                                                        // 8. Comprehensive recursive search for any array with product-like objects
+                                                                        const searchAllProperties = (obj, path = 'root', depth = 0) => {
+                                                                            if (!obj || typeof obj !== 'object' || depth > 3) return null;
+                                                                            
+                                                                            for (const [key, value] of Object.entries(obj)) {
+                                                                                const currentPath = `${path}.${key}`;
+                                                                                
+                                                                                // Look for any array that might contain bundle items
+                                                                                if (Array.isArray(value) && value.length > 0) {
+                                                                                    // Check if array contains objects that look like products
+                                                                                    const firstItem = value[0];
+                                                                                    if (typeof firstItem === 'object' && firstItem !== null) {
+                                                                                        const hasProductProperties = (
+                                                                                            firstItem.name || 
+                                                                                            firstItem.title || 
+                                                                                            firstItem.productId || 
+                                                                                            firstItem._id ||
+                                                                                            firstItem.price !== undefined ||
+                                                                                            firstItem.quantity !== undefined
+                                                                                        );
+                                                                                        
+                                                                                        if (hasProductProperties) {
+                                                                                            console.log(`✅ Found potential bundle items in ${currentPath}:`, value);
+                                                                                            return value;
+                                                                                        }
+                                                                                    }
+                                                                                }
+                                                                                
+                                                                                // Recursively search nested objects
+                                                                                if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
+                                                                                    const result = searchAllProperties(value, currentPath, depth + 1);
+                                                                                    if (result) return result;
+                                                                                }
+                                                                            }
+                                                                            return null;
+                                                                        };
+                                                                        
+                                                                        // Try recursive search on the entire bundle object
+                                                                        const recursiveResult = searchAllProperties(bundleData);
+                                                                        if (recursiveResult) {
+                                                                            return recursiveResult;
+                                                                        }
+                                                                        
+                                                                        console.log('❌ No bundle items found in any expected location');
+                                                                        console.log('=== COMPLETE BUNDLE DATA DUMP ===');
+                                                                        console.log('Full bundle object:', JSON.stringify(bundleData, null, 2));
+                                                                        
+                                                                        // Additional detailed logging for debugging
+                                                                        console.log('=== DETAILED BUNDLE ANALYSIS ===');
+                                                                        console.log('bundleData keys:', Object.keys(bundleData));
+                                                                        console.log('bundleData._id:', bundleData._id);
+                                                                        console.log('bundleData.productId:', bundleData.productId);
+                                                                        console.log('bundleData.name:', bundleData.name);
+                                                                        console.log('bundleData.title:', bundleData.title);
+                                                                        
+                                                                        if (bundleData.bundleDetails) {
+                                                                            console.log('bundleDetails exists - keys:', Object.keys(bundleData.bundleDetails));
+                                                                            console.log('bundleDetails full object:', JSON.stringify(bundleData.bundleDetails, null, 2));
+                                                                        } else {
+                                                                            console.log('❌ bundleDetails is null/undefined');
+                                                                        }
+                                                                        
+                                                                        if (bundleData.bundleId) {
+                                                                            console.log('bundleId exists - type:', typeof bundleData.bundleId);
+                                                                            if (typeof bundleData.bundleId === 'object') {
+                                                                                console.log('bundleId keys:', Object.keys(bundleData.bundleId));
+                                                                                console.log('bundleId full object:', JSON.stringify(bundleData.bundleId, null, 2));
+                                                                            } else {
+                                                                                console.log('bundleId value (string):', bundleData.bundleId);
+                                                                            }
+                                                                        } else {
+                                                                            console.log('❌ bundleId is null/undefined');
+                                                                        }
+                                                                        
+                                                                        if (bundleData.productDetails) {
+                                                                            console.log('productDetails exists - length:', bundleData.productDetails.length);
+                                                                            console.log('productDetails content:', bundleData.productDetails);
+                                                                        } else {
+                                                                            console.log('❌ productDetails is null/undefined');
+                                                                        }
+                                                                        
+                                                                        console.log('=== END BUNDLE ITEMS DETECTION ===');
+                                                                        
+                                                                        return [];
+                                                                    };
+                                                                    
+                                                                    const bundleItems = getBundleItems();
                                                                     
                                                                     if (bundleItems.length > 0) {
                                                                         return (
@@ -494,6 +883,17 @@ function InvoiceModal({ payment: originalPayment, onClose }) {
                                                                                 <p className="text-xs text-amber-600 bg-amber-50 px-2 py-1 rounded border">
                                                                                     ⚠️ Bundle items details not available
                                                                                 </p>
+                                                                                <details className="mt-1">
+                                                                                    <summary className="text-xs text-gray-500 cursor-pointer">Debug Info</summary>
+                                                                                    <div className="text-xs text-gray-400 mt-1 bg-gray-50 p-2 rounded border max-h-20 overflow-auto">
+                                                                                        <p><strong>Bundle Keys:</strong> {Object.keys(item).join(', ')}</p>
+                                                                                        <p><strong>Has bundleId:</strong> {item.bundleId ? 'Yes' : 'No'}</p>
+                                                                                        <p><strong>Has bundleDetails:</strong> {item.bundleDetails ? 'Yes' : 'No'}</p>
+                                                                                        <p><strong>Has items:</strong> {item.items ? 'Yes' : 'No'}</p>
+                                                                                        <p><strong>bundleId type:</strong> {typeof item.bundleId}</p>
+                                                                                        <p><strong>bundleDetails type:</strong> {typeof item.bundleDetails}</p>
+                                                                                    </div>
+                                                                                </details>
                                                                             </div>
                                                                         );
                                                                     }
@@ -580,6 +980,7 @@ function InvoiceModal({ payment: originalPayment, onClose }) {
                         </div>
                     </div>
                 </div>
+                )}
 
                 {/* Modal Footer */}
                 <div className="flex items-center justify-end space-x-4 p-6 border-t border-gray-200 bg-gray-50">

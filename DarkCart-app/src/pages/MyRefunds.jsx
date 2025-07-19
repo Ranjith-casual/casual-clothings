@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { FaSpinner, FaInfoCircle, FaDownload, FaTimes, FaCheck } from 'react-icons/fa';
+import { FaSpinner, FaInfoCircle, FaDownload, FaTimes, FaCheck, FaBox } from 'react-icons/fa';
 import toast from 'react-hot-toast';
 import Axios from '../utils/Axios';
 import SummaryApi from '../common/SummaryApi';
 import AnimatedImage from '../components/NoData';
+import BundleItemsModal from '../components/BundleItemsModal';
 import noCart from '../assets/noCart.jpg';
 
 // Helper function for formatting dates
@@ -69,28 +70,55 @@ const getImageSource = (item) => {
     let imageSrc = noCart;
     
     if (item.itemType === 'bundle') {
+        // Enhanced bundle image handling
         if (item.bundleId && item.bundleId._id) {
-            imageSrc = item.bundleId.images?.[0] || item.bundleId.image || noCart;
+            // Check if image is a string (URL) or array
+            if (typeof item.bundleId.image === 'string') {
+                imageSrc = item.bundleId.image;
+            } else if (Array.isArray(item.bundleId.images) && item.bundleId.images.length > 0) {
+                imageSrc = item.bundleId.images[0];
+            } else if (Array.isArray(item.bundleId.image) && item.bundleId.image.length > 0) {
+                imageSrc = item.bundleId.image[0];
+            } else if (item.bundleId.bundleImage) {
+                imageSrc = item.bundleId.bundleImage;
+            }
         } else if (item.bundleDetails) {
-            imageSrc = item.bundleDetails.image || noCart;
+            // Check if image is a string (URL) or array
+            if (typeof item.bundleDetails.image === 'string') {
+                imageSrc = item.bundleDetails.image;
+            } else if (Array.isArray(item.bundleDetails.images) && item.bundleDetails.images.length > 0) {
+                imageSrc = item.bundleDetails.images[0];
+            } else if (Array.isArray(item.bundleDetails.image) && item.bundleDetails.image.length > 0) {
+                imageSrc = item.bundleDetails.image[0];
+            } else if (item.bundleDetails.bundleImage) {
+                imageSrc = item.bundleDetails.bundleImage;
+            }
         }
     } else {
         // For products
         if (item.productId && item.productId._id) {
-            imageSrc = Array.isArray(item.productId.images) 
-                ? item.productId.images[0] 
-                : (item.productId.image || noCart);
+            if (typeof item.productId.image === 'string') {
+                imageSrc = item.productId.image;
+            } else if (Array.isArray(item.productId.images) && item.productId.images.length > 0) {
+                imageSrc = item.productId.images[0];
+            } else if (Array.isArray(item.productId.image) && item.productId.image.length > 0) {
+                imageSrc = item.productId.image[0];
+            }
         } else if (item.productDetails) {
-            imageSrc = Array.isArray(item.productDetails.image) 
-                ? item.productDetails.image[0] 
-                : (item.productDetails.image || noCart);
+            if (typeof item.productDetails.image === 'string') {
+                imageSrc = item.productDetails.image;
+            } else if (Array.isArray(item.productDetails.image) && item.productDetails.image.length > 0) {
+                imageSrc = item.productDetails.image[0];
+            } else if (Array.isArray(item.productDetails.images) && item.productDetails.images.length > 0) {
+                imageSrc = item.productDetails.images[0];
+            }
         }
     }
     
-    return imageSrc;
+    return imageSrc || noCart;
 };
 
-const RefundDetailsModal = ({ refund, onClose }) => {
+const RefundDetailsModal = ({ refund, onClose, onShowBundleItems }) => {
     if (!refund) return null;
 
     const order = refund.orderId || {};
@@ -233,11 +261,56 @@ const RefundDetailsModal = ({ refund, onClose }) => {
                                                 />
                                             </div>
                                             <div className="flex-grow">
-                                                <h4 className="font-medium">
-                                                    {item.itemType === 'product' 
-                                                        ? item.productDetails?.name || 'Product' 
-                                                        : item.bundleDetails?.title || 'Bundle'}
-                                                </h4>
+                                                <div className="flex items-center gap-2 mb-2">
+                                                    <h4 className="font-medium">
+                                                        {item.itemType === 'product' 
+                                                            ? item.productDetails?.name || 'Product' 
+                                                            : item.bundleDetails?.title || 'Bundle'}
+                                                    </h4>
+                                                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                                                        item.itemType === 'bundle' 
+                                                            ? 'bg-blue-100 text-blue-800'
+                                                            : 'bg-green-100 text-green-800'
+                                                    }`}>
+                                                        {item.itemType === 'bundle' ? '📦 Bundle' : '🏷️ Product'}
+                                                    </span>
+                                                    {item.itemType === 'bundle' && onShowBundleItems && (
+                                                        <button
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                // Enhanced bundle data collection
+                                                                const bundleData = {
+                                                                    // Include the entire item
+                                                                    ...item,
+                                                                    // Merge bundleDetails if available
+                                                                    ...(item?.bundleDetails || {}),
+                                                                    // Merge bundleId if it's an object
+                                                                    ...(item?.bundleId && typeof item?.bundleId === 'object' ? item.bundleId : {}),
+                                                                    // Ensure we have a title
+                                                                    title: item?.bundleDetails?.title || 
+                                                                           (item?.bundleId && typeof item?.bundleId === 'object' && item?.bundleId?.title) ||
+                                                                           item?.title ||
+                                                                           'Bundle',
+                                                                    // Debug info
+                                                                    _debug: {
+                                                                        originalItem: item,
+                                                                        itemType: item?.itemType,
+                                                                        hasBundleDetails: !!item?.bundleDetails,
+                                                                        hasBundleId: !!item?.bundleId,
+                                                                        bundleIdType: typeof item?.bundleId
+                                                                    }
+                                                                };
+                                                                console.log('Refunds page - Bundle button clicked - sending data:', bundleData);
+                                                                onShowBundleItems(bundleData, order);
+                                                            }}
+                                                            className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium transition-all duration-200 hover:scale-105 bg-green-100 text-green-800 hover:bg-green-200"
+                                                            title="View all items in this bundle"
+                                                        >
+                                                            <FaBox className="w-3 h-3 mr-1" />
+                                                            View Items
+                                                        </button>
+                                                    )}
+                                                </div>
                                                 <div className="text-sm text-gray-600 mt-1">
                                                     <span>Quantity: {item.quantity}</span>
                                                     <span className="mx-2">•</span>
@@ -289,6 +362,11 @@ const MyRefunds = () => {
     const [loading, setLoading] = useState(true);
     const [selectedRefund, setSelectedRefund] = useState(null);
     const [showDetailsModal, setShowDetailsModal] = useState(false);
+    
+    // Bundle Items Modal States
+    const [showBundleItemsModal, setShowBundleItemsModal] = useState(false);
+    const [selectedBundle, setSelectedBundle] = useState(null);
+    const [orderContext, setOrderContext] = useState(null);
 
     // Fetch user's refunds
     const fetchUserRefunds = async () => {
@@ -325,6 +403,19 @@ const MyRefunds = () => {
     // Close refund details modal
     const handleCloseModal = () => {
         setShowDetailsModal(false);
+    };
+
+    // Bundle Items Modal Handlers
+    const handleShowBundleItems = (bundle, order = null) => {
+        setSelectedBundle(bundle);
+        setOrderContext(order);
+        setShowBundleItemsModal(true);
+    };
+
+    const handleCloseBundleItemsModal = () => {
+        setShowBundleItemsModal(false);
+        setSelectedBundle(null);
+        setOrderContext(null);
     };
 
     return (
@@ -422,6 +513,17 @@ const MyRefunds = () => {
                 <RefundDetailsModal 
                     refund={selectedRefund} 
                     onClose={handleCloseModal}
+                    onShowBundleItems={handleShowBundleItems}
+                />
+            )}
+
+            {/* Bundle Items Modal */}
+            {showBundleItemsModal && selectedBundle && (
+                <BundleItemsModal
+                    bundle={selectedBundle}
+                    isOpen={showBundleItemsModal}
+                    onClose={handleCloseBundleItemsModal}
+                    orderContext={orderContext}
                 />
             )}
         </div>
