@@ -123,57 +123,6 @@ function MyOrders() {
     setShowCancellationModal(true);
   };
 
-  // Function to show product details in modal
-  const handleShowProductDetails = (item, order) => {
-    // Debug logging (can be removed in production)
-    if (process.env.NODE_ENV === 'development') {
-      console.log('🔍 MyOrders - Item clicked:', item);
-      console.log('🔍 MyOrders - Order context:', order);
-    }
-    
-    if (item?.itemType === 'bundle') {
-      const bundleData = item?.bundleId || item?.bundleDetails;
-      
-      // Debug bundle data
-      if (process.env.NODE_ENV === 'development') {
-        console.log('📦 MyOrders - Bundle data:', bundleData);
-        console.log('📦 Bundle has items?', bundleData?.items ? 'Yes' : 'No');
-        console.log('📦 Bundle items count:', bundleData?.items?.length || 0);
-      }
-      
-      setSelectedProduct(bundleData);
-      setSelectedProductType('bundle');
-    } else {
-      const productData = item?.productId || item?.productDetails;
-      
-      if (process.env.NODE_ENV === 'development') {
-        console.log('🏷️ MyOrders - Product data:', productData);
-      }
-      
-      setSelectedProduct(productData);
-      setSelectedProductType('product');
-    }
-    
-    // Set order context for additional information
-    setOrderContext({
-      quantity: item?.quantity,
-      orderStatus: order?.orderStatus,
-      orderDate: order?.createdAt,
-      size: item?.size,
-      orderId: order?._id
-    });
-    
-    setShowProductModal(true);
-  };
-
-  // Function to close product details modal
-  const handleCloseProductModal = () => {
-    setShowProductModal(false);
-    setSelectedProduct(null);
-    setSelectedProductType('product');
-    setOrderContext(null);
-  };
-
   const handleCancellationRequested = () => {
     // Refresh orders and cancellation requests after cancellation request is submitted
     fetchCurrentUserOrders();
@@ -565,14 +514,6 @@ function MyOrders() {
                           isCancelled ? 'bg-red-50 border-red-200' : 'bg-gray-50 border-gray-200'
                         }`}>
                           <div className="flex items-start gap-2 sm:gap-3">
-<<<<<<< HEAD
-                            {/* Item image - Clickable */}
-                            <button
-                              onClick={() => handleShowProductDetails(item, order)}
-                              className={`w-12 h-12 sm:w-16 sm:h-16 rounded-md overflow-hidden border flex-shrink-0 hover:shadow-md transition-shadow cursor-pointer ${
-                                isCancelled ? 'border-red-300' : 'border-gray-200 hover:border-teal-300'
-                              }`}
-=======
                             {/* Item image */}
                             <div 
                               className={`w-12 h-12 sm:w-16 sm:h-16 rounded-md overflow-hidden border flex-shrink-0 cursor-pointer transition-all duration-200 hover:scale-105 ${
@@ -583,7 +524,6 @@ function MyOrders() {
                                 item?.itemType === 'bundle' ? 'bundle' : 'product',
                                 order
                               )}
->>>>>>> 5f447ac19a869744c43a18ae8e5efa80b8fb7a86
                             >
                               <img
                                 src={getImageSource(item)}
@@ -597,19 +537,12 @@ function MyOrders() {
                                 }`}
                                 onError={(e) => handleImageError(e, item)}
                               />
-                            </button>
+                            </div>
                             
                             {/* Item details */}
                             <div className="flex-1 min-w-0">
                               <div className="flex items-start justify-between gap-2">
                                 <div className="flex-1 min-w-0">
-<<<<<<< HEAD
-                                  <button
-                                    onClick={() => handleShowProductDetails(item, order)}
-                                    className={`font-bold text-sm sm:text-base leading-tight truncate text-left hover:text-teal-600 transition-colors cursor-pointer ${
-                                      isCancelled ? 'text-red-800 line-through' : 'text-black'
-                                    }`}
-=======
                                   <h4 
                                     className={`font-bold text-sm sm:text-base leading-tight truncate cursor-pointer hover:underline transition-all duration-200 ${
                                       isCancelled ? 'text-red-800 line-through' : 'text-black hover:text-blue-600'
@@ -619,10 +552,9 @@ function MyOrders() {
                                       item?.itemType === 'bundle' ? 'bundle' : 'product',
                                       order
                                     )}
->>>>>>> 5f447ac19a869744c43a18ae8e5efa80b8fb7a86
                                   >
                                     {item?.itemType === 'bundle' ? item?.bundleDetails?.title : item?.productDetails?.name}
-                                  </button>
+                                  </h4>
                                   <div className="flex items-center gap-2 mt-1">
                                     <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
                                       item?.itemType === 'bundle' 
@@ -635,12 +567,6 @@ function MyOrders() {
                                       isCancelled ? 'text-red-600' : 'text-gray-600'
                                     }`}>
                                       Qty: {item?.quantity}
-                                    </span>
-                                    <span 
-                                      className="text-xs text-teal-600 font-medium cursor-pointer hover:text-teal-800"
-                                      onClick={() => handleShowProductDetails(item, order)}
-                                    >
-                                      👁️ View Details
                                     </span>
                                   </div>
                                 </div>
@@ -946,15 +872,6 @@ function MyOrders() {
       )}
 
       {/* Product Details Modal */}
-<<<<<<< HEAD
-      <ProductDetailsModal
-        isOpen={showProductModal}
-        onClose={handleCloseProductModal}
-        product={selectedProduct}
-        itemType={selectedProductType}
-        orderContext={orderContext}
-      />
-=======
       {showProductModal && selectedProduct && (
         <ProductDetailsModal
           product={selectedProduct}
@@ -963,7 +880,6 @@ function MyOrders() {
           orderContext={orderContext}
         />
       )}
->>>>>>> 5f447ac19a869744c43a18ae8e5efa80b8fb7a86
     </div>
   )
 }
