@@ -181,6 +181,14 @@ const SummaryApi = {
         url: '/api/order/update-order-status',
         method: 'put'
     },
+    checkOrderModificationPermission: {
+        url: '/api/order/admin/check-modification-permission',
+        method: 'get'
+    },
+    updateDeliveryDate: {
+        url: '/api/order/update-delivery-date',
+        method: 'put'
+    },
     // Order Cancellation Management
     requestOrderCancellation: {
         url: '/api/order-cancellation/request',

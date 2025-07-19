@@ -12,7 +12,8 @@ import {
     updateDeliveryDateController,
     bulkUpdateOrderStatusController,
     getOrdersByDateRangeController,
-    searchOrdersController
+    searchOrdersController,
+    checkOrderModificationPermissionController
 } from '../controllers/order.controller.js';
 import { 
     requestOrderCancellation,
@@ -35,6 +36,7 @@ orderRouter.post('/cancel-order', Auth, cancelOrderController);
 orderRouter.put('/update-order-status', Auth, updateOrderStatusController);
 orderRouter.put('/update-delivery-date', Auth, admin, updateDeliveryDateController);
 orderRouter.put('/admin/bulk-update', Auth, admin, bulkUpdateOrderStatusController);
+orderRouter.get('/admin/check-modification-permission/:orderId', Auth, admin, checkOrderModificationPermissionController);
 orderRouter.get('/date-range', Auth, getOrdersByDateRangeController);
 orderRouter.get('/search', Auth, searchOrdersController);
 

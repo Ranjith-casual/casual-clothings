@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';  
-import { FaMapMarkerAlt, FaCity, FaFlag, FaTimes, FaUser, FaCalendarAlt, FaBox, FaMoneyBillWave, FaTruck, FaCheck, FaCog, FaBan, FaBoxOpen, FaInfoCircle, FaExclamationCircle, FaEnvelope, FaUndo, FaCreditCard, FaSpinner } from 'react-icons/fa';
+import { FaMapMarkerAlt, FaCity, FaFlag, FaTimes, FaUser, FaCalendarAlt, FaBox, FaMoneyBillWave, FaTruck, FaCheck, FaCog, FaBan, FaBoxOpen, FaInfoCircle, FaExclamationCircle, FaEnvelope, FaUndo, FaCreditCard, FaSpinner, FaExclamationTriangle } from 'react-icons/fa';
 import OrderTimeline from './OrderTimeline';
 import { useGlobalContext } from '../provider/GlobalProvider';
 import toast from 'react-hot-toast';
@@ -12,7 +12,9 @@ const AdminOrderDetails = ({ order, onClose }) => {
   const [localOrderStatus, setLocalOrderStatus] = useState(order?.orderStatus || '');
   const [cancellationDetails, setCancellationDetails] = useState(null);
   const [loadingCancellation, setLoadingCancellation] = useState(false);
-  const { updateOrderStatus } = useGlobalContext();
+  const [modificationPermission, setModificationPermission] = useState({ canModify: true, reason: '' });
+  const [checkingPermission, setCheckingPermission] = useState(false);
+  const { updateOrderStatus, checkOrderModificationPermission } = useGlobalContext();
 
   // Status options for dropdown
   const statusOptions = [
@@ -33,13 +35,19 @@ const AdminOrderDetails = ({ order, onClose }) => {
       return;
     }
 
+    // Check if order can be modified
+    if (!modificationPermission.canModify) {
+      toast.error(modificationPermission.reason || 'Order cannot be modified due to active cancellation request');
+      return;
+    }
+
     setUpdatingStatus(true);
     try {
       const statusLabel = statusOptions.find(option => option.value === selectedStatus)?.label || selectedStatus;
       
-      const success = await updateOrderStatus(order.orderId, selectedStatus);
+      const result = await updateOrderStatus(order.orderId, selectedStatus);
       
-      if (success) {
+      if (result.success) {
         setLocalOrderStatus(selectedStatus);
         toast.success(`Order status updated to ${statusLabel}`);
         
@@ -55,11 +63,51 @@ const AdminOrderDetails = ({ order, onClose }) => {
         setTimeout(() => {
           onClose();
         }, 1500);
+      } else {
+        // Handle specific error messages
+        if (result.isBlocked) {
+          toast.error(`${result.message}\nCancellation Status: ${result.cancellationStatus}`, {
+            duration: 5000
+          });
+        } else {
+          toast.error(result.message || 'Failed to update order status');
+        }
       }
     } catch (error) {
       console.error('Error updating order status:', error);
+      toast.error('Failed to update order status');
     } finally {
       setUpdatingStatus(false);
+    }
+  };
+
+  // Check if order can be modified
+  const checkModificationPermission = async () => {
+    if (!order?.orderId) return;
+
+    setCheckingPermission(true);
+    try {
+      const result = await checkOrderModificationPermission(order.orderId);
+      if (result.success) {
+        setModificationPermission({
+          canModify: result.canModify,
+          reason: result.reason,
+          cancellationRequest: result.cancellationRequest
+        });
+      } else {
+        setModificationPermission({
+          canModify: false,
+          reason: result.reason || 'Error checking modification permission'
+        });
+      }
+    } catch (error) {
+      console.error('Error checking modification permission:', error);
+      setModificationPermission({
+        canModify: false,
+        reason: 'Error checking modification permission'
+      });
+    } finally {
+      setCheckingPermission(false);
     }
   };
 
@@ -90,6 +138,9 @@ const AdminOrderDetails = ({ order, onClose }) => {
     if ((localOrderStatus === 'CANCELLED' || order?.orderStatus === 'CANCELLED')) {
       fetchCancellationDetails();
     }
+    
+    // Check modification permission for all orders
+    checkModificationPermission();
   }, [order?.orderId, localOrderStatus]);
 
   const formatDate = (dateString) => {
@@ -346,13 +397,45 @@ const AdminOrderDetails = ({ order, onClose }) => {
           </div>
 
           {/* Status Update Section */}
+          {/* Cancellation Request Warning */}
+          {checkingPermission ? (
+            <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+              <div className="flex items-center gap-2">
+                <FaSpinner className="text-blue-500 animate-spin" />
+                <span className="text-blue-700 font-medium">Checking order modification permission...</span>
+              </div>
+            </div>
+          ) : !modificationPermission.canModify && (
+            <div className="mb-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+              <div className="flex items-start gap-3">
+                <FaExclamationTriangle className="text-yellow-600 mt-1 flex-shrink-0" />
+                <div>
+                  <h4 className="font-semibold text-yellow-800 mb-1">Order Modification Restricted</h4>
+                  <p className="text-yellow-700 text-sm mb-2">{modificationPermission.reason}</p>
+                  {modificationPermission.cancellationRequest && (
+                    <div className="text-xs text-yellow-600 bg-yellow-100 p-2 rounded border">
+                      <strong>Cancellation Request Details:</strong>
+                      <br />Status: {modificationPermission.cancellationRequest.status}
+                      <br />Reason: {modificationPermission.cancellationRequest.reason}
+                      <br />Date: {new Date(modificationPermission.cancellationRequest.requestDate).toLocaleDateString()}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Order Status Update Section */}
           <div className="mb-8 p-5 bg-gray-50 rounded-lg border border-gray-200 shadow-sm">
             <h3 className="font-bold text-lg text-gray-800 mb-4 tracking-tight">Update Order Status</h3>
             <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
               <select
                 value={selectedStatus}
                 onChange={handleStatusChange}
-                className="w-full sm:w-auto px-4 py-2.5 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent bg-white appearance-none cursor-pointer font-medium"
+                disabled={!modificationPermission.canModify}
+                className={`w-full sm:w-auto px-4 py-2.5 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent bg-white appearance-none cursor-pointer font-medium ${
+                  !modificationPermission.canModify ? 'opacity-50 cursor-not-allowed' : ''
+                }`}
               >
                 {statusOptions.map(option => (
                   <option key={option.value} value={option.value}>
@@ -362,7 +445,7 @@ const AdminOrderDetails = ({ order, onClose }) => {
               </select>
               <button
                 onClick={handleUpdateStatus}
-                disabled={updatingStatus || selectedStatus === localOrderStatus}
+                disabled={updatingStatus || selectedStatus === localOrderStatus || !modificationPermission.canModify}
                 className="w-full sm:w-auto px-5 py-2.5 bg-black text-white rounded-md hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed transition-all font-medium tracking-wide shadow-md hover:shadow-lg flex items-center justify-center gap-2 transform hover:-translate-y-0.5"
               >
                 {updatingStatus ? (
@@ -375,6 +458,11 @@ const AdminOrderDetails = ({ order, onClose }) => {
                 )}
               </button>
             </div>
+            {!modificationPermission.canModify && (
+              <p className="text-sm text-red-600 mt-2">
+                Order status cannot be modified due to active cancellation request.
+              </p>
+            )}
           </div>
 
           {/* Delivery Date Update Section */}

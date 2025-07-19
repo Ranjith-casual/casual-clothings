@@ -160,25 +160,98 @@ const GlobalProvider = ({ children }) => {
       });
       
       if (response.data.success) {
-       
-        
-    
         if (handleOrder) {
           handleOrder();
         } else {
-
           user?.role?.toUpperCase() === "ADMIN" ? fetchAllOrders() : fetchOrders();
         }
-        return true;
+        return { success: true };
       } else {
-      
         console.error("API returned error:", response.data);
-        return false;
+        return { success: false, message: response.data.message };
       }
     } catch (error) {
-
       console.error("Error updating order status:", error);
-      return false;
+      
+      // Handle specific cancellation request error
+      if (error.response?.status === 403) {
+        const errorData = error.response.data;
+        return { 
+          success: false, 
+          message: errorData.message || "Cannot modify order due to active cancellation request",
+          cancellationStatus: errorData.cancellationStatus,
+          isBlocked: true
+        };
+      }
+      
+      return { 
+        success: false, 
+        message: error.response?.data?.message || "Error updating order status" 
+      };
+    }
+  };
+
+  // Check if order can be modified by admin
+  const checkOrderModificationPermission = async (orderId) => {
+    try {
+      const response = await Axios({
+        url: `${SummaryApi.checkOrderModificationPermission.url}/${orderId}`,
+        method: SummaryApi.checkOrderModificationPermission.method
+      });
+      
+      if (response.data.success) {
+        return {
+          success: true,
+          canModify: response.data.data.canModify,
+          reason: response.data.data.reason,
+          cancellationRequest: response.data.data.cancellationRequest
+        };
+      } else {
+        return { success: false, canModify: false, reason: "Error checking permission" };
+      }
+    } catch (error) {
+      console.error("Error checking order modification permission:", error);
+      return { success: false, canModify: false, reason: "Error checking permission" };
+    }
+  };
+
+  // Update delivery date
+  const updateDeliveryDate = async (orderId, estimatedDeliveryDate, deliveryNotes = '') => {
+    try {
+      const response = await Axios({
+        url: SummaryApi.updateDeliveryDate.url,
+        method: SummaryApi.updateDeliveryDate.method,
+        data: { orderId, estimatedDeliveryDate, deliveryNotes }
+      });
+      
+      if (response.data.success) {
+        if (handleOrder) {
+          handleOrder();
+        } else {
+          user?.role?.toUpperCase() === "ADMIN" ? fetchAllOrders() : fetchOrders();
+        }
+        return { success: true };
+      } else {
+        return { success: false, message: response.data.message };
+      }
+    } catch (error) {
+      console.error("Error updating delivery date:", error);
+      
+      // Handle specific cancellation request error
+      if (error.response?.status === 403) {
+        const errorData = error.response.data;
+        return { 
+          success: false, 
+          message: errorData.message || "Cannot update delivery date due to active cancellation request",
+          cancellationStatus: errorData.cancellationStatus,
+          isBlocked: true
+        };
+      }
+      
+      return { 
+        success: false, 
+        message: error.response?.data?.message || "Error updating delivery date" 
+      };
     }
   };
 
@@ -359,6 +432,8 @@ const GlobalProvider = ({ children }) => {
         fetchOrders,
         fetchAllOrders,
         updateOrderStatus,
+        checkOrderModificationPermission,
+        updateDeliveryDate,
         refreshingOrders,
         totalPrice,
         totalQty,

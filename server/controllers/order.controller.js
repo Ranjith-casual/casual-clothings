@@ -7,6 +7,68 @@ import BundleModel from "../models/bundles.js"; // Add bundle model import
 import sendEmail from "../config/sendEmail.js";
 import fs from 'fs';
 
+// Helper function to check for active cancellation requests
+export const checkActiveCancellationRequest = async (orderId) => {
+    try {
+        const { default: orderCancellationModel } = await import('../models/orderCancellation.model.js');
+        const activeCancellationRequest = await orderCancellationModel.findOne({
+            orderId: orderId,
+            status: { $in: ['PENDING', 'APPROVED'] },
+            isActive: true
+        });
+        return activeCancellationRequest;
+    } catch (error) {
+        console.error('Error checking cancellation request:', error);
+        return null;
+    }
+};
+
+// Admin endpoint to check if order can be modified
+export const checkOrderModificationPermissionController = async (req, res) => {
+    try {
+        const { orderId } = req.params;
+        
+        // Find the order
+        const order = await orderModel.findOne({ orderId: orderId });
+        
+        if (!order) {
+            return res.status(404).json({
+                success: false,
+                error: true,
+                message: "Order not found"
+            });
+        }
+
+        // Check for active cancellation request
+        const activeCancellationRequest = await checkActiveCancellationRequest(order._id);
+        
+        const canModify = !activeCancellationRequest;
+        
+        return res.json({
+            success: true,
+            error: false,
+            message: "Order modification permission checked",
+            data: {
+                orderId: orderId,
+                canModify: canModify,
+                reason: activeCancellationRequest ? "Active cancellation request exists" : "No restrictions",
+                cancellationRequest: activeCancellationRequest ? {
+                    status: activeCancellationRequest.status,
+                    requestDate: activeCancellationRequest.requestDate,
+                    reason: activeCancellationRequest.reason
+                } : null
+            }
+        });
+    } catch (error) {
+        return res.status(500).json({
+            success: false,
+            error: true,
+            message: "Error checking order modification permission",
+            details: error.message
+        });
+    }
+};
+
 export const onlinePaymentOrderController = async (req, res) => {
   try {
     const userId = req.userId;
@@ -744,12 +806,26 @@ export const getOrderByIdController = async (req, res) => {
                 message: "Order not found"
             });
         }
+
+        // Check if there's an active cancellation request for this order
+        const activeCancellationRequest = await checkActiveCancellationRequest(order._id);
+        
+        // Add cancellation request info to response
+        const orderWithCancellationInfo = {
+            ...order.toObject(),
+            cancellationRequest: activeCancellationRequest ? {
+                status: activeCancellationRequest.status,
+                requestDate: activeCancellationRequest.requestDate,
+                reason: activeCancellationRequest.reason,
+                additionalReason: activeCancellationRequest.additionalReason
+            } : null
+        };
           
         return res.json({
             success: true,
             error: false,
             message: "Order fetched successfully",
-            data: order
+            data: orderWithCancellationInfo
         });
     } catch (error) {
         return res.status(500).json({
@@ -816,12 +892,28 @@ export const getAllOrdersController = async (req, res) => {
           .populate("items.productId", "name image price stock discount") // Updated populate path
           .populate("items.bundleId", "title description image images bundlePrice originalPrice stock items") // Include items array
           .populate("deliveryAddress", "address_line city state pincode country");
+
+        // Add cancellation request information for each order
+        const ordersWithCancellationInfo = await Promise.all(
+            orders.map(async (order) => {
+                const activeCancellationRequest = await checkActiveCancellationRequest(order._id);
+                return {
+                    ...order.toObject(),
+                    hasCancellationRequest: !!activeCancellationRequest,
+                    cancellationRequest: activeCancellationRequest ? {
+                        status: activeCancellationRequest.status,
+                        requestDate: activeCancellationRequest.requestDate,
+                        reason: activeCancellationRequest.reason
+                    } : null
+                };
+            })
+        );
           
         return res.json({
             success: true,
             error: false,
             message: "Orders fetched successfully",
-            data: orders
+            data: ordersWithCancellationInfo
         });
     } catch (error) {
         return res.status(500).json({
@@ -865,6 +957,18 @@ export const updateOrderStatusController = async (req, res) => {
                 success: false,
                 error: true,
                 message: "Order not found"
+            });
+        }
+
+        // Check if there's an active cancellation request for this order
+        const activeCancellationRequest = await checkActiveCancellationRequest(order._id);
+
+        if (activeCancellationRequest) {
+            return res.status(403).json({
+                success: false,
+                error: true,
+                message: "Cannot update order status. There is an active cancellation request for this order.",
+                cancellationStatus: activeCancellationRequest.status
             });
         }
 
@@ -1074,6 +1178,18 @@ export const bulkUpdateOrderStatusController = async (req, res) => {
                 
                 if (!order) {
                     errors.push({ orderId, error: "Order not found" });
+                    continue;
+                }
+
+                // Check if there's an active cancellation request for this order
+                const activeCancellationRequest = await checkActiveCancellationRequest(order._id);
+
+                if (activeCancellationRequest) {
+                    errors.push({ 
+                        orderId, 
+                        error: "Cannot update order status due to active cancellation request",
+                        cancellationStatus: activeCancellationRequest.status 
+                    });
                     continue;
                 }
                 
@@ -1311,6 +1427,29 @@ export const updateDeliveryDateController = async (req, res) => {
                 success: false,
                 error: true,
                 message: "Estimated delivery date is required"
+            });
+        }
+
+        // Find the order first to get the _id for cancellation check
+        const order = await orderModel.findOne({ orderId: orderId });
+        
+        if (!order) {
+            return res.status(404).json({
+                success: false,
+                error: true,
+                message: "Order not found"
+            });
+        }
+
+        // Check if there's an active cancellation request for this order
+        const activeCancellationRequest = await checkActiveCancellationRequest(order._id);
+
+        if (activeCancellationRequest) {
+            return res.status(403).json({
+                success: false,
+                error: true,
+                message: "Cannot update delivery information. There is an active cancellation request for this order.",
+                cancellationStatus: activeCancellationRequest.status
             });
         }
         

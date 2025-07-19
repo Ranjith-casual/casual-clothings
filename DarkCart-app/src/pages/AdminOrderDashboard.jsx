@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useSelector } from 'react-redux';
-import { FaSearch, FaRedo, FaSortAmountDown,FaBox ,FaSortAmountUp, FaFilter, FaEllipsisV, FaBoxOpen, FaCheck, FaTruck, FaCog, FaBan, FaEye, FaUndo, FaTimes, FaSpinner, FaCreditCard } from 'react-icons/fa';
+import { FaSearch, FaRedo, FaSortAmountDown,FaBox ,FaSortAmountUp, FaFilter, FaEllipsisV, FaBoxOpen, FaCheck, FaTruck, FaCog, FaBan, FaEye, FaUndo, FaTimes, FaSpinner, FaCreditCard, FaExclamationTriangle } from 'react-icons/fa';
 import toast from 'react-hot-toast';
 import Axios from '../utils/Axios';
 import SummaryApi from '../common/SummaryApi';
@@ -239,9 +239,9 @@ const AdminOrderDashboard = () => {
   const updateOrderStatus = async (orderId, newStatus) => {
     setUpdatingOrderId(orderId);
     try {
-      const success = await contextUpdateOrderStatus(orderId, newStatus);
+      const result = await contextUpdateOrderStatus(orderId, newStatus);
       
-      if (success) {
+      if (result.success) {
         // Update local state to reflect the change immediately for better UX
         setOrders(orders.map(order => 
           order.orderId === orderId 
@@ -255,6 +255,15 @@ const AdminOrderDashboard = () => {
         ));
         
         // The global context will refresh all orders to ensure consistency
+      } else {
+        // Handle specific error messages
+        if (result.isBlocked) {
+          toast.error(`${result.message}\nCancellation Status: ${result.cancellationStatus}`, {
+            duration: 5000
+          });
+        } else {
+          toast.error(result.message || 'Failed to update order status');
+        }
       }
     } catch (error) {
       console.error('Error updating order status:', error);
@@ -901,12 +910,27 @@ const AdminOrderDashboard = () => {
                     return (
                       <tr 
                         key={order.orderId} 
-                        className="hover:bg-gray-50 transition-colors"
+                        className={`hover:bg-gray-50 transition-colors ${
+                          order.hasCancellationRequest ? 'bg-yellow-50 border-l-4 border-yellow-400' : ''
+                        }`}
                       >
                         <td className="px-4 py-4">
                           <div className="flex flex-col">
-                            <span className="font-medium text-gray-900">{order.userId?.name}</span>
+                            <div className="flex items-center gap-2">
+                              <span className="font-medium text-gray-900">{order.userId?.name}</span>
+                              {order.hasCancellationRequest && (
+                                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                                  <FaExclamationTriangle className="w-3 h-3 mr-1" />
+                                  Cancellation Request
+                                </span>
+                              )}
+                            </div>
                             <span className="text-sm text-gray-500">{order.userId?.email}</span>
+                            {order.cancellationRequest && (
+                              <div className="text-xs text-yellow-600 mt-1">
+                                Status: {order.cancellationRequest.status} | Reason: {order.cancellationRequest.reason}
+                              </div>
+                            )}
                           </div>
                         </td>
                         <td className="px-4 py-4">
@@ -1137,24 +1161,39 @@ const AdminOrderDashboard = () => {
                               
                                 <div className="px-3 py-2 text-xs font-medium text-gray-500 border-b border-gray-200 mt-1 bg-gray-50">
                                   Update Status
+                                  {order.hasCancellationRequest && (
+                                    <div className="flex items-center gap-1 text-yellow-600 mt-1">
+                                      <FaExclamationTriangle className="w-3 h-3" />
+                                      <span>Restricted - Cancellation Request</span>
+                                    </div>
+                                  )}
                                 </div>
                                 {statusOptions.map(option => (
                                   <button
                                     key={option.value}
                                     onClick={(e) => {
                                       e.stopPropagation();
-                                      updateOrderStatus(order.orderId, option.value);
-                                      setOpenDropdownId(null);
+                                      if (!order.hasCancellationRequest) {
+                                        updateOrderStatus(order.orderId, option.value);
+                                        setOpenDropdownId(null);
+                                      }
                                     }}
-                                    disabled={updatingOrderId === order.orderId || order.orderStatus === option.value}
+                                    disabled={
+                                      updatingOrderId === order.orderId || 
+                                      order.orderStatus === option.value || 
+                                      order.hasCancellationRequest
+                                    }
                                     className={`
                                       w-full text-left px-4 py-2 text-sm flex items-center gap-2 transition-colors
                                       ${order.orderStatus === option.value 
                                         ? 'bg-gray-100 text-gray-800' 
+                                        : order.hasCancellationRequest
+                                        ? 'text-gray-400 cursor-not-allowed'
                                         : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900'
                                       } 
                                       ${updatingOrderId === order.orderId ? 'opacity-50 cursor-not-allowed' : ''}
                                     `}
+                                    title={order.hasCancellationRequest ? 'Cannot modify order with active cancellation request' : ''}
                                   >
                                     {option.icon}
                                     {option.label}
@@ -1162,6 +1201,9 @@ const AdminOrderDashboard = () => {
                                       <span className="ml-auto text-xs bg-gray-200 text-gray-800 px-1.5 py-0.5 rounded">
                                         Current
                                       </span>
+                                    )}
+                                    {order.hasCancellationRequest && (
+                                      <FaExclamationTriangle className="ml-auto text-yellow-500 w-3 h-3" />
                                     )}
                                   </button>
                                 ))}

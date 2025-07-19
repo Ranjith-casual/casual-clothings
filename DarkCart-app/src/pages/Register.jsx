@@ -2,8 +2,6 @@ import React, { useState, useEffect } from "react";
 import { FaRegEye, FaRegEyeSlash, FaUserPlus } from "react-icons/fa";
 import { FcGoogle } from "react-icons/fc";
 import { motion } from "framer-motion";
-import AOS from "aos";
-import "aos/dist/aos.css";
 import { signInWithPopup } from "firebase/auth";
 import { auth, googleProvider } from "../utils/firebase";
 import toast from "react-hot-toast";
@@ -23,13 +21,7 @@ function Register() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const navigate = useNavigate();
 
-  useEffect(() => {
-    AOS.init({
-      duration: 800,
-      easing: 'ease-out',
-      once: true
-    });
-  }, []);
+  // Remove AOS useEffect since we're using Framer Motion instead
 
   const checkAllFields = () => {
     return (
@@ -124,11 +116,13 @@ function Register() {
   };
 
   const containerVariants = {
-    hidden: { opacity: 0 },
+    hidden: { opacity: 0, y: 50 },
     visible: {
       opacity: 1,
+      y: 0,
       transition: {
-        duration: 0.4,
+        duration: 0.6,
+        ease: "easeOut",
         when: "beforeChildren",
         staggerChildren: 0.1,
       },
@@ -137,7 +131,38 @@ function Register() {
 
   const itemVariants = {
     hidden: { y: 20, opacity: 0 },
-    visible: { y: 0, opacity: 1, transition: { duration: 0.4 } },
+    visible: { 
+      y: 0, 
+      opacity: 1, 
+      transition: { 
+        duration: 0.5,
+        ease: "easeOut"
+      } 
+    },
+  };
+
+  const formVariants = {
+    hidden: { opacity: 0 },
+    visible: {
+      opacity: 1,
+      transition: {
+        duration: 0.3,
+        when: "beforeChildren",
+        staggerChildren: 0.08,
+      },
+    },
+  };
+
+  const inputVariants = {
+    hidden: { x: -20, opacity: 0 },
+    visible: { 
+      x: 0, 
+      opacity: 1, 
+      transition: { 
+        duration: 0.4,
+        ease: "easeOut"
+      } 
+    },
   };
 
   return (
@@ -163,8 +188,16 @@ function Register() {
         </div>
 
         <div className="p-8">
-          <form method="POST" action="" className="grid gap-5" onSubmit={handleSubmit}>
-            <div className="grid gap-2">
+          <motion.form 
+            method="POST" 
+            action="" 
+            className="grid gap-5" 
+            onSubmit={handleSubmit}
+            variants={formVariants}
+            initial="hidden"
+            animate="visible"
+          >
+            <motion.div className="grid gap-2" variants={inputVariants}>
               <label htmlFor="name" className="font-medium text-gray-700">Full Name:</label>
               <input
                 autoFocus
@@ -176,9 +209,9 @@ function Register() {
                 type="text"
                 placeholder="Enter your full name"
               />
-            </div>
+            </motion.div>
 
-            <div className="grid gap-2">
+            <motion.div className="grid gap-2" variants={inputVariants}>
               <label htmlFor="email" className="font-medium text-gray-700">Email Address:</label>
               <input
                 id="email"
@@ -189,9 +222,9 @@ function Register() {
                 type="email"
                 placeholder="Enter your email address"
               />
-            </div>
+            </motion.div>
 
-            <div className="grid gap-2">
+            <motion.div className="grid gap-2" variants={inputVariants}>
               <label htmlFor="password" className="font-medium text-gray-700">Password:</label>
               <div className="w-full bg-gray-50 p-3 rounded-md border-gray-300 flex items-center focus-within:border-black focus-within:bg-white border transition-colors">
                 <input
@@ -207,9 +240,9 @@ function Register() {
                   {showPassword ? <FaRegEyeSlash /> : <FaRegEye />}
                 </div>
               </div>
-            </div>
+            </motion.div>
 
-            <div className="grid gap-2">
+            <motion.div className="grid gap-2" variants={inputVariants}>
               <label htmlFor="confirmPassword" className="font-medium text-gray-700">Confirm Password:</label>
               <div className="w-full bg-gray-50 p-3 rounded-md border-gray-300 flex items-center focus-within:border-black focus-within:bg-white border transition-colors">
                 <input
@@ -225,41 +258,52 @@ function Register() {
                   {showConfirmPassword ? <FaRegEyeSlash /> : <FaRegEye />}
                 </div>
               </div>
-            </div>
+            </motion.div>
 
-            <button
+            <motion.button
               disabled={!checkAllFields()}
               className={`w-full px-4 py-3 rounded-md font-semibold tracking-wide transition-colors ${
                 checkAllFields()
                   ? "bg-black hover:bg-gray-800 text-white"
                   : "bg-gray-200 text-gray-500 cursor-not-allowed"
               }`}
+              variants={inputVariants}
+              whileHover={{ scale: checkAllFields() ? 1.02 : 1 }}
+              whileTap={{ scale: checkAllFields() ? 0.98 : 1 }}
             >
               Create Account
-            </button>
+            </motion.button>
 
-            <div className="flex items-center my-4">
+            <motion.div className="flex items-center my-4" variants={inputVariants}>
               <div className="flex-1 h-px bg-gray-300"></div>
               <span className="px-4 text-gray-500 text-sm">or</span>
               <div className="flex-1 h-px bg-gray-300"></div>
-            </div>
+            </motion.div>
 
-            <button
+            <motion.button
               type="button"
               onClick={handleGoogleSignIn}
               className="w-full px-4 py-3 rounded-md font-semibold tracking-wide transition-colors bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 flex items-center justify-center gap-2"
+              variants={inputVariants}
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
             >
               <FcGoogle className="text-xl" />
               Continue with Google
-            </button>
-          </form>
+            </motion.button>
+          </motion.form>
 
-          <p className="text-center mt-6 text-gray-600">
+          <motion.p 
+            className="text-center mt-6 text-gray-600"
+            variants={inputVariants}
+            initial="hidden"
+            animate="visible"
+          >
             Already have an account?
             <Link className="text-black hover:text-gray-800 font-medium ml-1 underline" to={"/login"}>
               Sign In
             </Link>
-          </p>
+          </motion.p>
         </div>
       </motion.div>
     </section>
