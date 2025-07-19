@@ -257,13 +257,34 @@ const PaymentPage = () => {
 
       // Make sure items are properly formatted for the API
       const preparedItems = checkoutItems.map(item => {
-        // Create a simplified version of each item with only the necessary properties
-        return {
-          _id: item._id,
-          productId: typeof item.productId === 'object' ? item.productId._id : item.productId,
-          bundleId: item.bundleId ? (typeof item.bundleId === 'object' ? item.bundleId._id : item.bundleId) : undefined,
-          quantity: item.quantity || 1
-        };
+        // Include complete product details for orders
+        if (item.itemType === 'bundle') {
+          return {
+            _id: item._id,
+            bundleId: typeof item.bundleId === 'object' ? item.bundleId._id : item.bundleId,
+            bundleDetails: typeof item.bundleId === 'object' ? {
+              title: item.bundleId.title,
+              // Handle both single image and images array
+              image: item.bundleId.image || (item.bundleId.images && item.bundleId.images.length > 0 ? item.bundleId.images[0] : ''),
+              images: item.bundleId.images || [],
+              bundlePrice: item.bundleId.bundlePrice
+            } : undefined,
+            itemType: 'bundle',
+            quantity: item.quantity || 1
+          };
+        } else {
+          return {
+            _id: item._id,
+            productId: typeof item.productId === 'object' ? item.productId._id : item.productId,
+            productDetails: typeof item.productId === 'object' ? {
+              name: item.productId.name,
+              image: item.productId.image,
+              price: item.productId.price
+            } : undefined,
+            itemType: 'product',
+            quantity: item.quantity || 1
+          };
+        }
       });
 
       const response = await Axios({

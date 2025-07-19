@@ -154,54 +154,58 @@ function InvoiceModal({ payment, onClose }) {
                                     </tr>
                                 </thead>
                                 <tbody className="bg-white">
-                                    {/* Debug payment data structure */}
-                                    {console.log('Payment data structure:', payment)}
+                                    {/* Debug payment data structure with more details */}
+                                    {console.log('Payment data structure:', JSON.stringify(payment, null, 2))}
+                                    {payment.items && payment.items.length > 0 && console.log('First item details:', JSON.stringify(payment.items[0], null, 2))}
                                     {payment.items && payment.items.length > 0 ? (
                                         payment.items.map((item, index) => {
                                             console.log('Item structure:', item);
                                             // Enhanced product name resolution
                                             const getProductName = () => {
+                                                // Check productDetails first (most reliable source)
+                                                if (item.productDetails && item.productDetails.name) {
+                                                    return item.productDetails.name;
+                                                }
+                                                // Check bundleDetails first (most reliable source)
+                                                if (item.bundleDetails && item.bundleDetails.title) {
+                                                    return item.bundleDetails.title;
+                                                }
                                                 // Check if productId is populated object
                                                 if (item.productId && typeof item.productId === 'object') {
                                                     return item.productId.name || item.productId.title;
-                                                }
-                                                // Check productDetails
-                                                if (item.productDetails) {
-                                                    return item.productDetails.name || item.productDetails.title;
                                                 }
                                                 // Check if bundleId is populated object
                                                 if (item.bundleId && typeof item.bundleId === 'object') {
                                                     return item.bundleId.title || item.bundleId.name;
                                                 }
-                                                // Check bundleDetails
-                                                if (item.bundleDetails) {
-                                                    return item.bundleDetails.title || item.bundleDetails.name;
-                                                }
-                                                return 'Product Item';
+                                                return item.itemType === 'bundle' ? 'Bundle Item' : 'Product Item';
                                             };
 
                                             // Enhanced price calculation
                                             const getUnitPrice = () => {
-                                                // Try to get unit price from product details first
-                                                if (item.productId && typeof item.productId === 'object' && item.productId.price) {
-                                                    return item.productId.price;
-                                                }
+                                                // Check productDetails first (most reliable source)
                                                 if (item.productDetails && item.productDetails.price) {
                                                     return item.productDetails.price;
                                                 }
-                                                if (item.bundleId && typeof item.bundleId === 'object' && item.bundleId.price) {
-                                                    return item.bundleId.price;
+                                                // Check bundleDetails first (most reliable source)
+                                                if (item.bundleDetails && (item.bundleDetails.bundlePrice || item.bundleDetails.price)) {
+                                                    return item.bundleDetails.bundlePrice || item.bundleDetails.price;
                                                 }
-                                                if (item.bundleDetails && item.bundleDetails.price) {
-                                                    return item.bundleDetails.price;
+                                                // Check if productId is populated object
+                                                if (item.productId && typeof item.productId === 'object' && item.productId.price) {
+                                                    return item.productId.price;
+                                                }
+                                                // Check if bundleId is populated object
+                                                if (item.bundleId && typeof item.bundleId === 'object') {
+                                                    return item.bundleId.bundlePrice || item.bundleId.price || 0;
                                                 }
                                                 // Fallback to calculating from itemTotal and quantity
                                                 if (item.itemTotal && item.quantity) {
                                                     return item.itemTotal / item.quantity;
                                                 }
                                                 // Last resort: use payment total divided by quantity
-                                                if (payment.subTotalAmt && item.quantity) {
-                                                    return payment.subTotalAmt / item.quantity;
+                                                if (payment.subTotalAmt && payment.totalQuantity && payment.totalQuantity > 0) {
+                                                    return payment.subTotalAmt / payment.totalQuantity;
                                                 }
                                                 return 0;
                                             };
@@ -212,13 +216,63 @@ function InvoiceModal({ payment, onClose }) {
                                             return (
                                                 <tr key={index} className="border-b border-gray-200">
                                                     <td className="px-4 py-3">
-                                                        <div>
-                                                            <p className="font-medium text-gray-900">
-                                                                {getProductName()}
-                                                            </p>
-                                                            <p className="text-sm text-gray-500">
-                                                                {item.itemType === 'bundle' ? 'Bundle' : 'Product'}
-                                                            </p>
+                                                        <div className="flex items-center">
+                                                            {/* Product Image */}
+                                                            {(() => {
+                                                                // Get product image URL
+                                                                let imageUrl = null;
+                                                                
+                                                                // Try to get from productDetails first
+                                                                if (item.productDetails && item.productDetails.image && item.productDetails.image.length) {
+                                                                    imageUrl = item.productDetails.image[0];
+                                                                }
+                                                                // Then try bundleDetails
+                                                                else if (item.bundleDetails && item.bundleDetails.image) {
+                                                                    imageUrl = item.bundleDetails.image;
+                                                                }
+                                                                // Special handling for bundleDetails with images array
+                                                                else if (item.bundleDetails && item.bundleDetails.images && item.bundleDetails.images.length) {
+                                                                    imageUrl = item.bundleDetails.images[0];
+                                                                }
+                                                                // Then try populated productId
+                                                                else if (item.productId && typeof item.productId === 'object' && item.productId.image && item.productId.image.length) {
+                                                                    imageUrl = item.productId.image[0];
+                                                                }
+                                                                // Then try populated bundleId
+                                                                else if (item.bundleId && typeof item.bundleId === 'object' && item.bundleId.image) {
+                                                                    imageUrl = item.bundleId.image;
+                                                                }
+                                                                // Special handling for bundleId with images array
+                                                                else if (item.bundleId && typeof item.bundleId === 'object' && item.bundleId.images && item.bundleId.images.length) {
+                                                                    imageUrl = item.bundleId.images[0];
+                                                                }
+                                                                
+                                                                return imageUrl ? (
+                                                                    <div className="w-12 h-12 mr-4 overflow-hidden rounded border border-gray-200">
+                                                                        <img 
+                                                                            src={imageUrl} 
+                                                                            alt={getProductName()}
+                                                                            className="w-full h-full object-cover"
+                                                                        />
+                                                                    </div>
+                                                                ) : (
+                                                                    <div className="w-12 h-12 mr-4 bg-gray-100 rounded flex items-center justify-center">
+                                                                        <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                                                                        </svg>
+                                                                    </div>
+                                                                );
+                                                            })()}
+                                                            
+                                                            {/* Product Name and Type */}
+                                                            <div>
+                                                                <p className="font-medium text-gray-900">
+                                                                    {getProductName()}
+                                                                </p>
+                                                                <p className="text-sm text-gray-500">
+                                                                    {item.itemType === 'bundle' ? 'Bundle' : 'Product'}
+                                                                </p>
+                                                            </div>
                                                         </div>
                                                     </td>
                                                     <td className="px-4 py-3 text-center text-gray-900">

@@ -58,10 +58,12 @@ export const getAllPayments = async (req, res) => {
         // Calculate pagination
         const skip = (page - 1) * limit;
         
-        // Get payments with user details
+        // Get payments with user details and order items
         const payments = await orderModel.find(query)
             .populate('userId', 'name email')
             .populate('deliveryAddress')
+            .populate("items.productId", "name image price stock") // Add product population
+            .populate("items.bundleId", "title image images bundlePrice stock") // Include both image and images for bundles
             .sort({ orderDate: -1 })
             .skip(skip)
             .limit(parseInt(limit));
@@ -239,7 +241,7 @@ export const downloadInvoice = async (req, res) => {
             })
             .populate({
                 path: 'items.bundleId',
-                select: 'title name image price'
+                select: 'title name image images bundlePrice price'
             });
         
         if (!order) {

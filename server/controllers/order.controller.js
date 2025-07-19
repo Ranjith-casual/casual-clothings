@@ -157,43 +157,92 @@ export const onlinePaymentOrderController = async (req, res) => {
     // Create single order payload with all items
     const orderId = `ORD-${new mongoose.Types.ObjectId()}`;
     
+    // Process items to ensure we have complete product/bundle details
+    const processedItems = [];
+    
+    // Process each item synchronously to avoid async issues in map
+    for (const item of list_items) {
+      const isBundle = !!(item.bundleId && (
+        (typeof item.bundleId === 'object' && item.bundleId._id) || 
+        (typeof item.bundleId === 'string')
+      ));
+      
+      if (isBundle) {
+        const bundleId = (typeof item.bundleId === 'object' && item.bundleId._id) ? item.bundleId._id : item.bundleId;
+        
+        // Use provided bundle details or try to fetch them
+        let bundleDetails = item.bundleDetails;
+        
+        // If no bundleDetails provided, try to get from database
+        if (!bundleDetails || !bundleDetails.title) {
+          try {
+            const bundle = await BundleModel.findById(bundleId);
+            if (bundle) {
+              bundleDetails = {
+                title: bundle.title,
+                // Use images array if available, otherwise fallback to image string
+                image: bundle.image || (bundle.images && bundle.images.length > 0 ? bundle.images[0] : ''),
+                images: bundle.images || [],
+                bundlePrice: bundle.bundlePrice
+              };
+            }
+          } catch (error) {
+            console.error("Error fetching bundle details:", error);
+          }
+        }
+        
+        processedItems.push({
+          bundleId: bundleId,
+          itemType: 'bundle',
+          bundleDetails: bundleDetails || {
+            title: 'Bundle',
+            image: '',
+            bundlePrice: 0
+          },
+          quantity: item.quantity,
+          itemTotal: (bundleDetails?.bundlePrice || 0) * item.quantity
+        });
+      } else {
+        const productId = (typeof item.productId === 'object' && item.productId._id) ? item.productId._id : item.productId;
+        
+        // Use provided product details or try to fetch them
+        let productDetails = item.productDetails;
+        
+        // If no productDetails provided, try to get from database
+        if (!productDetails || !productDetails.name) {
+          try {
+            const product = await ProductModel.findById(productId);
+            if (product) {
+              productDetails = {
+                name: product.name,
+                image: product.image,
+                price: product.price
+              };
+            }
+          } catch (error) {
+            console.error("Error fetching product details:", error);
+          }
+        }
+        
+        processedItems.push({
+          productId: productId,
+          itemType: 'product',
+          productDetails: productDetails || {
+            name: 'Product',
+            image: [],
+            price: 0
+          },
+          quantity: item.quantity,
+          itemTotal: (productDetails?.price || 0) * item.quantity
+        });
+      }
+    }
+    
+    // Now create the payload with the processed items
     const payload = {
       userId: userId,
       orderId: orderId,
-      items: list_items.map(item => {
-        const isBundle = !!(item.bundleId && (
-          (typeof item.bundleId === 'object' && item.bundleId._id) || 
-          (typeof item.bundleId === 'string')
-        ));
-        
-        if (isBundle) {
-          const bundleId = (typeof item.bundleId === 'object' && item.bundleId._id) ? item.bundleId._id : item.bundleId;
-          return {
-            bundleId: bundleId,
-            itemType: 'bundle',
-            bundleDetails: {
-              title: item.bundleId?.title || 'Bundle',
-              image: item.bundleId?.image || '',
-              bundlePrice: item.bundleId?.bundlePrice || 0
-            },
-            quantity: item.quantity,
-            itemTotal: (item.bundleId?.bundlePrice || 0) * item.quantity
-          };
-        } else {
-          const productId = (typeof item.productId === 'object' && item.productId._id) ? item.productId._id : item.productId;
-          return {
-            productId: productId,
-            itemType: 'product',
-            productDetails: {
-              name: item.productId?.name || 'Product',
-              image: item.productId?.image || [],
-              price: item.productId?.price || 0
-            },
-            quantity: item.quantity,
-            itemTotal: (item.productId?.price || 0) * item.quantity
-          };
-        }
-      }),
+      items: processedItems,
       paymentId: "",
       totalQuantity: quantity, // Total quantity of all items
       orderDate: new Date(),
@@ -621,7 +670,7 @@ export const getOrderController = async (req, res) => {
         const orders = await orderModel.find({ userId: userId })
           .sort({createdAt: -1})
           .populate("items.productId", "name image price stock") // Updated populate path
-          .populate("items.bundleId", "title images bundlePrice stock") // Add bundle population
+          .populate("items.bundleId", "title image images bundlePrice stock") // Include both image and images
           .populate("deliveryAddress", "address_line city state pincode country")
           .populate("userId", "name email");
           
@@ -647,7 +696,7 @@ export const getAllOrdersController = async (req, res) => {
           .sort({createdAt: -1})
           .populate("userId", "name email")
           .populate("items.productId", "name image price stock") // Updated populate path
-          .populate("items.bundleId", "title images bundlePrice stock") // Add bundle population
+          .populate("items.bundleId", "title image images bundlePrice stock") // Include both image and images
           .populate("deliveryAddress", "address_line city state pincode country");
           
         return res.json({
