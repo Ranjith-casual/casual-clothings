@@ -225,6 +225,14 @@ function InvoiceModal({ payment: originalPayment, onClose }) {
                                         {payment.paymentStatus}
                                     </span>
                                 </p>
+                                {payment.estimatedDeliveryDate && (
+                                    <p><span className="font-semibold">Est. Delivery:</span> {new Date(payment.estimatedDeliveryDate).toLocaleDateString('en-IN')}</p>
+                                )}
+                                {payment.actualDeliveryDate && (
+                                    <p><span className="font-semibold text-green-600">Delivered:</span> 
+                                        <span className="text-green-600 ml-1">{new Date(payment.actualDeliveryDate).toLocaleDateString('en-IN')}</span>
+                                    </p>
+                                )}
                             </div>
                         </div>
                     </div>
@@ -279,7 +287,90 @@ function InvoiceModal({ payment: originalPayment, onClose }) {
                                         <p className="text-gray-600">Payment ID</p>
                                         <p className="font-semibold">{payment.paymentId || 'N/A'}</p>
                                     </div>
+                                    {payment.estimatedDeliveryDate && (
+                                        <div>
+                                            <p className="text-gray-600">Estimated Delivery</p>
+                                            <p className="font-semibold text-blue-600">{new Date(payment.estimatedDeliveryDate).toLocaleDateString('en-IN')}</p>
+                                        </div>
+                                    )}
+                                    {payment.actualDeliveryDate && (
+                                        <div>
+                                            <p className="text-gray-600">Actual Delivery</p>
+                                            <p className="font-semibold text-green-600">{new Date(payment.actualDeliveryDate).toLocaleDateString('en-IN')}</p>
+                                        </div>
+                                    )}
+                                    {payment.deliveryNotes && (
+                                        <div className="col-span-2">
+                                            <p className="text-gray-600">Delivery Notes</p>
+                                            <p className="font-semibold">{payment.deliveryNotes}</p>
+                                        </div>
+                                    )}
                                 </div>
+                                
+                                {/* Delivery Status Summary */}
+                                {(payment.estimatedDeliveryDate || payment.actualDeliveryDate) && (
+                                    <div className="mt-4 p-3 bg-white rounded-lg border border-gray-200">
+                                        <h4 className="font-medium text-gray-700 mb-2 flex items-center">
+                                            🚚 Delivery Status
+                                        </h4>
+                                        <div className="flex items-center space-x-2">
+                                            {(() => {
+                                                // Check if order is cancelled
+                                                if (payment.orderStatus === 'CANCELLED' || payment.paymentStatus === 'REFUNDED') {
+                                                    return (
+                                                        <>
+                                                            <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-800">
+                                                                ❌ Cancelled
+                                                            </span>
+                                                            <span className="text-sm text-gray-600">
+                                                                Order cancelled due to refund
+                                                            </span>
+                                                        </>
+                                                    );
+                                                } else if (payment.actualDeliveryDate) {
+                                                    return (
+                                                        <>
+                                                            <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">
+                                                                ✅ Delivered
+                                                            </span>
+                                                            <span className="text-sm text-gray-600">
+                                                                on {new Date(payment.actualDeliveryDate).toLocaleDateString('en-IN')}
+                                                            </span>
+                                                        </>
+                                                    );
+                                                } else if (payment.estimatedDeliveryDate) {
+                                                    const estimatedDate = new Date(payment.estimatedDeliveryDate);
+                                                    const isOverdue = new Date() > estimatedDate;
+                                                    
+                                                    if (isOverdue) {
+                                                        return (
+                                                            <>
+                                                                <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-800">
+                                                                    ⚠️ Overdue
+                                                                </span>
+                                                                <span className="text-sm text-gray-600">
+                                                                    Expected: {estimatedDate.toLocaleDateString('en-IN')}
+                                                                </span>
+                                                            </>
+                                                        );
+                                                    } else {
+                                                        return (
+                                                            <>
+                                                                <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800">
+                                                                    🚚 In Transit
+                                                                </span>
+                                                                <span className="text-sm text-gray-600">
+                                                                    Expected: {estimatedDate.toLocaleDateString('en-IN')}
+                                                                </span>
+                                                            </>
+                                                        );
+                                                    }
+                                                }
+                                                return null;
+                                            })()}
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         </div>
                     </div>

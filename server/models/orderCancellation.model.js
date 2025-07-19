@@ -33,6 +33,16 @@ const orderCancellationSchema = mongoose.Schema({
         type: String,
         maxlength: 500
     },
+    // Delivery information at the time of cancellation
+    deliveryInfo: {
+        estimatedDeliveryDate: Date,
+        actualDeliveryDate: Date,
+        deliveryNotes: String,
+        wasPastDeliveryDate: {
+            type: Boolean,
+            default: false
+        }
+    },
     status: {
         type: String,
         enum: ['PENDING', 'APPROVED', 'REJECTED', 'PROCESSED'],

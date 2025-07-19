@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { useSelector, useDispatch } from 'react-redux'
-import { FaMapMarkerAlt, FaCity, FaFlag, FaMailBulk, FaBox, FaUser, FaEnvelope, FaCalendar, FaTimes, FaExclamationTriangle, FaBan, FaRedo, FaInfoCircle, FaCheck, FaSpinner, FaCreditCard, FaCog } from 'react-icons/fa'
+import { FaMapMarkerAlt, FaCity, FaFlag, FaMailBulk, FaBox, FaUser, FaEnvelope, FaCalendar, FaTimes, FaExclamationTriangle, FaBan, FaRedo, FaInfoCircle, FaCheck, FaSpinner, FaCreditCard, FaCog, FaTruck, FaDownload, FaFilePdf } from 'react-icons/fa'
 import AnimatedImage from '../components/NoData';
 import toast from 'react-hot-toast';
 import SummaryApi from '../common/SummaryApi';
@@ -34,6 +34,9 @@ function MyOrders() {
   // Bundle Items Modal States
   const [showBundleItemsModal, setShowBundleItemsModal] = useState(false);
   const [selectedBundle, setSelectedBundle] = useState(null);
+  
+  // Invoice Download States
+  const [downloadingInvoices, setDownloadingInvoices] = useState(new Set());
   
   const { fetchOrders, refreshingOrders } = useGlobalContext();
   
@@ -161,6 +164,57 @@ function MyOrders() {
     setShowBundleItemsModal(false);
     setSelectedBundle(null);
     setOrderContext(null);
+  };
+
+  // Invoice Download Function
+  const handleDownloadInvoice = async (order) => {
+    try {
+      // Add this order to downloading set
+      setDownloadingInvoices(prev => new Set([...prev, order.orderId]));
+      
+      const response = await Axios({
+        url: `/api/payment/invoice/download-user`,
+        method: 'POST',
+        data: {
+          orderId: order.orderId,
+          orderData: order
+        },
+        responseType: 'blob' // Important for file download
+      });
+      
+      // Create blob URL and download
+      const blob = new Blob([response.data], { type: 'application/pdf' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      
+      // Generate filename based on order status
+      let filename = `invoice-${order.orderId}`;
+      if (order.orderStatus === 'DELIVERED') {
+        filename = `delivery-invoice-${order.orderId}`;
+      } else if (order.orderStatus === 'CANCELLED') {
+        filename = `cancelled-order-invoice-${order.orderId}`;
+      }
+      filename += '.pdf';
+      
+      link.setAttribute('download', filename);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+      
+      toast.success('Invoice downloaded successfully!');
+    } catch (error) {
+      console.error('Error downloading invoice:', error);
+      toast.error('Failed to download invoice. Please try again.');
+    } finally {
+      // Remove this order from downloading set
+      setDownloadingInvoices(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(order.orderId);
+        return newSet;
+      });
+    }
   };
 
   // Use the fetchOrders from GlobalContext instead of local implementation
@@ -573,7 +627,7 @@ function MyOrders() {
                                   >
                                     {item?.itemType === 'bundle' ? item?.bundleDetails?.title : item?.productDetails?.name}
                                   </h4>
-                                  <div className="flex items-center gap-2 mt-1 flex-wrap">
+                                <div className="flex items-center gap-2 mt-1 flex-wrap">
                                     <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
                                       item?.itemType === 'bundle' 
                                         ? (isCancelled ? 'bg-red-100 text-red-700' : 'bg-blue-100 text-blue-800')
@@ -626,18 +680,95 @@ function MyOrders() {
                                     }`}>
                                       Qty: {item?.quantity}
                                     </span>
+                                    {/* Price per unit indicator */}
+                                    {(() => {
+                                      const isBundle = item?.itemType === 'bundle';
+                                      let unitPrice = 0;
+                                      
+                                      if (isBundle) {
+                                        unitPrice = item?.bundleId?.bundlePrice || item?.bundleDetails?.bundlePrice || 0;
+                                      } else {
+                                        const productPrice = item?.productId?.price || item?.productDetails?.price || 0;
+                                        const discount = item?.productId?.discount || item?.productDetails?.discount || 0;
+                                        unitPrice = discount > 0 ? productPrice * (1 - discount/100) : productPrice;
+                                      }
+                                      
+                                      return (
+                                        <span className={`text-xs px-1.5 py-0.5 rounded ${
+                                          isCancelled 
+                                            ? 'bg-red-100 text-red-700' 
+                                            : 'bg-gray-100 text-gray-700'
+                                        }`}>
+                                          ₹{unitPrice?.toFixed(2)}/unit
+                                        </span>
+                                      );
+                                    })()}
                                   </div>
                                 </div>
                                 <div className="text-right">
-                                  <div className={`font-bold text-sm sm:text-base ${
-                                    isCancelled ? 'text-red-800 line-through' : 'text-black'
-                                  }`}>
-                                    ₹{item?.itemType === 'bundle' ? item?.bundleId?.bundlePrice : item?.productId.price}
-                                  </div>
-                                  <div className={`text-xs ${
-                                    isCancelled ? 'text-red-600' : 'text-gray-500'
-                                  }`}>
-                                    Total: ₹{item?.bundleId?.bundlePrice * item?.quantity || item?.productId.price * item?.quantity}
+                                  {/* Enhanced pricing display with original price, discounted price */}
+                                  <div className="space-y-1">
+                                    {/* Original Price (if different from final price) */}
+                                    {(() => {
+                                      const isBundle = item?.itemType === 'bundle';
+                                      let originalPrice = 0;
+                                      let finalPrice = 0;
+                                      let hasDiscount = false;
+                                      
+                                      if (isBundle) {
+                                        // For bundles, get original price and bundle price
+                                        originalPrice = item?.bundleId?.originalPrice || item?.bundleDetails?.originalPrice || 0;
+                                        finalPrice = item?.bundleId?.bundlePrice || item?.bundleDetails?.bundlePrice || 0;
+                                        hasDiscount = originalPrice > finalPrice && originalPrice > 0;
+                                      } else {
+                                        // For products, get product price and discount
+                                        const productPrice = item?.productId?.price || item?.productDetails?.price || 0;
+                                        const discount = item?.productId?.discount || item?.productDetails?.discount || 0;
+                                        originalPrice = productPrice;
+                                        finalPrice = discount > 0 ? productPrice * (1 - discount/100) : productPrice;
+                                        hasDiscount = discount > 0;
+                                      }
+                                      
+                                      return (
+                                        <>
+                                          {/* Show original price if there's a discount */}
+                                          {hasDiscount && (
+                                            <div className={`text-xs ${
+                                              isCancelled ? 'text-red-500 line-through' : 'text-gray-500 line-through'
+                                            }`}>
+                                              ₹{originalPrice?.toFixed(2)}
+                                              {!isBundle && item?.productId?.discount && (
+                                                <span className="ml-1 text-orange-600">({item.productId.discount}% off)</span>
+                                              )}
+                                              {isBundle && (
+                                                <span className="ml-1 text-blue-600">(Bundle Savings)</span>
+                                              )}
+                                            </div>
+                                          )}
+                                          
+                                          {/* Final/Discounted Price */}
+                                          <div className={`font-bold text-sm sm:text-base ${
+                                            isCancelled ? 'text-red-800 line-through' : 'text-black'
+                                          }`}>
+                                            ₹{finalPrice?.toFixed(2)}
+                                            {hasDiscount && (
+                                              <span className={`ml-1 text-xs font-normal ${
+                                                isCancelled ? 'text-red-600' : 'text-green-600'
+                                              }`}>
+                                                {isBundle ? 'Bundle Price' : 'Discounted'}
+                                              </span>
+                                            )}
+                                          </div>
+                                          
+                                          {/* Item Total */}
+                                          <div className={`text-xs ${
+                                            isCancelled ? 'text-red-600' : 'text-gray-500'
+                                          }`}>
+                                            Total: ₹{(finalPrice * item?.quantity)?.toFixed(2)}
+                                          </div>
+                                        </>
+                                      );
+                                    })()}
                                   </div>
                                 </div>
                               </div>
@@ -651,18 +782,101 @@ function MyOrders() {
                     <div className={`mt-3 p-2 sm:p-3 rounded-lg border ${
                       isCancelled ? 'bg-red-50 border-red-200' : 'bg-gray-100 border-gray-200'
                     }`}>
+                      {/* Items Total */}
+                      <div className="flex justify-between items-center mb-2">
+                        <span className={`text-xs sm:text-sm ${
+                          isCancelled ? 'text-red-700' : 'text-gray-600'
+                        }`}>
+                          Items ({order?.totalQuantity} {order?.totalQuantity === 1 ? 'item' : 'items'})
+                        </span>
+                        <span className={`font-medium text-sm ${
+                          isCancelled ? 'text-red-800' : 'text-black'
+                        }`}>
+                          ₹{order?.subTotalAmt?.toFixed(2) || (order?.totalAmt - 50)?.toFixed(2)}
+                        </span>
+                      </div>
+                      
+                      {/* Delivery Charge */}
+                      <div className="flex justify-between items-center mb-2">
+                        <span className={`text-xs sm:text-sm ${
+                          isCancelled ? 'text-red-700' : 'text-gray-600'
+                        }`}>
+                          Delivery Charge
+                        </span>
+                        <span className={`font-medium text-sm ${
+                          isCancelled ? 'text-red-800' : 'text-black'
+                        }`}>
+                          {(() => {
+                            // Calculate delivery charge (assuming it's the difference between total and subtotal)
+                            const deliveryCharge = (order?.totalAmt || 0) - (order?.subTotalAmt || order?.totalAmt - 50 || 0);
+                            return deliveryCharge > 0 ? `₹${deliveryCharge.toFixed(2)}` : 'FREE';
+                          })()}
+                        </span>
+                      </div>
+                      
+                      {/* Divider */}
+                      <div className={`border-t my-2 ${
+                        isCancelled ? 'border-red-300' : 'border-gray-300'
+                      }`}></div>
+                      
+                      {/* Order Total */}
                       <div className="flex justify-between items-center">
                         <span className={`font-semibold text-sm sm:text-base ${
                           isCancelled ? 'text-red-800' : 'text-black'
                         }`}>
-                          Order Total ({order?.totalQuantity} {order?.totalQuantity === 1 ? 'item' : 'items'})
+                          Order Total
                         </span>
                         <span className={`font-bold text-lg sm:text-xl ${
                           isCancelled ? 'text-red-800 line-through' : 'text-black'
                         }`}>
-                          ₹{order?.totalAmt}
+                          ₹{order?.totalAmt?.toFixed(2)}
                         </span>
                       </div>
+                      
+                      {/* Savings Summary */}
+                      {(() => {
+                        let totalSavings = 0;
+                        let hasAnyDiscount = false;
+                        const deliveryCharge = (order?.totalAmt || 0) - (order?.subTotalAmt || order?.totalAmt - 50 || 0);
+                        order?.items?.forEach(item => {
+                          const isBundle = item?.itemType === 'bundle';
+                          
+                          if (isBundle) {
+                            const originalPrice = item?.bundleId?.originalPrice || item?.bundleDetails?.originalPrice || 0;
+                            const bundlePrice = item?.bundleId?.bundlePrice || item?.bundleDetails?.bundlePrice || 0;
+                            if (originalPrice > bundlePrice) {
+                              totalSavings += (originalPrice - bundlePrice) * item?.quantity;
+                              hasAnyDiscount = true;
+                            }
+                          } else {
+                            const productPrice = item?.productId?.price || item?.productDetails?.price || 0;
+                            const discount = item?.productId?.discount || item?.productDetails?.discount || 0;
+                            if (discount > 0) {
+                              const discountAmount = productPrice * (discount / 100);
+                              totalSavings += discountAmount * item?.quantity;
+                              hasAnyDiscount = true;
+                            }
+                            
+                          }
+                        });
+                        
+                        return hasAnyDiscount && totalSavings > 0 ? (
+                          <div className={`mt-2 pt-2 border-t flex justify-between items-center ${
+                            isCancelled ? 'border-red-300' : 'border-gray-300'
+                          }`}>
+                            <span className={`text-xs sm:text-sm font-medium ${
+                              isCancelled ? 'text-red-700' : 'text-green-700'
+                            }`}>
+                              Total Savings
+                            </span>
+                            <span className={`font-bold text-sm ${
+                              isCancelled ? 'text-red-600' : 'text-green-600'
+                            }`}>
+                              ₹{totalSavings.toFixed(2)-deliveryCharge.toFixed(2)}
+                            </span>
+                          </div>
+                        ) : null;
+                      })()}
                     </div>
                     
                     <div className={`h-0.5 w-12 sm:w-16 md:w-20 rounded-full mt-2 ${
@@ -750,12 +964,46 @@ function MyOrders() {
                       <div className='flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2'>
                         <div className='flex items-center gap-1 sm:gap-2'>
                           <FaCalendar className={`text-xs ${isCancelled ? 'text-red-600' : 'text-black'}`} />
-                          <span className={`font-medium text-xs sm:text-sm ${isCancelled ? 'text-red-700' : 'text-gray-700'}`}>Date:</span>
+                          <span className={`font-medium text-xs sm:text-sm ${isCancelled ? 'text-red-700' : 'text-gray-700'}`}>Order Date:</span>
                         </div>
                         <span className={`font-semibold text-xs sm:text-sm break-words ${isCancelled ? 'text-red-800' : 'text-black'}`}>
                           {new Date(order?.orderDate).toLocaleString()}
                         </span>
                       </div>
+                      
+                      {/* Delivery Date Information */}
+                      {order?.estimatedDeliveryDate && (
+                        <div className='flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2'>
+                          <div className='flex items-center gap-1 sm:gap-2'>
+                            <FaTruck className={`text-xs ${isCancelled ? 'text-red-600' : 'text-green-600'}`} />
+                            <span className={`font-medium text-xs sm:text-sm ${isCancelled ? 'text-red-700' : 'text-gray-700'}`}>
+                              {order?.actualDeliveryDate ? 'Delivered On:' : 'Est. Delivery:'}
+                            </span>
+                          </div>
+                          <span className={`font-semibold text-xs sm:text-sm break-words ${
+                            isCancelled ? 'text-red-800' : 
+                            order?.actualDeliveryDate ? 'text-green-800' : 'text-blue-800'
+                          }`}>
+                            {order?.actualDeliveryDate 
+                              ? new Date(order.actualDeliveryDate).toLocaleDateString()
+                              : new Date(order.estimatedDeliveryDate).toLocaleDateString()
+                            }
+                          </span>
+                        </div>
+                      )}
+                      
+                      {/* Delivery Notes */}
+                      {order?.deliveryNotes && (
+                        <div className='flex flex-col sm:flex-row sm:items-start gap-1 sm:gap-2'>
+                          <div className='flex items-center gap-1 sm:gap-2'>
+                            <FaInfoCircle className={`text-xs ${isCancelled ? 'text-red-600' : 'text-blue-600'}`} />
+                            <span className={`font-medium text-xs sm:text-sm ${isCancelled ? 'text-red-700' : 'text-gray-700'}`}>Delivery Notes:</span>
+                          </div>
+                          <span className={`font-medium text-xs sm:text-sm break-words ${isCancelled ? 'text-red-800' : 'text-gray-800'}`}>
+                            {order.deliveryNotes}
+                          </span>
+                        </div>
+                      )}
                     </div>
                   </div>
                   
@@ -859,56 +1107,107 @@ function MyOrders() {
                   </div>
                   
                   {/* Bottom Controls */}
-                  {!isCancelled && (
-                    <div className="flex flex-col items-end mt-4">
-                      {/* Cancellation restriction message */}
-                      {order.orderStatus === 'OUT FOR DELIVERY' && (
-                        <div className="mb-2 bg-yellow-50 border border-yellow-200 rounded-md px-3 py-2 text-sm text-yellow-800 flex items-center">
-                          <FaExclamationTriangle className="text-yellow-600 mr-2 flex-shrink-0" />
-                          <span>Order is out for delivery and cannot be cancelled</span>
-                        </div>
-                      )}
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mt-4 gap-3">
+                    {/* Download Invoice Button - Always Available */}
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => handleDownloadInvoice(order)}
+                        disabled={downloadingInvoices.has(order.orderId)}
+                        className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-semibold transition-colors ${
+                          downloadingInvoices.has(order.orderId)
+                            ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                            : 'bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100'
+                        }`}
+                      >
+                        {downloadingInvoices.has(order.orderId) ? (
+                          <>
+                            <div className='w-4 h-4 border-2 border-blue-400 border-t-transparent rounded-full animate-spin'></div>
+                            <span>Downloading...</span>
+                          </>
+                        ) : (
+                          <>
+                            <FaDownload className='w-4 h-4' />
+                            <span>Download Invoice</span>
+                          </>
+                        )}
+                      </button>
                       
-                      {order.orderStatus === 'DELIVERED' && (
-                        <div className="mb-2 bg-green-50 border border-green-200 rounded-md px-3 py-2 text-sm text-green-800 flex items-center">
-                          <FaCheck className="text-green-600 mr-2 flex-shrink-0" />
-                          <span>Order has been successfully delivered</span>
-                        </div>
-                      )}
-                      
-                      {hasPendingCancellationRequest(order._id) && (
-                        <div className="mb-2 bg-blue-50 border border-blue-200 rounded-md px-3 py-2 text-sm text-blue-800 flex items-center">
-                          <FaInfoCircle className="text-blue-600 mr-2 flex-shrink-0" />
-                          <span>Cancellation request is pending admin approval</span>
-                        </div>
-                      )}
-                      
-                      {/* Cancel button */}
-                      {canCancelOrder(order) && (
-                        <button
-                          onClick={() => handleCancelOrder(order)}
-                          disabled={cancellingOrderId === order.orderId}
-                          className={`px-4 py-2 rounded-md text-sm font-semibold transition-colors ${
-                            cancellingOrderId === order.orderId
-                              ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                              : 'bg-red-50 text-red-700 border border-red-200 hover:bg-red-100'
-                          }`}
-                        >
-                          {cancellingOrderId === order.orderId ? (
-                            <div className='flex items-center gap-2'>
-                              <div className='w-4 h-4 border-2 border-red-400 border-t-transparent rounded-full animate-spin'></div>
-                              <span>Processing...</span>
-                            </div>
-                          ) : (
-                            <>
-                              <FaTimes className='inline w-4 h-4 mr-2' />
-                              Cancel Order
-                            </>
-                          )}
-                        </button>
-                      )}
+                      {/* Invoice Type Indicator */}
+                      <div className="text-xs text-gray-500 flex items-center gap-1">
+                        <FaFilePdf className="text-red-500" />
+                        <span>
+                          {order.orderStatus === 'DELIVERED' 
+                            ? 'Delivery Invoice' 
+                            : order.orderStatus === 'CANCELLED' 
+                            ? 'Cancelled Order Invoice' 
+                            : 'Order Invoice'
+                          }
+                        </span>
+                      </div>
                     </div>
-                  )}
+
+                    {/* Right side controls for non-cancelled orders */}
+                    {!isCancelled && (
+                      <div className="flex flex-col items-end">
+                        {/* Cancellation restriction message */}
+                        {order.orderStatus === 'OUT FOR DELIVERY' && (
+                          <div className="mb-2 bg-yellow-50 border border-yellow-200 rounded-md px-3 py-2 text-sm text-yellow-800 flex items-center">
+                            <FaExclamationTriangle className="text-yellow-600 mr-2 flex-shrink-0" />
+                            <span>Order is out for delivery and cannot be cancelled</span>
+                          </div>
+                        )}
+                        
+                        {order.orderStatus === 'DELIVERED' && (
+                          <div className="mb-2 bg-green-50 border border-green-200 rounded-md px-3 py-2 text-sm text-green-800 flex items-center">
+                            <FaCheck className="text-green-600 mr-2 flex-shrink-0" />
+                            <span>Order has been successfully delivered</span>
+                          </div>
+                        )}
+                        
+                        {hasPendingCancellationRequest(order._id) && (
+                          <div className="mb-2 bg-blue-50 border border-blue-200 rounded-md px-3 py-2 text-sm text-blue-800 flex items-center">
+                            <FaInfoCircle className="text-blue-600 mr-2 flex-shrink-0" />
+                            <span>Cancellation request is pending admin approval</span>
+                          </div>
+                        )}
+                        
+                        {/* Cancel button */}
+                        {canCancelOrder(order) && (
+                          <button
+                            onClick={() => handleCancelOrder(order)}
+                            disabled={cancellingOrderId === order.orderId}
+                            className={`px-4 py-2 rounded-md text-sm font-semibold transition-colors ${
+                              cancellingOrderId === order.orderId
+                                ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                                : 'bg-red-50 text-red-700 border border-red-200 hover:bg-red-100'
+                            }`}
+                          >
+                            {cancellingOrderId === order.orderId ? (
+                              <div className='flex items-center gap-2'>
+                                <div className='w-4 h-4 border-2 border-red-400 border-t-transparent rounded-full animate-spin'></div>
+                                <span>Processing...</span>
+                              </div>
+                            ) : (
+                              <>
+                                <FaTimes className='inline w-4 h-4 mr-2' />
+                                Cancel Order
+                              </>
+                            )}
+                          </button>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Download button for cancelled orders - positioned on the right */}
+                    {isCancelled && (
+                      <div className="flex justify-end w-full">
+                        <div className="text-xs text-gray-500 flex items-center gap-1">
+                          <FaFilePdf className="text-red-500" />
+                          <span>Download Cancelled Order Invoice</span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>

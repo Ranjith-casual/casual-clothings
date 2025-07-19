@@ -158,6 +158,24 @@ export const onlinePaymentOrderController = async (req, res) => {
     // Create single order payload with all items
     const orderId = `ORD-${new mongoose.Types.ObjectId()}`;
     
+    // Calculate estimated delivery date (3-5 business days from order date)
+    const calculateEstimatedDeliveryDate = () => {
+        const orderDate = new Date();
+        const businessDaysToAdd = 5; // 5 business days
+        let currentDate = new Date(orderDate);
+        let addedDays = 0;
+        
+        while (addedDays < businessDaysToAdd) {
+            currentDate.setDate(currentDate.getDate() + 1);
+            // Skip weekends (Saturday = 6, Sunday = 0)
+            if (currentDate.getDay() !== 0 && currentDate.getDay() !== 6) {
+                addedDays++;
+            }
+        }
+        
+        return currentDate;
+    };
+    
     // Process items to ensure we have complete product/bundle details
     const processedItems = [];
     
@@ -249,6 +267,7 @@ export const onlinePaymentOrderController = async (req, res) => {
       paymentId: "",
       totalQuantity: quantity, // Total quantity of all items
       orderDate: new Date(),
+      estimatedDeliveryDate: calculateEstimatedDeliveryDate(),
       paymentStatus: "PAID", // Always PAID for online payments
       paymentMethod: paymentMethod || "Online Payment",
       deliveryAddress: addressId,
@@ -337,8 +356,9 @@ export const onlinePaymentOrderController = async (req, res) => {
                 <h3 style="margin-top: 0;">Order Details:</h3>
                 <p><strong>Order ID:</strong> ${generatedOrder[0].orderId}</p>
                 <p><strong>Order Date:</strong> ${new Date().toLocaleDateString()}</p>
+                <p><strong>Estimated Delivery Date:</strong> ${generatedOrder[0].estimatedDeliveryDate ? new Date(generatedOrder[0].estimatedDeliveryDate).toLocaleDateString() : 'To be confirmed'}</p>
                 <p><strong>Total Amount:</strong> ₹${totalAmount}</p>
-                <p><strong>Payment Method:</strong> Cash on Delivery</p>
+                <p><strong>Payment Method:</strong> ${paymentMethod || "Online Payment"}</p>
                 <p><strong>Total Items:</strong> ${quantity}</p>
                 
                 <h4>Items Ordered:</h4>
@@ -352,7 +372,7 @@ export const onlinePaymentOrderController = async (req, res) => {
                 `).join('')}
               </div>
               
-              <p>Your order will be delivered to your specified address within 3-5 business days.</p>
+              <p>Your order will be delivered to your specified address by ${generatedOrder[0].estimatedDeliveryDate ? new Date(generatedOrder[0].estimatedDeliveryDate).toLocaleDateString() : '3-5 business days'}.</p>
               <p>You can track your order status from your account dashboard.</p>
               
               <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee; color: #777; font-size: 12px;">
@@ -858,9 +878,12 @@ export const updateOrderStatusController = async (req, res) => {
             // Prepare update object
             const updateData = { orderStatus: orderStatus };
             
-            // If the order is delivered and payment method is cash on delivery, set payment status to PAID
-            if (orderStatus === "DELIVERED" && order.paymentStatus === "CASH ON DELIVERY") {
-                updateData.paymentStatus = "PAID";
+            // If the order is delivered, set actual delivery date and payment status
+            if (orderStatus === "DELIVERED") {
+                updateData.actualDeliveryDate = new Date();
+                if (order.paymentStatus === "CASH ON DELIVERY") {
+                    updateData.paymentStatus = "PAID";
+                }
             }
 
             // Handle stock restoration for cancelled orders (updated for multiple items)
@@ -917,61 +940,18 @@ export const updateOrderStatusController = async (req, res) => {
                     
                     const statusText = statusMap[orderStatus] || orderStatus.toLowerCase();
                     
-                    // If order is delivered, send detailed invoice PDF
+                    // If order is delivered, send delivery invoice email
                     if (orderStatus === "DELIVERED") {
                         try {
-                            // Import the PDF generation utility
-                            const { generateInvoicePdf } = await import('../utils/generateInvoicePdf.js');
+                            // Import the email function from payment controller
+                            const { sendDeliveryInvoiceEmail } = await import('./payment.controller.js');
                             
-                            // Generate PDF
-                            const pdfPath = await generateInvoicePdf(updatedOrder, 'delivery');
+                            // Send delivery invoice email with PDF attachment
+                            await sendDeliveryInvoiceEmail(updatedOrder);
+                        } catch (emailError) {
+                            console.error('Error sending delivery invoice email:', emailError);
                             
-                            // Send detailed delivery email with PDF attachment
-                            await sendEmail({
-                                sendTo: user.email,
-                                subject: `Your Order has been Delivered – [${orderId}]`,
-                                html: `
-                                  <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 5px;">
-                                    <h2 style="color: #28a745; border-bottom: 1px solid #eee; padding-bottom: 10px;">Order Delivered Successfully</h2>
-                                    <p>Dear ${user.name},</p>
-                                    <p>Great news! Your order with ID: <strong>${orderId}</strong> has been delivered.</p>
-                                    
-                                    <div style="background-color: #d4edda; padding: 15px; border-radius: 5px; margin: 20px 0; border-left: 4px solid #28a745;">
-                                      <h3 style="margin-top: 0; color: #333;">Delivery Confirmation</h3>
-                                      <p><strong>Order Date:</strong> ${new Date(order.orderDate).toLocaleDateString()}</p>
-                                      <p><strong>Delivery Date:</strong> ${new Date().toLocaleDateString()}</p>
-                                      <p><strong>Total Amount:</strong> ₹${order.totalAmt.toFixed(2)}</p>
-                                    </div>
-                                    
-                                    <p>We've attached your delivery invoice to this email for your records. Please keep it safe for any future reference.</p>
-                                    
-                                    <p>If you have any questions or need any assistance with your order, please don't hesitate to contact our customer support team.</p>
-                                    
-                                    <p>We hope you enjoy your purchase!</p>
-                                    
-                                    <p>Thank you for shopping with us.</p>
-                                    <p>Best regards,<br>casualclothings Team</p>
-                                    
-                                    <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee; color: #777; font-size: 12px;">
-                                      <p>Thank you for shopping with Casual Clothing Fashion!</p>
-                                      <p>This is an automated email. Please do not reply to this message.</p>
-                                    </div>
-                                  </div>
-                                `,
-                                attachments: [
-                                    {
-                                        filename: `delivery_invoice_${orderId}.pdf`,
-                                        path: pdfPath
-                                    }
-                                ]
-                            });
-                            
-                            // Clean up the PDF file after sending
-                            fs.promises.unlink(pdfPath).catch(err => console.error('Error deleting temp PDF:', err));
-                        } catch (pdfError) {
-                            console.error('Error generating/sending delivery PDF:', pdfError);
-                            
-                            // Fallback to regular email if PDF generation fails
+                            // Fallback to regular email if invoice email fails
                             await sendEmail({
                                 sendTo: user.email,
                                 subject: `Order Status Update - ${orderStatus} - Casual Clothing Fashion`,
@@ -1308,6 +1288,96 @@ export const searchOrdersController = async (req, res) => {
             success: false,
             error: true,
             message: "Error searching orders",
+            details: error.message
+        });
+    }
+}
+
+// Update delivery date for an order
+export const updateDeliveryDateController = async (req, res) => {
+    try {
+        const { orderId, estimatedDeliveryDate, deliveryNotes } = req.body;
+        
+        if (!orderId) {
+            return res.status(400).json({
+                success: false,
+                error: true,
+                message: "Order ID is required"
+            });
+        }
+        
+        if (!estimatedDeliveryDate) {
+            return res.status(400).json({
+                success: false,
+                error: true,
+                message: "Estimated delivery date is required"
+            });
+        }
+        
+        // Find and update the order
+        const updatedOrder = await orderModel.findOneAndUpdate(
+            { orderId: orderId },
+            { 
+                estimatedDeliveryDate: new Date(estimatedDeliveryDate),
+                deliveryNotes: deliveryNotes || ""
+            },
+            { new: true }
+        ).populate("userId", "name email")
+         .populate("deliveryAddress", "address_line city state pincode country");
+        
+        if (!updatedOrder) {
+            return res.status(404).json({
+                success: false,
+                error: true,
+                message: "Order not found"
+            });
+        }
+        
+        // Send email notification to user about delivery date update
+        if (updatedOrder.userId && updatedOrder.userId.email) {
+            try {
+                await sendEmail({
+                    sendTo: updatedOrder.userId.email,
+                    subject: `Delivery Date Updated - Order ${orderId}`,
+                    html: `
+                      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 5px;">
+                        <h2 style="color: #2196F3; border-bottom: 1px solid #eee; padding-bottom: 10px;">Delivery Date Updated</h2>
+                        <p>Dear ${updatedOrder.userId.name},</p>
+                        <p>We wanted to update you about your order delivery schedule.</p>
+                        
+                        <div style="background-color: #e3f2fd; padding: 15px; border-radius: 5px; margin: 20px 0; border-left: 4px solid #2196F3;">
+                          <h3 style="margin-top: 0; color: #333;">Updated Delivery Information</h3>
+                          <p><strong>Order ID:</strong> ${orderId}</p>
+                          <p><strong>New Estimated Delivery Date:</strong> ${new Date(estimatedDeliveryDate).toLocaleDateString()}</p>
+                          ${deliveryNotes ? `<p><strong>Delivery Notes:</strong> ${deliveryNotes}</p>` : ''}
+                        </div>
+                        
+                        <p>We'll keep you updated if there are any further changes to your delivery schedule.</p>
+                        
+                        <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee; color: #777; font-size: 12px;">
+                          <p>Thank you for shopping with Casual Clothing Fashion!</p>
+                          <p>This is an automated email. Please do not reply to this message.</p>
+                        </div>
+                      </div>
+                    `
+                });
+            } catch (emailError) {
+                console.error("Delivery date update email sending failed:", emailError);
+            }
+        }
+        
+        return res.json({
+            success: true,
+            error: false,
+            message: "Delivery date updated successfully",
+            data: updatedOrder
+        });
+        
+    } catch (error) {
+        return res.status(500).json({
+            success: false,
+            error: true,
+            message: "Error updating delivery date",
             details: error.message
         });
     }

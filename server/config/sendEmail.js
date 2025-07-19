@@ -13,14 +13,21 @@ const transporter = nodemailer.createTransport({
     },
 });
 
-const sendEmail = ({sendTo, subject, html}) => {
+const sendEmail = ({sendTo, subject, html, attachments = []}) => {
     try {
-        transporter.sendMail({
+        const mailOptions = {
             from: process.env.EMAIL_FROM,
             to: sendTo,
             subject: subject,
             html: html,
-        });
+        };
+        
+        // Add attachments if provided
+        if (attachments && attachments.length > 0) {
+            mailOptions.attachments = attachments;
+        }
+        
+        transporter.sendMail(mailOptions);
     } catch (error) {
         console.error("Error sending email:", error);
         return;

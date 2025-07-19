@@ -275,6 +275,9 @@ function PaymentManagement() {
                                         Amount
                                     </th>
                                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        Delivery Status
+                                    </th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                         Status
                                     </th>
                                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -288,7 +291,7 @@ function PaymentManagement() {
                             <tbody className="bg-white divide-y divide-gray-200">
                                 {loading ? (
                                     <tr>
-                                        <td colSpan="6" className="px-6 py-4 text-center">
+                                        <td colSpan="7" className="px-6 py-4 text-center">
                                             <div className="flex justify-center">
                                                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-black"></div>
                                             </div>
@@ -296,7 +299,7 @@ function PaymentManagement() {
                                     </tr>
                                 ) : payments.length === 0 ? (
                                     <tr>
-                                        <td colSpan="6" className="px-6 py-4 text-center text-gray-500">
+                                        <td colSpan="7" className="px-6 py-4 text-center text-gray-500">
                                             No payments found
                                         </td>
                                     </tr>
@@ -314,6 +317,11 @@ function PaymentManagement() {
                                                     <div className="text-sm text-gray-500">
                                                         Items: {payment.totalQuantity}
                                                     </div>
+                                                    {payment.estimatedDeliveryDate && (
+                                                        <div className="text-xs text-blue-600 mt-1">
+                                                            Est. Delivery: {new Date(payment.estimatedDeliveryDate).toLocaleDateString('en-IN')}
+                                                        </div>
+                                                    )}
                                                 </div>
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap">
@@ -338,6 +346,85 @@ function PaymentManagement() {
                                                 <div className="text-sm text-gray-500">
                                                     Subtotal: {formatCurrency(payment.subTotalAmt)}
                                                 </div>
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap">
+                                                {(() => {
+                                                    // Get delivery status information
+                                                    const getDeliveryInfo = () => {
+                                                        // Check if order is cancelled
+                                                        if (payment.orderStatus === 'CANCELLED' || payment.paymentStatus === 'REFUNDED') {
+                                                            return {
+                                                                status: 'Cancelled',
+                                                                date: payment.estimatedDeliveryDate ? new Date(payment.estimatedDeliveryDate).toLocaleDateString('en-IN') : null,
+                                                                color: 'bg-red-100 text-red-800',
+                                                                icon: '❌'
+                                                            };
+                                                        }
+                                                        
+                                                        if (payment.actualDeliveryDate) {
+                                                            return {
+                                                                status: 'Delivered',
+                                                                date: new Date(payment.actualDeliveryDate).toLocaleDateString('en-IN'),
+                                                                color: 'bg-green-100 text-green-800',
+                                                                icon: '✅'
+                                                            };
+                                                        }
+                                                        
+                                                        if (payment.estimatedDeliveryDate) {
+                                                            const estimatedDate = new Date(payment.estimatedDeliveryDate);
+                                                            const isOverdue = new Date() > estimatedDate;
+                                                            
+                                                            if (isOverdue) {
+                                                                return {
+                                                                    status: 'Overdue',
+                                                                    date: estimatedDate.toLocaleDateString('en-IN'),
+                                                                    color: 'bg-red-100 text-red-800',
+                                                                    icon: '⚠️'
+                                                                };
+                                                            } else {
+                                                                return {
+                                                                    status: 'In Transit',
+                                                                    date: estimatedDate.toLocaleDateString('en-IN'),
+                                                                    color: 'bg-blue-100 text-blue-800',
+                                                                    icon: '🚚'
+                                                                };
+                                                            }
+                                                        }
+                                                        
+                                                        return {
+                                                            status: 'Not Set',
+                                                            date: null,
+                                                            color: 'bg-gray-100 text-gray-800',
+                                                            icon: '📦'
+                                                        };
+                                                    };
+                                                    
+                                                    const deliveryInfo = getDeliveryInfo();
+                                                    
+                                                    return (
+                                                        <div>
+                                                            <div className="flex items-center">
+                                                                <span className="mr-1">{deliveryInfo.icon}</span>
+                                                                <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${deliveryInfo.color}`}>
+                                                                    {deliveryInfo.status}
+                                                                </span>
+                                                            </div>
+                                                            {deliveryInfo.date && (
+                                                                <div className="text-xs text-gray-500 mt-1">
+                                                                    {deliveryInfo.status === 'Delivered' ? 'Delivered: ' : 
+                                                                     deliveryInfo.status === 'Cancelled' ? 'Was Expected: ' :
+                                                                     deliveryInfo.status === 'Overdue' ? 'Expected: ' : 
+                                                                     'Expected: '}{deliveryInfo.date}
+                                                                </div>
+                                                            )}
+                                                            {payment.deliveryNotes && (
+                                                                <div className="text-xs text-gray-400 mt-1 truncate max-w-32" title={payment.deliveryNotes}>
+                                                                    {payment.deliveryNotes}
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    );
+                                                })()}
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap">
                                                 <div className="flex items-center">

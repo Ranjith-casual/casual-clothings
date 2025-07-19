@@ -309,6 +309,14 @@ const SummaryApi = {
         url: '/api/order-cancellation/admin/refund/complete',
         method: 'put'
     },
+    getRefundStatsWithDelivery: {
+        url: '/api/order-cancellation/admin/refund-stats',
+        method: 'get'
+    },
+    getPaymentStatsWithDelivery: {
+        url: '/api/payment/stats/delivery',
+        method: 'get'
+    },
 }
 
 export default SummaryApi;

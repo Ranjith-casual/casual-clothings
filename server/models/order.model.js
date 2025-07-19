@@ -79,6 +79,17 @@ const orderSchema = mongoose.Schema({
         type: mongoose.Schema.ObjectId,
         ref: 'address'
     },
+    // Delivery tracking fields
+    estimatedDeliveryDate: {
+        type: Date
+    },
+    actualDeliveryDate: {
+        type: Date
+    },
+    deliveryNotes: {
+        type: String,
+        default: ""
+    },
     subTotalAmt: {
         type: Number,
         default: 0

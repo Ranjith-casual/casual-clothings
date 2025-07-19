@@ -4,9 +4,15 @@ import { validateStockAvailability } from '../middleware/stockValidation.js';
 import { 
     onlinePaymentOrderController,
     getOrderController,
+    getOrderByIdController,
+    getOrderStatsController,
     getAllOrdersController,
     cancelOrderController,
-    updateOrderStatusController
+    updateOrderStatusController,
+    updateDeliveryDateController,
+    bulkUpdateOrderStatusController,
+    getOrdersByDateRangeController,
+    searchOrdersController
 } from '../controllers/order.controller.js';
 import { 
     requestOrderCancellation,
@@ -22,9 +28,15 @@ const orderRouter = Router();
 // Apply stock validation middleware before order creation
 orderRouter.post('/online-payment', Auth, validateStockAvailability, onlinePaymentOrderController);
 orderRouter.get('/get', Auth, getOrderController);
+orderRouter.get('/order/:orderId', Auth, getOrderByIdController);
+orderRouter.get('/admin/stats', Auth, admin, getOrderStatsController);
 orderRouter.get('/all-orders', Auth, getAllOrdersController);
 orderRouter.post('/cancel-order', Auth, cancelOrderController);
 orderRouter.put('/update-order-status', Auth, updateOrderStatusController);
+orderRouter.put('/update-delivery-date', Auth, admin, updateDeliveryDateController);
+orderRouter.put('/admin/bulk-update', Auth, admin, bulkUpdateOrderStatusController);
+orderRouter.get('/date-range', Auth, getOrdersByDateRangeController);
+orderRouter.get('/search', Auth, searchOrdersController);
 
 // Order Cancellation Management Routes
 orderRouter.post('/request-cancellation', Auth, requestOrderCancellation);

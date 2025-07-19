@@ -315,6 +315,8 @@ function CancellationManagement() {
         })
     }
 
+    console.log(selectedRequest)
+
     const CancellationDetailsModal = () => {
         const [adminNotes, setAdminNotes] = useState('')
 
@@ -399,6 +401,24 @@ function CancellationManagement() {
                                         <span className="text-gray-600 font-medium">Order Status:</span>
                                         <span className="font-semibold text-gray-800">{selectedRequest.orderId?.orderStatus}</span>
                                     </div>
+                                    {selectedRequest.deliveryInfo?.estimatedDeliveryDate && (
+                                        <div className="flex flex-wrap justify-between items-center gap-2">
+                                            <span className="text-gray-600 font-medium">Estimated Delivery:</span>
+                                            <span className="font-semibold text-gray-800">{formatDate(selectedRequest.deliveryInfo.estimatedDeliveryDate)}</span>
+                                        </div>
+                                    )}
+                                    {selectedRequest.orderId?.actualDeliveryDate && (
+                                        <div className="flex flex-wrap justify-between items-center gap-2">
+                                            <span className="text-gray-600 font-medium">Actual Delivery:</span>
+                                            <span className="font-semibold text-green-600">{formatDate(selectedRequest.orderId.actualDeliveryDate)}</span>
+                                        </div>
+                                    )}
+                                    {selectedRequest.orderId?.deliveryNotes && (
+                                        <div className="flex flex-wrap justify-between items-center gap-2">
+                                            <span className="text-gray-600 font-medium">Delivery Notes:</span>
+                                            <span className="font-semibold text-gray-800">{selectedRequest.orderId.deliveryNotes}</span>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                         </div>
@@ -912,6 +932,48 @@ function CancellationManagement() {
                                         <div className="text-lg sm:text-2xl font-bold text-green-600 tracking-tight">₹{(selectedRequest.orderId?.totalAmt * 0.75)?.toFixed(2)}</div>
                                     </div>
                                 </div>
+                                
+                                {/* Delivery Context Information */}
+                                {selectedRequest.orderId && (
+                                    <div className="mt-4 p-3 bg-white rounded-lg border border-blue-100">
+                                        <h4 className="font-medium text-gray-700 mb-2">Delivery Context</h4>
+                                        <div className="text-sm text-gray-600 space-y-1">
+                                            {(() => {
+                                                const orderDate = new Date(selectedRequest.orderId.orderDate);
+                                                const cancellationDate = new Date(selectedRequest.createdAt);
+                                                const daysBetween = Math.floor((cancellationDate - orderDate) / (1000 * 60 * 60 * 24));
+                                                
+                                                let deliveryStatus = "No delivery date set";
+                                                let statusColor = "text-gray-600";
+                                                
+                                                if (selectedRequest.orderId.actualDeliveryDate) {
+                                                    const actualDelivery = new Date(selectedRequest.orderId.actualDeliveryDate);
+                                                    const daysSinceDelivery = Math.floor((cancellationDate - actualDelivery) / (1000 * 60 * 60 * 24));
+                                                    deliveryStatus = `Cancelled ${daysSinceDelivery} days after delivery`;
+                                                    statusColor = "text-red-600 font-medium";
+                                                } else if (selectedRequest.orderId.estimatedDeliveryDate) {
+                                                    const estimatedDelivery = new Date(selectedRequest.orderId.estimatedDeliveryDate);
+                                                    const isOverdue = new Date() > estimatedDelivery;
+                                                    
+                                                    if (isOverdue) {
+                                                        deliveryStatus = "Cancelled after estimated delivery date (overdue)";
+                                                        statusColor = "text-orange-600 font-medium";
+                                                    } else {
+                                                        deliveryStatus = "Cancelled before estimated delivery date";
+                                                        statusColor = "text-green-600";
+                                                    }
+                                                }
+                                                
+                                                return (
+                                                    <>
+                                                        <div>• Cancellation requested {daysBetween} days after order placement</div>
+                                                        <div className={statusColor}>• {deliveryStatus}</div>
+                                                    </>
+                                                );
+                                            })()}
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         </div>
 

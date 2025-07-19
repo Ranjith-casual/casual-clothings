@@ -3,6 +3,7 @@ import cancellationPolicyModel from "../models/cancellationPolicy.model.js";
 import orderModel from "../models/order.model.js";
 import UserModel from "../models/users.model.js";
 import sendEmail from "../config/sendEmail.js";
+import { sendRefundInvoiceEmail } from "./payment.controller.js";
 import fs from 'fs';
 
 // User requests order cancellation
@@ -79,12 +80,24 @@ export const requestOrderCancellation = async (req, res) => {
         const policy = await cancellationPolicyModel.findOne({ isActive: true });
         const refundPercentage = 75;
 
-        // Create cancellation request
+        // Check if cancellation is past estimated delivery date
+        const now = new Date();
+        const wasPastDeliveryDate = order.estimatedDeliveryDate && 
+            now > new Date(order.estimatedDeliveryDate) && 
+            !order.actualDeliveryDate;
+
+        // Create cancellation request with delivery information
         const cancellationRequest = new orderCancellationModel({
             orderId,
             userId,
             reason,
             additionalReason,
+            deliveryInfo: {
+                estimatedDeliveryDate: order.estimatedDeliveryDate,
+                actualDeliveryDate: order.actualDeliveryDate,
+                deliveryNotes: order.deliveryNotes,
+                wasPastDeliveryDate
+            },
             adminResponse: {
                 refundPercentage
             }
@@ -114,6 +127,8 @@ export const requestOrderCancellation = async (req, res) => {
                             <p><strong>Order ID:</strong> ${order.orderId}</p>
                             <p><strong>Reason:</strong> ${reason}</p>
                             <p><strong>Request Date:</strong> ${new Date().toLocaleDateString()}</p>
+                            ${order.estimatedDeliveryDate ? `<p><strong>Estimated Delivery Date:</strong> ${new Date(order.estimatedDeliveryDate).toLocaleDateString()}</p>` : ''}
+                            ${wasPastDeliveryDate ? '<p style="color: #dc3545;"><strong>Note:</strong> Cancellation requested after estimated delivery date</p>' : ''}
                             <p><strong>Expected Refund:</strong> ₹${(order.totalAmt * refundPercentage / 100).toFixed(2)} (${refundPercentage}% of order value)</p>
                         </div>
                         
@@ -294,9 +309,31 @@ export const processCancellationRequest = async (req, res) => {
             });
         }
 
-        // Calculate refund amount
+        // Calculate refund amount with delivery date consideration
         const order = cancellationRequest.orderId;
-        const refundPercentage = customRefundPercentage || cancellationRequest.adminResponse.refundPercentage;
+        let baseRefundPercentage = customRefundPercentage || cancellationRequest.adminResponse.refundPercentage;
+        
+        // Adjust refund percentage based on delivery status
+        if (action === 'APPROVED' && cancellationRequest.deliveryInfo) {
+            const deliveryInfo = cancellationRequest.deliveryInfo;
+            
+            // If cancellation is requested after estimated delivery date, reduce refund
+            if (deliveryInfo.wasPastDeliveryDate) {
+                baseRefundPercentage = Math.max(50, baseRefundPercentage - 15); // Reduce by 15% but minimum 50%
+            }
+            
+            // If order was already delivered, significantly reduce refund
+            if (deliveryInfo.actualDeliveryDate) {
+                const daysSinceDelivery = Math.floor((new Date() - new Date(deliveryInfo.actualDeliveryDate)) / (1000 * 60 * 60 * 24));
+                if (daysSinceDelivery > 7) {
+                    baseRefundPercentage = Math.max(25, baseRefundPercentage - 30); // Reduce by 30% but minimum 25%
+                } else {
+                    baseRefundPercentage = Math.max(40, baseRefundPercentage - 20); // Reduce by 20% but minimum 40%
+                }
+            }
+        }
+        
+        const refundPercentage = baseRefundPercentage;
         const refundAmount = action === 'APPROVED' ? (order.totalAmt * refundPercentage / 100) : 0;
 
         // Update cancellation request
@@ -337,6 +374,10 @@ export const processCancellationRequest = async (req, res) => {
                             <h3>Refund Details:</h3>
                             <p><strong>Refund Amount:</strong> ₹${refundAmount.toFixed(2)}</p>
                             <p><strong>Refund Percentage:</strong> ${refundPercentage}%</p>
+                            ${cancellationRequest.deliveryInfo?.wasPastDeliveryDate ? 
+                                '<p style="color: #856404;"><strong>Note:</strong> Refund percentage adjusted due to late cancellation</p>' : ''}
+                            ${cancellationRequest.deliveryInfo?.actualDeliveryDate ? 
+                                '<p style="color: #856404;"><strong>Note:</strong> Refund percentage adjusted as order was already delivered</p>' : ''}
                             <p><strong>Processing Time:</strong> 5-7 business days</p>
                             <p><strong>Refund Method:</strong> Original payment method</p>
                         </div>
@@ -462,75 +503,28 @@ export const completeRefund = async (req, res) => {
             }
         });
 
-        // Send email to user with PDF attachment
+        // Send email to user with invoice attachment
         const user = cancellationRequest.userId;
         if (user.email) {
             try {
                 // Get order details with populated product info
                 const orderDetails = await orderModel.findById(order._id)
                     .populate('userId', 'name email')
-                    .populate('items.productId', 'name image price')
-                    .populate('items.bundleId', 'title image images bundlePrice')
+                    .populate('items.productId', 'name image price discount')
+                    .populate('items.bundleId', 'title image images bundlePrice originalPrice')
                     .populate('deliveryAddress');
 
-                // Prepare data for PDF generation
-                const refundData = {
-                    orderId: order.orderId,
-                    orderNumber: order.orderId,
-                    orderDate: order.orderDate,
+                // Prepare refund details for email
+                const refundDetails = {
+                    refundAmount: cancellationRequest.adminResponse.refundAmount,
+                    refundPercentage: cancellationRequest.adminResponse.refundPercentage,
                     refundId: cancellationRequest.refundDetails.refundId,
                     refundDate: cancellationRequest.refundDetails.refundDate,
-                    refundStatus: 'COMPLETED',
-                    refundReason: cancellationRequest.reason,
-                    refundAmount: cancellationRequest.adminResponse.refundAmount,
-                    userName: user.name,
-                    email: user.email,
-                    paymentMethod: order.paymentMethod,
-                    paymentStatus: 'REFUNDED',
-                    items: orderDetails.items,
-                    user: user
+                    retainedAmount: order.totalAmt - cancellationRequest.adminResponse.refundAmount
                 };
 
-                // Generate PDF
-                const generateInvoicePdf = (await import('../utils/generateInvoicePdf.js')).default;
-                const pdfPath = await generateInvoicePdf(refundData, 'refund');
-
-                // Send email with PDF attachment
-                await sendEmail({
-                    sendTo: user.email,
-                    subject: `Your Refund has been Processed – [${order.orderId}]`,
-                    html: `
-                        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-                            <h2 style="color: #28a745;">Refund Successful</h2>
-                            <p>Dear ${user.name},</p>
-                            <p>We're pleased to inform you that the refund for your cancelled order <strong>#${order.orderId}</strong> has been successfully processed.</p>
-                            
-                            <div style="background-color: #d4edda; padding: 15px; border-radius: 5px; margin: 20px 0; border-left: 4px solid #28a745;">
-                                <h3>Refund Details:</h3>
-                                <p><strong>Refund Amount:</strong> ₹${cancellationRequest.adminResponse.refundAmount.toFixed(2)}</p>
-                                <p><strong>Refund ID:</strong> ${cancellationRequest.refundDetails.refundId}</p>
-                                <p><strong>Refund Date:</strong> ${new Date().toLocaleDateString()}</p>
-                                <p><strong>Refund Method:</strong> Original payment method</p>
-                            </div>
-                            
-                            <p>The refund has been processed to your original payment method. It may take 2-5 business days to reflect in your account, depending on your bank's policies.</p>
-                            
-                            <p>Please find attached a PDF copy of your refund details for your records.</p>
-                            
-                            <p>Thank you for your patience and understanding.</p>
-                            <p>Best regards,<br>casualclothings Team</p>
-                        </div>
-                    `,
-                    attachments: [
-                        {
-                            filename: `refund_${order.orderId}.pdf`,
-                            path: pdfPath
-                        }
-                    ]
-                });
-                
-                // Clean up the PDF file after sending
-                fs.promises.unlink(pdfPath).catch(err => console.error('Error deleting temp PDF:', err));
+                // Send refund invoice email using our new function
+                await sendRefundInvoiceEmail(orderDetails, refundDetails);
                 
             } catch (emailError) {
                 console.error('Error sending refund email:', emailError);
@@ -579,7 +573,7 @@ export const getAllRefunds = async (req, res) => {
         const refunds = await orderCancellationModel.find(filter)
             .populate({
                 path: 'orderId',
-                select: 'orderId totalAmt orderDate orderStatus paymentStatus paymentMethod items subTotalAmt totalQuantity orderQuantity productDetails',
+                select: 'orderId totalAmt orderDate orderStatus paymentStatus paymentMethod items subTotalAmt totalQuantity orderQuantity productDetails estimatedDeliveryDate actualDeliveryDate deliveryNotes',
                 populate: [
                     {
                         path: 'items.productId',
@@ -597,10 +591,39 @@ export const getAllRefunds = async (req, res) => {
             .limit(limit * 1)
             .skip((page - 1) * limit);
             
+        // Enhance refunds with delivery insights
+        const enhancedRefunds = refunds.map(refund => {
+            const refundObj = refund.toObject();
+            
+            // Add delivery context
+            if (refund.orderId) {
+                const deliveryContext = {
+                    hasEstimatedDate: !!refund.orderId.estimatedDeliveryDate,
+                    hasActualDeliveryDate: !!refund.orderId.actualDeliveryDate,
+                    isOverdue: refund.orderId.estimatedDeliveryDate && 
+                        new Date() > new Date(refund.orderId.estimatedDeliveryDate) && 
+                        !refund.orderId.actualDeliveryDate,
+                    daysBetweenOrderAndCancellation: Math.floor(
+                        (new Date(refund.requestDate) - new Date(refund.orderId.orderDate)) / (1000 * 60 * 60 * 24)
+                    )
+                };
+                
+                if (refund.orderId.actualDeliveryDate) {
+                    deliveryContext.daysBetweenDeliveryAndCancellation = Math.floor(
+                        (new Date(refund.requestDate) - new Date(refund.orderId.actualDeliveryDate)) / (1000 * 60 * 60 * 24)
+                    );
+                }
+                
+                refundObj.deliveryContext = deliveryContext;
+            }
+            
+            return refundObj;
+        });
+        
         // Log the first refund's order details to debug
-        if (refunds.length > 0 && refunds[0].orderId) {
+        if (enhancedRefunds.length > 0 && enhancedRefunds[0].orderId) {
             console.log("First refund order items:", 
-                JSON.stringify(refunds[0].orderId.items.map(item => ({
+                JSON.stringify(enhancedRefunds[0].orderId.items.map(item => ({
                     itemType: item.itemType,
                     productId: typeof item.productId === 'object' ? item.productId._id : item.productId,
                     bundleId: typeof item.bundleId === 'object' ? item.bundleId._id : item.bundleId,
@@ -616,7 +639,7 @@ export const getAllRefunds = async (req, res) => {
             success: true,
             error: false,
             data: {
-                refunds,
+                refunds: enhancedRefunds,
                 currentPage: parseInt(page),
                 totalPages: Math.ceil(total / limit),
                 totalRefunds: total
@@ -691,6 +714,106 @@ export const getCancellationPolicy = async (req, res) => {
             success: false,
             error: true,
             message: "Internal server error"
+        });
+    }
+};
+
+// Get refund statistics with delivery insights
+export const getRefundStatsWithDelivery = async (req, res) => {
+    try {
+        const { startDate, endDate } = req.query;
+        
+        let dateFilter = {};
+        if (startDate && endDate) {
+            dateFilter = {
+                requestDate: {
+                    $gte: new Date(startDate),
+                    $lte: new Date(endDate)
+                }
+            };
+        }
+        
+        const refunds = await orderCancellationModel.find(dateFilter)
+            .populate({
+                path: 'orderId',
+                select: 'orderDate estimatedDeliveryDate actualDeliveryDate orderStatus',
+            });
+            
+        const stats = {
+            totalRefunds: refunds.length,
+            deliveryInsights: {
+                cancelledBeforeDelivery: 0,
+                cancelledAfterDelivery: 0,
+                cancelledWithOverdueDelivery: 0,
+                averageDaysBeforeCancellation: 0,
+                refundsByDeliveryStatus: {
+                    noDeliveryDate: 0,
+                    pendingDelivery: 0,
+                    delivered: 0,
+                    overdue: 0
+                }
+            },
+            refundAmountsByDeliveryStatus: {
+                beforeDelivery: 0,
+                afterDelivery: 0,
+                overdueDelivery: 0
+            }
+        };
+        
+        let totalDaysBeforeCancellation = 0;
+        let validDayCount = 0;
+        
+        refunds.forEach(refund => {
+            if (refund.orderId) {
+                const orderDate = new Date(refund.orderId.orderDate);
+                const cancellationDate = new Date(refund.requestDate);
+                const estimatedDelivery = refund.orderId.estimatedDeliveryDate ? new Date(refund.orderId.estimatedDeliveryDate) : null;
+                const actualDelivery = refund.orderId.actualDeliveryDate ? new Date(refund.orderId.actualDeliveryDate) : null;
+                
+                // Calculate days before cancellation
+                const daysBeforeCancellation = Math.floor((cancellationDate - orderDate) / (1000 * 60 * 60 * 24));
+                totalDaysBeforeCancellation += daysBeforeCancellation;
+                validDayCount++;
+                
+                // Delivery status analysis
+                if (!estimatedDelivery) {
+                    stats.deliveryInsights.refundsByDeliveryStatus.noDeliveryDate++;
+                } else if (actualDelivery) {
+                    stats.deliveryInsights.refundsByDeliveryStatus.delivered++;
+                    stats.deliveryInsights.cancelledAfterDelivery++;
+                    if (refund.refundDetails?.refundAmount) {
+                        stats.refundAmountsByDeliveryStatus.afterDelivery += refund.refundDetails.refundAmount;
+                    }
+                } else if (new Date() > estimatedDelivery) {
+                    stats.deliveryInsights.refundsByDeliveryStatus.overdue++;
+                    stats.deliveryInsights.cancelledWithOverdueDelivery++;
+                    if (refund.refundDetails?.refundAmount) {
+                        stats.refundAmountsByDeliveryStatus.overdueDelivery += refund.refundDetails.refundAmount;
+                    }
+                } else {
+                    stats.deliveryInsights.refundsByDeliveryStatus.pendingDelivery++;
+                    stats.deliveryInsights.cancelledBeforeDelivery++;
+                    if (refund.refundDetails?.refundAmount) {
+                        stats.refundAmountsByDeliveryStatus.beforeDelivery += refund.refundDetails.refundAmount;
+                    }
+                }
+            }
+        });
+        
+        stats.deliveryInsights.averageDaysBeforeCancellation = validDayCount > 0 ? 
+            Math.round(totalDaysBeforeCancellation / validDayCount) : 0;
+        
+        res.status(200).json({
+            success: true,
+            error: false,
+            data: stats
+        });
+    } catch (error) {
+        console.error('Error getting refund stats with delivery:', error);
+        res.status(500).json({
+            success: false,
+            error: true,
+            message: 'Internal server error'
         });
     }
 };

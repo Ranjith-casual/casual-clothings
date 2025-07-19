@@ -331,6 +331,29 @@ const RefundManagement = () => {
 
             if (response.data.success) {
                 toast.success("Refund processed successfully");
+                
+                // Update delivery status to cancelled for the order
+                try {
+                    await Axios({
+                        ...SummaryApi.updateOrderStatus,
+                        headers: {
+                            'Authorization': `Bearer ${token}`,
+                            'Accept': 'application/json'
+                        },
+                        data: {
+                            orderId: selectedRefund.orderId._id || selectedRefund.orderId,
+                            orderStatus: 'CANCELLED',
+                            deliveryStatus: 'CANCELLED',
+                            deliveryNotes: 'Order cancelled due to refund completion'
+                        }
+                    });
+                    
+                    toast.success("Delivery status updated to cancelled");
+                } catch (deliveryUpdateError) {
+                    console.error("Error updating delivery status:", deliveryUpdateError);
+                    // Don't show error toast for this as the main refund was successful
+                }
+                
                 setShowCompleteModal(false);
                 setSelectedRefund(null);
                 setTransactionId('');
@@ -398,6 +421,37 @@ const RefundManagement = () => {
                                 <p><span className="font-medium">Payment Method:</span> {order.paymentMethod}</p>
                                 <p><span className="font-medium">Payment Status:</span> {order.paymentStatus}</p>
                                 <p><span className="font-medium">Total Amount:</span> {DisplayPriceInRupees(order.totalAmt)}</p>
+                                
+                                {/* Delivery Information */}
+                                {order.estimatedDeliveryDate && (
+                                    <p><span className="font-medium">Estimated Delivery:</span> {formatDate(order.estimatedDeliveryDate)}</p>
+                                )}
+                                {order.actualDeliveryDate && (
+                                    <p><span className="font-medium">Actual Delivery:</span> {formatDate(order.actualDeliveryDate)}</p>
+                                )}
+                                {order.deliveryNotes && (
+                                    <p><span className="font-medium">Delivery Notes:</span> {order.deliveryNotes}</p>
+                                )}
+                                
+                                {/* Delivery Context from Refund */}
+                                {refund.deliveryContext && (
+                                    <div className="mt-3 p-2 bg-blue-50 rounded border-l-4 border-blue-400">
+                                        <h4 className="font-medium text-blue-800 mb-1">Delivery Context</h4>
+                                        <p className="text-sm text-blue-700">
+                                            Days between order and cancellation: {refund.deliveryContext.daysBetweenOrderAndCancellation}
+                                        </p>
+                                        {refund.deliveryContext.daysBetweenDeliveryAndCancellation !== undefined && (
+                                            <p className="text-sm text-blue-700">
+                                                Days between delivery and cancellation: {refund.deliveryContext.daysBetweenDeliveryAndCancellation}
+                                            </p>
+                                        )}
+                                        {refund.deliveryContext.isOverdue && (
+                                            <p className="text-sm text-red-600 font-medium">
+                                                ⚠️ Delivery was overdue when cancelled
+                                            </p>
+                                        )}
+                                    </div>
+                                )}
                             </div>
 
                             {/* Customer Details */}
@@ -1054,6 +1108,9 @@ const RefundManagement = () => {
                                     Date
                                 </th>
                                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    Delivery Status
+                                </th>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                     Status
                                 </th>
                                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -1064,7 +1121,7 @@ const RefundManagement = () => {
                         <tbody className="bg-white divide-y divide-gray-200">
                             {loading ? (
                                 <tr>
-                                    <td colSpan={6} className="px-6 py-4 text-center">
+                                    <td colSpan={7} className="px-6 py-4 text-center">
                                         <div className="flex justify-center items-center">
                                             <FaSpinner className="animate-spin mr-2" />
                                             Loading refunds...
@@ -1073,67 +1130,110 @@ const RefundManagement = () => {
                                 </tr>
                             ) : refunds.length === 0 ? (
                                 <tr>
-                                    <td colSpan={6} className="px-6 py-4 text-center text-gray-500">
+                                    <td colSpan={7} className="px-6 py-4 text-center text-gray-500">
                                         No refund requests found
                                     </td>
                                 </tr>
                             ) : (
-                                refunds.map((refund) => (
-                                    <tr key={refund._id} className="hover:bg-gray-50">
-                                        <td className="px-6 py-4 whitespace-nowrap">
-                                            <div className="font-medium text-gray-900">
-                                                {refund.orderId?.orderId || 'N/A'}
-                                            </div>
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap">
-                                            <div className="text-gray-900">
-                                                {refund.userId?.name || 'Unknown'}
-                                            </div>
-                                            <div className="text-gray-500 text-sm">
-                                                {refund.userId?.email || 'No email'}
-                                            </div>
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap">
-                                            <div className="text-gray-900 font-medium">
-                                                {DisplayPriceInRupees(refund.adminResponse?.refundAmount || 0)}
-                                            </div>
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap">
-                                            <div className="text-gray-900">
-                                                {formatDate(refund.requestDate)}
-                                            </div>
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap">
-                                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(refund.refundDetails?.refundStatus || 'PROCESSING')}`}>
-                                                {refund.refundDetails?.refundStatus || 'PROCESSING'}
-                                            </span>
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                            <div className="flex space-x-2">
-                                                <button
-                                                    onClick={() => setSelectedRefund(refund)}
-                                                    className="text-blue-600 hover:text-blue-900 flex items-center"
-                                                    title="View Details"
-                                                >
-                                                    <FaEye className="mr-1" /> View
-                                                </button>
-                                                
-                                                {refund.refundDetails?.refundStatus === 'PROCESSING' && (
-                                                    <button
-                                                        onClick={() => {
-                                                            setSelectedRefund(refund);
-                                                            setShowCompleteModal(true);
-                                                        }}
-                                                        className="text-green-600 hover:text-green-900 flex items-center"
-                                                        title="Complete Refund"
-                                                    >
-                                                        <FaMoneyBillWave className="mr-1" /> Complete
-                                                    </button>
+                                refunds.map((refund) => {
+                                    // Helper function to get delivery status
+                                    const getDeliveryStatus = (refund) => {
+                                        const order = refund.orderId;
+                                        if (!order) return { status: 'No Info', color: 'bg-gray-100 text-gray-800' };
+                                        
+                                        // Check if order is cancelled or refund is completed
+                                        if (order.orderStatus === 'CANCELLED' || refund.refundDetails?.refundStatus === 'COMPLETED') {
+                                            return { status: 'Cancelled', color: 'bg-red-100 text-red-800' };
+                                        }
+                                        
+                                        if (order.actualDeliveryDate) {
+                                            return { status: 'Delivered', color: 'bg-green-100 text-green-800' };
+                                        }
+                                        
+                                        if (order.estimatedDeliveryDate) {
+                                            const isOverdue = new Date() > new Date(order.estimatedDeliveryDate);
+                                            if (isOverdue) {
+                                                return { status: 'Overdue', color: 'bg-red-100 text-red-800' };
+                                            } else {
+                                                return { status: 'Pending', color: 'bg-yellow-100 text-yellow-800' };
+                                            }
+                                        }
+                                        
+                                        return { status: 'No Date', color: 'bg-gray-100 text-gray-800' };
+                                    };
+                                    
+                                    const deliveryStatus = getDeliveryStatus(refund);
+                                    
+                                    return (
+                                        <tr key={refund._id} className="hover:bg-gray-50">
+                                            <td className="px-6 py-4 whitespace-nowrap">
+                                                <div className="font-medium text-gray-900">
+                                                    {refund.orderId?.orderId || 'N/A'}
+                                                </div>
+                                                {refund.deliveryContext && (
+                                                    <div className="text-xs text-gray-500 mt-1">
+                                                        {refund.deliveryContext.daysBetweenOrderAndCancellation} days after order
+                                                    </div>
                                                 )}
-                                            </div>
-                                        </td>
-                                    </tr>
-                                ))
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap">
+                                                <div className="text-gray-900">
+                                                    {refund.userId?.name || 'Unknown'}
+                                                </div>
+                                                <div className="text-gray-500 text-sm">
+                                                    {refund.userId?.email || 'No email'}
+                                                </div>
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap">
+                                                <div className="text-gray-900 font-medium">
+                                                    {DisplayPriceInRupees(refund.adminResponse?.refundAmount || 0)}
+                                                </div>
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap">
+                                                <div className="text-gray-900">
+                                                    {formatDate(refund.requestDate)}
+                                                </div>
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap">
+                                                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${deliveryStatus.color}`}>
+                                                    {deliveryStatus.status}
+                                                </span>
+                                                {refund.deliveryContext?.isOverdue && (
+                                                    <div className="text-xs text-red-600 mt-1">⚠️ Overdue</div>
+                                                )}
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap">
+                                                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(refund.refundDetails?.refundStatus || 'PROCESSING')}`}>
+                                                    {refund.refundDetails?.refundStatus || 'PROCESSING'}
+                                                </span>
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                                <div className="flex space-x-2">
+                                                    <button
+                                                        onClick={() => setSelectedRefund(refund)}
+                                                        className="text-blue-600 hover:text-blue-900 flex items-center"
+                                                        title="View Details"
+                                                    >
+                                                        <FaEye className="mr-1" /> View
+                                                    </button>
+                                                    
+                                                    {refund.refundDetails?.refundStatus === 'PROCESSING' && (
+                                                        <button
+                                                            onClick={() => {
+                                                                setSelectedRefund(refund);
+                                                                setShowCompleteModal(true);
+                                                            }}
+                                                            className="text-green-600 hover:text-green-900 flex items-center"
+                                                            title="Complete Refund"
+                                                        >
+                                                            <FaMoneyBillWave className="mr-1" /> Complete
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    );
+                                })
                             )}
                         </tbody>
                     </table>

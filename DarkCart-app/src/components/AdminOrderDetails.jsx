@@ -135,14 +135,43 @@ const AdminOrderDetails = ({ order, onClose }) => {
               <span className="block text-sm font-medium text-gray-500 mb-1">Order ID</span>
               <span className="font-semibold text-gray-800 tracking-wide">{order.orderId}</span>
             </div>
-            <div>
+            <div className="mb-4 md:mb-0">
               <span className="block text-sm font-medium text-gray-500 mb-1">Order Date</span>
               <div className="flex items-center">
                 <FaCalendarAlt className="text-gray-500 mr-2" />
                 <span className="font-semibold text-gray-800">{formatDate(order.orderDate)}</span>
               </div>
             </div>
+            {order.estimatedDeliveryDate && (
+              <div>
+                <span className="block text-sm font-medium text-gray-500 mb-1">
+                  {order.actualDeliveryDate ? 'Delivered On' : 'Estimated Delivery'}
+                </span>
+                <div className="flex items-center">
+                  <FaTruck className={`mr-2 ${order.actualDeliveryDate ? 'text-green-500' : 'text-blue-500'}`} />
+                  <span className={`font-semibold ${order.actualDeliveryDate ? 'text-green-800' : 'text-blue-800'}`}>
+                    {order.actualDeliveryDate 
+                      ? formatDate(order.actualDeliveryDate)
+                      : formatDate(order.estimatedDeliveryDate)
+                    }
+                  </span>
+                </div>
+              </div>
+            )}
           </div>
+          
+          {/* Delivery Notes */}
+          {order.deliveryNotes && (
+            <div className="mb-6 bg-blue-50 p-4 rounded-lg border border-blue-100">
+              <div className="flex items-start">
+                <FaInfoCircle className="text-blue-500 mr-2 mt-0.5 flex-shrink-0" />
+                <div>
+                  <span className="block text-sm font-medium text-blue-700 mb-1">Delivery Notes</span>
+                  <span className="text-blue-800 text-sm">{order.deliveryNotes}</span>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Timeline */}
           <div className="mb-8">
@@ -344,6 +373,43 @@ const AdminOrderDetails = ({ order, onClose }) => {
                 ) : (
                   'Update Status'
                 )}
+              </button>
+            </div>
+          </div>
+
+          {/* Delivery Date Update Section */}
+          <div className="mb-8 p-5 bg-blue-50 rounded-lg border border-blue-200 shadow-sm">
+            <h3 className="font-bold text-lg text-gray-800 mb-4 tracking-tight flex items-center">
+              <FaTruck className="text-blue-600 mr-2" />
+              Delivery Date Management
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Update Estimated Delivery Date
+                </label>
+                <input
+                  type="date"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  defaultValue={order.estimatedDeliveryDate ? new Date(order.estimatedDeliveryDate).toISOString().split('T')[0] : ''}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Delivery Notes (Optional)
+                </label>
+                <input
+                  type="text"
+                  placeholder="Add delivery instructions or notes..."
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  defaultValue={order.deliveryNotes || ''}
+                />
+              </div>
+            </div>
+            <div className="mt-4">
+              <button className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-all font-medium shadow-md hover:shadow-lg flex items-center gap-2">
+                <FaTruck className="text-sm" />
+                Update Delivery Info
               </button>
             </div>
           </div>
