@@ -163,12 +163,7 @@ function Profile() {
           </form>
 
           {/* Profile Navigation Links */}
-          <div className="mb-8">
-            <h2 className="font-medium text-gray-700 mb-4">Quick Links</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {/* Links can be added here in future if needed */}
-            </div>
-          </div>
+          
         </div>
       </div>
     </div>

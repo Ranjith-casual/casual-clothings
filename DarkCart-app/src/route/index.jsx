@@ -116,10 +116,12 @@ const router = createBrowserRouter([
             },{
                 path:"/reset-password",
                 element : <ResetPassword/>
-            },{
-                path:"/user-menu-mobile",
-                element : <UserMenuMobile/>
-            },{
+            },
+            // {
+            //     path:"/user-menu-mobile",
+            //     element : <UserMenuMobile/>
+            // },
+            {
                 path:"/dashboard",
                 element:<Dashboard/>,
                 children :[{
