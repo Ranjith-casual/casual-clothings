@@ -825,3 +825,67 @@ export const getRefundInvoice = async (req, res) => {
         });
     }
 };
+
+// Get cancellation details by order ID
+export const getCancellationByOrderId = async (req, res) => {
+    try {
+        const { orderId } = req.params;
+
+        if (!orderId) {
+            return res.status(400).json({
+                success: false,
+                error: true,
+                message: "Order ID is required"
+            });
+        }
+
+        // Find the order first to get the object ID
+        const order = await orderModel.findOne({ orderId: orderId });
+        
+        if (!order) {
+            return res.status(404).json({
+                success: false,
+                error: true,
+                message: "Order not found"
+            });
+        }
+
+        // Find cancellation request by order object ID
+        const cancellationRequest = await orderCancellationModel.findOne({ orderId: order._id })
+            .populate({
+                path: 'orderId',
+                select: 'orderId totalAmt orderDate orderStatus paymentMethod paymentStatus items subTotalAmt totalQuantity'
+            })
+            .populate({
+                path: 'userId',
+                select: 'name email'
+            })
+            .populate({
+                path: 'adminResponse.processedBy',
+                select: 'name email'
+            });
+
+        if (!cancellationRequest) {
+            return res.status(404).json({
+                success: false,
+                error: true,
+                message: "No cancellation request found for this order"
+            });
+        }
+
+        return res.status(200).json({
+            success: true,
+            error: false,
+            message: "Cancellation details retrieved successfully",
+            data: cancellationRequest
+        });
+
+    } catch (error) {
+        console.error("Error getting cancellation details by order ID:", error);
+        return res.status(500).json({
+            success: false,
+            error: true,
+            message: "Internal server error while getting cancellation details"
+        });
+    }
+};

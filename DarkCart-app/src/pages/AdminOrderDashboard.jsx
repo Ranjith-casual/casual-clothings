@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useSelector } from 'react-redux';
-import { FaSearch, FaRedo, FaSortAmountDown,FaBox ,FaSortAmountUp, FaFilter, FaEllipsisV, FaBoxOpen, FaCheck, FaTruck, FaCog, FaBan, FaEye } from 'react-icons/fa';
+import { FaSearch, FaRedo, FaSortAmountDown,FaBox ,FaSortAmountUp, FaFilter, FaEllipsisV, FaBoxOpen, FaCheck, FaTruck, FaCog, FaBan, FaEye, FaUndo, FaTimes, FaSpinner, FaCreditCard } from 'react-icons/fa';
 import toast from 'react-hot-toast';
 import Axios from '../utils/Axios';
 import SummaryApi from '../common/SummaryApi';
@@ -18,6 +18,7 @@ const AdminOrderDashboard = () => {
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [showOrderDetails, setShowOrderDetails] = useState(false);
   const [openDropdownId, setOpenDropdownId] = useState(null);
+  const [refundStatuses, setRefundStatuses] = useState({}); // Track refund status for each order
   
   // New filter states
   const [activeTab, setActiveTab] = useState('ALL');
@@ -112,6 +113,20 @@ const AdminOrderDashboard = () => {
       applyFilters();
     }
   }, [activeTab, selectedCountry, selectedState, selectedCity, dateFilter, searchQuery]);
+
+  // Fetch refund statuses for cancelled orders
+  useEffect(() => {
+    if (orders.length > 0) {
+      const cancelledOrders = orders.filter(order => order.orderStatus === 'CANCELLED');
+      
+      // Fetch refund status for each cancelled order
+      cancelledOrders.forEach(order => {
+        if (!refundStatuses[order.orderId]) {
+          fetchRefundStatus(order.orderId);
+        }
+      });
+    }
+  }, [orders]);
 
   // Function to apply all filters
   const applyFilters = () => {
@@ -357,6 +372,118 @@ const AdminOrderDashboard = () => {
       dateStyle: 'medium', 
       timeStyle: 'short'
     }).format(date);
+  };
+
+  // Fetch refund status for a specific order
+  const fetchRefundStatus = async (orderId) => {
+    try {
+      const response = await Axios({
+        ...SummaryApi.getCancellationByOrderId,
+        url: `${SummaryApi.getCancellationByOrderId.url}/${orderId}`
+      });
+
+      if (response.data.success && response.data.data) {
+        const cancellationData = response.data.data;
+        let refundStatus = 'NOT_APPLICABLE';
+        
+        if (cancellationData.status === 'APPROVED' || cancellationData.status === 'PROCESSED') {
+          if (cancellationData.refundDetails?.refundStatus) {
+            refundStatus = cancellationData.refundDetails.refundStatus;
+          } else if (cancellationData.adminResponse?.refundAmount > 0) {
+            refundStatus = 'PENDING';
+          }
+        } else if (cancellationData.status === 'REJECTED') {
+          refundStatus = 'NOT_APPLICABLE';
+        } else {
+          refundStatus = 'AWAITING_APPROVAL';
+        }
+
+        setRefundStatuses(prev => ({
+          ...prev,
+          [orderId]: refundStatus
+        }));
+      }
+    } catch (error) {
+      console.error(`Error fetching refund status for order ${orderId}:`, error);
+      setRefundStatuses(prev => ({
+        ...prev,
+        [orderId]: 'UNKNOWN'
+      }));
+    }
+  };
+
+  // Get refund status display
+  const getRefundStatusDisplay = (orderId, orderStatus) => {
+    if (orderStatus !== 'CANCELLED') {
+      return (
+        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-600">
+          N/A
+        </span>
+      );
+    }
+
+    const refundStatus = refundStatuses[orderId];
+    
+    if (!refundStatus) {
+      // Fetch refund status if not already cached
+      fetchRefundStatus(orderId);
+      return (
+        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-600">
+          <FaSpinner className="animate-spin mr-1" size={10} />
+          Loading...
+        </span>
+      );
+    }
+
+    switch (refundStatus) {
+      case 'COMPLETED':
+        return (
+          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 border border-green-200">
+            <FaCheck className="mr-1" size={10} />
+            Refunded
+          </span>
+        );
+      case 'PROCESSING':
+        return (
+          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800 border border-yellow-200">
+            <FaSpinner className="animate-spin mr-1" size={10} />
+            Processing
+          </span>
+        );
+      case 'PENDING':
+        return (
+          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-orange-100 text-orange-800 border border-orange-200">
+            <FaCreditCard className="mr-1" size={10} />
+            Pending
+          </span>
+        );
+      case 'FAILED':
+        return (
+          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800 border border-red-200">
+            <FaTimes className="mr-1" size={10} />
+            Failed
+          </span>
+        );
+      case 'AWAITING_APPROVAL':
+        return (
+          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 border border-blue-200">
+            <FaCog className="mr-1" size={10} />
+            Awaiting Approval
+          </span>
+        );
+      case 'NOT_APPLICABLE':
+        return (
+          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-600">
+            N/A
+          </span>
+        );
+      default:
+        return (
+          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-600">
+            Unknown
+          </span>
+        );
+    }
   };
 
   // Fetch countries for filter
@@ -722,6 +849,9 @@ const AdminOrderDashboard = () => {
                   <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
                     Status
                   </th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                    Refund Status
+                  </th>
                   <th className="px-4 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">
                     Actions
                   </th>
@@ -730,7 +860,7 @@ const AdminOrderDashboard = () => {
               <tbody className="divide-y divide-gray-200">
                 {loading ? (
                   <tr>
-                    <td colSpan="6" className="px-4 py-12 text-center">
+                    <td colSpan="7" className="px-4 py-12 text-center">
                       <div className="flex flex-col items-center justify-center">
                         <div className="w-12 h-12 border-4 border-black border-t-transparent rounded-full mb-4"></div>
                         <p className="text-gray-500">Loading orders...</p>
@@ -739,7 +869,7 @@ const AdminOrderDashboard = () => {
                   </tr>
                 ) : filteredOrders.length === 0 ? (
                   <tr>
-                    <td colSpan="6" className="px-4 py-16 text-center">
+                    <td colSpan="7" className="px-4 py-16 text-center">
                       <div className="flex flex-col items-center justify-center">
                         <svg className="w-16 h-16 text-gray-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
@@ -894,6 +1024,9 @@ const AdminOrderDashboard = () => {
                             {statusDisplay.icon}
                             {order.orderStatus.replace(/_/g, ' ')}
                           </span>
+                        </td>
+                        <td className="px-4 py-4">
+                          {getRefundStatusDisplay(order.orderId, order.orderStatus)}
                         </td>
                         <td className="px-4 py-4 text-right relative"> {/* Add relative positioning */}
                           <div className="relative inline-block text-left" data-dropdown="true">

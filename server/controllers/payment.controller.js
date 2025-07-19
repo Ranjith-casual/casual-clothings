@@ -253,8 +253,9 @@ export const getPaymentStats = async (req, res) => {
             retainedAmount: 0
         };
 
-        // Calculate net revenue (total revenue minus refunded amounts)
-        const netRevenue = result.totalRevenue - result.refundedAmount;
+        // Calculate net revenue (gross revenue minus refunded amounts)
+        const grossRevenue = result.totalRevenue; // Total revenue before refunds
+        const netRevenue = grossRevenue - result.refundedAmount; // Simple calculation: Gross - Refunded
         
         // Calculate retained amount (from partial refunds)
         // This is the portion of refunded orders that was retained (not refunded)
@@ -266,9 +267,9 @@ export const getPaymentStats = async (req, res) => {
             message: "Payment statistics retrieved successfully",
             data: {
                 ...result,
-                netRevenue: netRevenue + (retainedAmount || 0), // Net revenue after refunds plus retained amounts
-                grossRevenue: result.totalRevenue, // Original total revenue before refunds
-                totalRevenue: netRevenue + (retainedAmount || 0), // Update totalRevenue to be net revenue
+                netRevenue: netRevenue, // Net revenue = Gross Revenue - Refunded Amount
+                grossRevenue: grossRevenue, // Original total revenue before refunds
+                totalRevenue: netRevenue, // Update totalRevenue to be net revenue
                 refundedAmount: result.refundedAmount, // Actual refunded amount (not total order value)
                 retainedAmount: retainedAmount || 0 // Amount retained from partial refunds
             }
