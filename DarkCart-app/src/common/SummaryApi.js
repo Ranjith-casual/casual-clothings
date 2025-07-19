@@ -210,7 +210,6 @@ const SummaryApi = {
         url: '/api/order-cancellation/order',
         method: 'get'
     },
-    // Payment Management API endpoints
     getAllPayments: {
         url: '/api/payment/all',
         method: 'post'
