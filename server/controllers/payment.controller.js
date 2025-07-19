@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
 import orderModel from "../models/order.model.js";
 import UserModel from "../models/users.model.js";
+import orderCancellationModel from "../models/orderCancellation.model.js";
 
 export const getAllPayments = async (req, res) => {
     try {
@@ -68,10 +69,59 @@ export const getAllPayments = async (req, res) => {
             .skip(skip)
             .limit(parseInt(limit));
         
-        // Add customer name to each payment
-        const formattedPayments = payments.map(payment => ({
-            ...payment.toObject(),
-            customerName: payment.userId?.name || 'Unknown Customer'
+        // For refunded orders, get cancellation request details
+        const formattedPayments = await Promise.all(payments.map(async payment => {
+            const paymentObj = payment.toObject();
+            
+            // Add customer name
+            paymentObj.customerName = payment.userId?.name || 'Unknown Customer';
+            
+            // If order is refunded, get more details from cancellation request
+            if (payment.paymentStatus?.includes('REFUND') || payment.paymentStatus === 'REFUND_SUCCESSFUL') {
+                // Initialize refundDetails if it doesn't exist
+                if (!paymentObj.refundDetails) {
+                    paymentObj.refundDetails = {};
+                }
+                
+                try {
+                    // Find the cancellation request for this order
+                    const cancellationRequest = await orderCancellationModel.findOne({ 
+                        orderId: payment._id,
+                        'refundDetails.refundStatus': 'COMPLETED'
+                    });
+                    
+                    if (cancellationRequest) {
+                        // Use the refund details from the order if available, otherwise calculate from cancellation request
+                        let refundPercentage = paymentObj.refundDetails?.refundPercentage;
+                        let refundAmount = paymentObj.refundDetails?.refundAmount;
+                        let retainedAmount = paymentObj.refundDetails?.retainedAmount;
+                        
+                        if (!refundPercentage || !refundAmount || !retainedAmount) {
+                            // Fallback to admin response or default
+                            refundPercentage = cancellationRequest.adminResponse?.refundPercentage || 75;
+                            refundAmount = (payment.totalAmt || 0) * (refundPercentage / 100);
+                            retainedAmount = (payment.totalAmt || 0) - refundAmount;
+                        }
+                        
+                        // Add request dates and admin details to the payment object
+                        paymentObj.refundDetails = {
+                            ...paymentObj.refundDetails,
+                            requestDate: cancellationRequest.requestDate,
+                            approvalDate: cancellationRequest.adminResponse?.processedDate,
+                            reason: cancellationRequest.reason,
+                            adminComments: cancellationRequest.adminResponse?.adminComments,
+                            processedBy: cancellationRequest.adminResponse?.processedBy,
+                            refundPercentage: refundPercentage,
+                            refundAmount: refundAmount,
+                            retainedAmount: retainedAmount
+                        };
+                    }
+                } catch (err) {
+                    console.error("Error fetching cancellation details:", err);
+                }
+            }
+            
+            return paymentObj;
         }));
         
         // Get total count for pagination
@@ -164,7 +214,16 @@ export const getPaymentStats = async (req, res) => {
                                     { $eq: ["$paymentStatus", "REFUNDED"] },
                                     { $eq: ["$paymentStatus", "REFUND_SUCCESSFUL"] }
                                 ]},
-                                "$totalAmt",
+                                { $ifNull: ["$refundDetails.refundAmount", "$totalAmt"] },
+                                0
+                            ]
+                        }
+                    },
+                    retainedAmount: {
+                        $sum: {
+                            $cond: [
+                                { $eq: ["$paymentStatus", "REFUND_SUCCESSFUL"] },
+                                { $ifNull: ["$refundDetails.retainedAmount", 0] },
                                 0
                             ]
                         }
@@ -190,11 +249,16 @@ export const getPaymentStats = async (req, res) => {
             codOrders: 0,
             onlinePayments: 0,
             refundedAmount: 0,
-            pendingPayments: 0
+            pendingPayments: 0,
+            retainedAmount: 0
         };
 
         // Calculate net revenue (total revenue minus refunded amounts)
         const netRevenue = result.totalRevenue - result.refundedAmount;
+        
+        // Calculate retained amount (from partial refunds)
+        // This is the portion of refunded orders that was retained (not refunded)
+        const retainedAmount = await calculateRetainedAmount();
         
         return res.status(200).json({
             success: true,
@@ -202,9 +266,11 @@ export const getPaymentStats = async (req, res) => {
             message: "Payment statistics retrieved successfully",
             data: {
                 ...result,
-                netRevenue: netRevenue, // Net revenue after refunds
+                netRevenue: netRevenue + (retainedAmount || 0), // Net revenue after refunds plus retained amounts
                 grossRevenue: result.totalRevenue, // Original total revenue before refunds
-                totalRevenue: netRevenue // Update totalRevenue to be net revenue
+                totalRevenue: netRevenue + (retainedAmount || 0), // Update totalRevenue to be net revenue
+                refundedAmount: result.refundedAmount, // Actual refunded amount (not total order value)
+                retainedAmount: retainedAmount || 0 // Amount retained from partial refunds
             }
         });
         
@@ -216,6 +282,38 @@ export const getPaymentStats = async (req, res) => {
             message: "Error retrieving payment statistics",
             details: error.message
         });
+    }
+};
+
+// Helper function to calculate retained amount from partial refunds
+const calculateRetainedAmount = async () => {
+    try {
+        // Get all completed refunds
+        const completedRefunds = await orderCancellationModel.find({
+            'refundDetails.refundStatus': 'COMPLETED'
+        }).populate('orderId', 'totalAmt');
+
+        let totalRetainedAmount = 0;
+
+        // Calculate retained amount for each refund
+        completedRefunds.forEach(refund => {
+            if (refund.orderId && refund.adminResponse) {
+                const orderTotal = refund.orderId.totalAmt || 0;
+                const refundPercentage = refund.adminResponse.refundPercentage || 0;
+                const refundedAmount = refund.adminResponse.refundAmount || 0;
+                
+                // Calculate the amount retained (non-refunded portion)
+                const retainedPercentage = 100 - refundPercentage;
+                const retainedAmount = orderTotal * (retainedPercentage / 100);
+                
+                totalRetainedAmount += retainedAmount;
+            }
+        });
+
+        return totalRetainedAmount;
+    } catch (error) {
+        console.error("Error calculating retained amount:", error);
+        return 0;
     }
 };
 

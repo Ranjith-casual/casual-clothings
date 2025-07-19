@@ -68,6 +68,9 @@ function UserMenue({close}) {
                 <Link onClick={handleClose} to="/dashboard/myorders" className='flex items-center gap-3 p-3 hover:bg-gray-50 transition-colors'>
                     <span>My Orders</span>
                 </Link>
+                <Link onClick={handleClose} to="/dashboard/myrefunds" className='flex items-center gap-3 p-3 hover:bg-gray-50 transition-colors'>
+                    <span>Cancellations & Refunds</span>
+                </Link>
                 <Link onClick={handleClose} to="/dashboard/address" className='flex items-center gap-3 p-3 hover:bg-gray-50 transition-colors'>
                     <span>Saved Addresses</span>
                 </Link>

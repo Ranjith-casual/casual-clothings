@@ -5,6 +5,7 @@ import toast from 'react-hot-toast';
 import Axios from '../utils/Axios';
 import SummaryApi from '../common/SummaryApi';
 import { DisplayPriceInRupees } from '../utils/DisplayPriceInRupees';
+import noCart from '../assets/noCart.jpg'; // Import fallback image
 
 const RefundManagement = () => {
     const [refunds, setRefunds] = useState([]);
@@ -23,15 +24,47 @@ const RefundManagement = () => {
     const fetchRefunds = async (page = 1) => {
         setLoading(true);
         try {
+            const token = localStorage.getItem('accessToken');
+            if (!token) {
+                toast.error("Authentication token missing. Please log in again.");
+                setLoading(false);
+                return;
+            }
+
             const response = await Axios({
                 ...SummaryApi.getAllRefunds,
-                url: `${SummaryApi.getAllRefunds.url}?page=${page}&limit=10&status=${filterStatus}`
+                url: `${SummaryApi.getAllRefunds.url}?page=${page}&limit=10&status=${filterStatus}`,
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Accept': 'application/json'
+                }
             });
 
             if (response.data.success) {
+                console.log("Full response data:", response.data);
                 setRefunds(response.data.data.refunds);
                 setCurrentPage(response.data.data.currentPage);
                 setTotalPages(response.data.data.totalPages);
+                
+                // Log detailed information about the first refund for debugging
+                if (response.data.data.refunds && response.data.data.refunds.length > 0) {
+                    const firstRefund = response.data.data.refunds[0];
+                    console.log("Sample refund data:", firstRefund);
+                    console.log("Order data:", firstRefund?.orderId);
+                    
+                    // Log product/bundle data if available
+                    if (firstRefund?.orderId?.items && firstRefund.orderId.items.length > 0) {
+                        console.log("First order item:", firstRefund.orderId.items[0]);
+                        const firstItem = firstRefund.orderId.items[0];
+                        if (firstItem.itemType === 'product') {
+                            console.log("Product data:", firstItem.productId);
+                            console.log("Product details:", firstItem.productDetails);
+                        } else {
+                            console.log("Bundle data:", firstItem.bundleId);
+                            console.log("Bundle details:", firstItem.bundleDetails);
+                        }
+                    }
+                }
             } else {
                 toast.error("Failed to fetch refunds");
             }
@@ -79,6 +112,83 @@ const RefundManagement = () => {
                 return 'text-gray-600 bg-gray-100';
         }
     };
+    
+    // Get image source with proper fallbacks
+    const getImageSource = (item) => {
+        if (!item) return noCart;
+        
+        // Initialize with fallback
+        let imageSrc = noCart;
+        
+        try {
+            // Log for debugging
+            console.log("Getting image for item:", item);
+            
+            if (item.itemType === 'bundle') {
+                // First check if bundleId is an object with images
+                if (item.bundleId && typeof item.bundleId === 'object') {
+                    console.log("Bundle ID is object:", item.bundleId);
+                    if (item.bundleId.images && item.bundleId.images.length > 0) {
+                        imageSrc = item.bundleId.images[0];
+                    } else if (item.bundleId.image) {
+                        // Handle both string and array cases for image
+                        imageSrc = Array.isArray(item.bundleId.image) ? item.bundleId.image[0] : item.bundleId.image;
+                    }
+                }
+                // Then try bundleDetails
+                else if (item.bundleDetails) {
+                    console.log("Using bundle details:", item.bundleDetails);
+                    if (Array.isArray(item.bundleDetails.images)) {
+                        imageSrc = item.bundleDetails.images[0] || noCart;
+                    } else if (Array.isArray(item.bundleDetails.image)) {
+                        imageSrc = item.bundleDetails.image[0] || noCart;
+                    } else {
+                        imageSrc = item.bundleDetails.image || noCart;
+                    }
+                }
+                // Try directly from item (some responses might have it flattened)
+                else if (item.images && item.images.length > 0) {
+                    imageSrc = item.images[0];
+                } else if (item.image) {
+                    imageSrc = Array.isArray(item.image) ? item.image[0] : item.image;
+                }
+            } else {
+                // For products, check if productId is an object with images
+                if (item.productId && typeof item.productId === 'object') {
+                    console.log("Product ID is object:", item.productId);
+                    if (item.productId.images && item.productId.images.length > 0) {
+                        imageSrc = item.productId.images[0];
+                    } else if (item.productId.image) {
+                        // Handle both string and array cases for image
+                        imageSrc = Array.isArray(item.productId.image) ? item.productId.image[0] : item.productId.image;
+                    }
+                }
+                // Then try productDetails
+                else if (item.productDetails) {
+                    console.log("Using product details:", item.productDetails);
+                    if (Array.isArray(item.productDetails.images)) {
+                        imageSrc = item.productDetails.images[0] || noCart;
+                    } else if (Array.isArray(item.productDetails.image)) {
+                        imageSrc = item.productDetails.image[0] || noCart;
+                    } else {
+                        imageSrc = item.productDetails.image || noCart;
+                    }
+                }
+                // Try directly from item (some responses might have it flattened)
+                else if (item.images && item.images.length > 0) {
+                    imageSrc = item.images[0];
+                } else if (item.image) {
+                    imageSrc = Array.isArray(item.image) ? item.image[0] : item.image;
+                }
+            }
+        } catch (error) {
+            console.error("Error getting image source:", error);
+            return noCart;
+        }
+        
+        // Final fallback check
+        return imageSrc || noCart;
+    };
 
     // Handle pagination
     const handlePageChange = (newPage) => {
@@ -95,8 +205,19 @@ const RefundManagement = () => {
         setProcessingRefundId(selectedRefund._id);
         
         try {
+            const token = localStorage.getItem('accessToken');
+            if (!token) {
+                toast.error("Authentication token missing. Please log in again.");
+                setProcessingRefundId(null);
+                return;
+            }
+            
             const response = await Axios({
                 ...SummaryApi.completeRefund,
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Accept': 'application/json'
+                },
                 data: {
                     requestId: selectedRefund._id,
                     transactionId: transactionId || `REF-${Date.now()}`,
@@ -126,10 +247,16 @@ const RefundManagement = () => {
     const RefundDetailsModal = ({ refund, onClose }) => {
         if (!refund) return null;
 
+        // Debug the refund structure
+        console.log("RefundDetailsModal received refund:", refund);
+
         const order = refund.orderId || {};
         const user = refund.userId || {};
         const refundDetails = refund.refundDetails || {};
         const adminResponse = refund.adminResponse || {};
+        
+        console.log("Order details:", order);
+        console.log("Order items:", order.items);
 
         return (
             <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
@@ -196,6 +323,110 @@ const RefundManagement = () => {
 
                                 {adminResponse.adminComments && (
                                     <p><span className="font-medium">Admin Comments:</span> {adminResponse.adminComments}</p>
+                                )}
+                            </div>
+                            
+                            {/* Products Details */}
+                            <div className="bg-gray-50 p-4 rounded-lg md:col-span-2">
+                                <h3 className="font-semibold text-lg mb-3">Product Details</h3>
+                                {order.items && Array.isArray(order.items) && order.items.length > 0 ? (
+                                    <div className="grid grid-cols-1 gap-4 mt-2">
+                                        {order.items.map((item, index) => {
+                                            // Debug: Log item structure to console
+                                            console.log(`Item ${index}:`, item);
+                                            
+                                            // Get item name with enhanced fallback logic
+                                            let itemName = 'Product';
+                                            if (item.itemType === 'bundle') {
+                                                // Check all possible places where bundle name could be stored
+                                                if (item.bundleId && typeof item.bundleId === 'object') {
+                                                    itemName = item.bundleId.title || item.bundleId.name || 'Bundle';
+                                                } else if (item.bundleDetails) {
+                                                    itemName = item.bundleDetails.title || item.bundleDetails.name || 'Bundle';
+                                                } else if (item.title) {
+                                                    itemName = item.title;
+                                                } else if (item.name) {
+                                                    itemName = item.name;
+                                                }
+                                            } else {
+                                                // Check all possible places where product name could be stored
+                                                if (item.productId && typeof item.productId === 'object') {
+                                                    itemName = item.productId.name || item.productId.title || 'Product';
+                                                } else if (item.productDetails) {
+                                                    itemName = item.productDetails.name || item.productDetails.title || 'Product';
+                                                } else if (item.name) {
+                                                    itemName = item.name;
+                                                } else if (item.title) {
+                                                    itemName = item.title;
+                                                }
+                                            }
+                                            
+                                            // Get item price with enhanced fallback logic
+                                            let itemPrice = 0;
+                                            if (item.itemType === 'bundle') {
+                                                // Check all possible places where bundle price could be stored
+                                                if (item.bundleId && typeof item.bundleId === 'object') {
+                                                    itemPrice = item.bundleId.bundlePrice || item.bundleId.price || 0;
+                                                } else if (item.bundleDetails) {
+                                                    itemPrice = item.bundleDetails.bundlePrice || item.bundleDetails.price || 0;
+                                                } else if (item.bundlePrice) {
+                                                    itemPrice = item.bundlePrice;
+                                                } else if (item.price) {
+                                                    itemPrice = item.price;
+                                                }
+                                            } else {
+                                                // Check all possible places where product price could be stored
+                                                if (item.productId && typeof item.productId === 'object') {
+                                                    itemPrice = item.productId.price || 0;
+                                                } else if (item.productDetails) {
+                                                    itemPrice = item.productDetails.price || 0;
+                                                } else if (item.price) {
+                                                    itemPrice = item.price;
+                                                }
+                                            }
+                                            
+                                            console.log(`Extracted name: ${itemName}, price: ${itemPrice}`);
+                                            
+                                            return (
+                                                <div key={index} className="border border-gray-200 rounded-lg p-3 flex items-center bg-white">
+                                                    <div className="flex-shrink-0 w-16 h-16 mr-4">
+                                                        <img 
+                                                            src={getImageSource(item)}
+                                                            alt={itemName}
+                                                            className="w-full h-full object-cover rounded"
+                                                            onError={(e) => {
+                                                                console.log("Image error, falling back to noCart");
+                                                                e.target.onerror = null; 
+                                                                e.target.src = noCart;
+                                                            }}
+                                                        />
+                                                    </div>
+                                                    <div className="flex-grow">
+                                                        <h4 className="font-medium">
+                                                            {itemName}
+                                                        </h4>
+                                                        <div className="text-sm text-gray-600 mt-1">
+                                                            <span>Quantity: {item.quantity || 1}</span>
+                                                            <span className="mx-2">•</span>
+                                                            <span>Price: {DisplayPriceInRupees(itemPrice)}</span>
+                                                        </div>
+                                                        <div className="text-sm font-medium mt-1">
+                                                            Subtotal: {DisplayPriceInRupees(item.itemTotal || (itemPrice * (item.quantity || 1)))}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                ) : (
+                                    <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                                        <p className="text-yellow-700 font-medium">No product details available</p>
+                                        <p className="text-sm text-yellow-600 mt-1">
+                                            {!order.items ? "Order items array is missing" : 
+                                            !Array.isArray(order.items) ? "Order items is not an array" : 
+                                            "Order items array is empty"}
+                                        </p>
+                                    </div>
                                 )}
                             </div>
                         </div>

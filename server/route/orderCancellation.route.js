@@ -7,7 +7,9 @@ import {
     getCancellationPolicy,
     updateCancellationPolicy,
     completeRefund,
-    getAllRefunds
+    getAllRefunds,
+    getUserRefunds,
+    getRefundInvoice
 } from '../controllers/orderCancellation.controller.js';
 import { auth } from '../middleware/auth.js';
 import { admin } from '../middleware/Admin.js';
@@ -17,6 +19,8 @@ const orderCancellationRoute = express.Router();
 // User routes
 orderCancellationRoute.post('/request', auth, requestOrderCancellation);
 orderCancellationRoute.get('/user-requests', auth, getUserCancellationRequests);
+orderCancellationRoute.get('/user-refunds', auth, getUserRefunds);
+orderCancellationRoute.get('/invoice/:refundId', auth, getRefundInvoice);
 orderCancellationRoute.get('/policy', getCancellationPolicy); // Public policy access
 
 // Admin routes

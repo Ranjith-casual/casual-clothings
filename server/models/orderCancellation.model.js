@@ -51,7 +51,7 @@ const orderCancellationSchema = mongoose.Schema({
         },
         refundPercentage: {
             type: Number,
-            default: 75 // 7% refund by default
+            default: 75 // 
         }
     },
     refundDetails: {

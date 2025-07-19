@@ -3,6 +3,7 @@ import cancellationPolicyModel from "../models/cancellationPolicy.model.js";
 import orderModel from "../models/order.model.js";
 import UserModel from "../models/users.model.js";
 import sendEmail from "../config/sendEmail.js";
+import fs from 'fs';
 
 // User requests order cancellation
 export const requestOrderCancellation = async (req, res) => {
@@ -76,7 +77,7 @@ export const requestOrderCancellation = async (req, res) => {
 
         // Get current policy for refund calculation
         const policy = await cancellationPolicyModel.findOne({ isActive: true });
-        const refundPercentage = policy?.refundPercentage || 65;
+        const refundPercentage = 75;
 
         // Create cancellation request
         const cancellationRequest = new orderCancellationModel({
@@ -451,36 +452,90 @@ export const completeRefund = async (req, res) => {
         const order = cancellationRequest.orderId;
         await orderModel.findByIdAndUpdate(order._id, {
             orderStatus: 'CANCELLED',
-            paymentStatus: 'REFUND_SUCCESSFUL' // This status will be used to calculate net revenue in payment stats
+            paymentStatus: 'REFUND_SUCCESSFUL', // This status will be used to calculate net revenue in payment stats
+            refundDetails: {
+                refundId: cancellationRequest.refundDetails.refundId,
+                refundAmount: cancellationRequest.adminResponse.refundAmount,
+                refundPercentage: cancellationRequest.adminResponse.refundPercentage,
+                refundDate: new Date(),
+                retainedAmount: order.totalAmt - cancellationRequest.adminResponse.refundAmount // Calculate retained amount
+            }
         });
 
-        // Send email to user
+        // Send email to user with PDF attachment
         const user = cancellationRequest.userId;
         if (user.email) {
-            await sendEmail({
-                sendTo: user.email,
-                subject: "Refund Successful for Your Cancelled Order",
-                html: `
-                    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-                        <h2 style="color: #28a745;">Refund Successful</h2>
-                        <p>Dear ${user.name},</p>
-                        <p>We're pleased to inform you that the refund for your cancelled order <strong>#${order.orderId}</strong> has been successfully processed.</p>
-                        
-                        <div style="background-color: #d4edda; padding: 15px; border-radius: 5px; margin: 20px 0; border-left: 4px solid #28a745;">
-                            <h3>Refund Details:</h3>
-                            <p><strong>Refund Amount:</strong> ₹${cancellationRequest.adminResponse.refundAmount.toFixed(2)}</p>
-                            <p><strong>Refund ID:</strong> ${cancellationRequest.refundDetails.refundId}</p>
-                            <p><strong>Refund Date:</strong> ${new Date().toLocaleDateString()}</p>
-                            <p><strong>Refund Method:</strong> Original payment method</p>
+            try {
+                // Get order details with populated product info
+                const orderDetails = await orderModel.findById(order._id)
+                    .populate('userId', 'name email')
+                    .populate('items.productId', 'name image price')
+                    .populate('items.bundleId', 'title image images bundlePrice')
+                    .populate('deliveryAddress');
+
+                // Prepare data for PDF generation
+                const refundData = {
+                    orderId: order.orderId,
+                    orderNumber: order.orderId,
+                    orderDate: order.orderDate,
+                    refundId: cancellationRequest.refundDetails.refundId,
+                    refundDate: cancellationRequest.refundDetails.refundDate,
+                    refundStatus: 'COMPLETED',
+                    refundReason: cancellationRequest.reason,
+                    refundAmount: cancellationRequest.adminResponse.refundAmount,
+                    userName: user.name,
+                    email: user.email,
+                    paymentMethod: order.paymentMethod,
+                    paymentStatus: 'REFUNDED',
+                    items: orderDetails.items,
+                    user: user
+                };
+
+                // Generate PDF
+                const generateInvoicePdf = (await import('../utils/generateInvoicePdf.js')).default;
+                const pdfPath = await generateInvoicePdf(refundData, 'refund');
+
+                // Send email with PDF attachment
+                await sendEmail({
+                    sendTo: user.email,
+                    subject: `Your Refund has been Processed – [${order.orderId}]`,
+                    html: `
+                        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                            <h2 style="color: #28a745;">Refund Successful</h2>
+                            <p>Dear ${user.name},</p>
+                            <p>We're pleased to inform you that the refund for your cancelled order <strong>#${order.orderId}</strong> has been successfully processed.</p>
+                            
+                            <div style="background-color: #d4edda; padding: 15px; border-radius: 5px; margin: 20px 0; border-left: 4px solid #28a745;">
+                                <h3>Refund Details:</h3>
+                                <p><strong>Refund Amount:</strong> ₹${cancellationRequest.adminResponse.refundAmount.toFixed(2)}</p>
+                                <p><strong>Refund ID:</strong> ${cancellationRequest.refundDetails.refundId}</p>
+                                <p><strong>Refund Date:</strong> ${new Date().toLocaleDateString()}</p>
+                                <p><strong>Refund Method:</strong> Original payment method</p>
+                            </div>
+                            
+                            <p>The refund has been processed to your original payment method. It may take 2-5 business days to reflect in your account, depending on your bank's policies.</p>
+                            
+                            <p>Please find attached a PDF copy of your refund details for your records.</p>
+                            
+                            <p>Thank you for your patience and understanding.</p>
+                            <p>Best regards,<br>casualclothings Team</p>
                         </div>
-                        
-                        <p>The refund has been processed to your original payment method. It may take 2-5 business days to reflect in your account, depending on your bank's policies.</p>
-                        
-                        <p>Thank you for your patience and understanding.</p>
-                        <p>Best regards,<br>casualclothings Team</p>
-                    </div>
-                `
-            });
+                    `,
+                    attachments: [
+                        {
+                            filename: `refund_${order.orderId}.pdf`,
+                            path: pdfPath
+                        }
+                    ]
+                });
+                
+                // Clean up the PDF file after sending
+                fs.promises.unlink(pdfPath).catch(err => console.error('Error deleting temp PDF:', err));
+                
+            } catch (emailError) {
+                console.error('Error sending refund email:', emailError);
+                // Don't throw, as the refund was successful even if the email failed
+            }
         }
 
         res.status(200).json({
@@ -528,11 +583,11 @@ export const getAllRefunds = async (req, res) => {
                 populate: [
                     {
                         path: 'items.productId',
-                        select: 'name title image price'
+                        select: 'name title images image price _id'
                     },
                     {
                         path: 'items.bundleId',
-                        select: 'title name image price'
+                        select: 'title name images image bundlePrice price _id'
                     }
                 ]
             })
@@ -541,6 +596,19 @@ export const getAllRefunds = async (req, res) => {
             .sort({ 'refundDetails.refundDate': -1, 'adminResponse.processedDate': -1 })
             .limit(limit * 1)
             .skip((page - 1) * limit);
+            
+        // Log the first refund's order details to debug
+        if (refunds.length > 0 && refunds[0].orderId) {
+            console.log("First refund order items:", 
+                JSON.stringify(refunds[0].orderId.items.map(item => ({
+                    itemType: item.itemType,
+                    productId: typeof item.productId === 'object' ? item.productId._id : item.productId,
+                    bundleId: typeof item.bundleId === 'object' ? item.bundleId._id : item.bundleId,
+                    productDetails: item.productDetails,
+                    bundleDetails: item.bundleDetails
+                })))
+            );
+        }
 
         const total = await orderCancellationModel.countDocuments(filter);
 
@@ -656,6 +724,104 @@ export const updateCancellationPolicy = async (req, res) => {
             success: false,
             error: true,
             message: "Internal server error"
+        });
+    }
+};
+
+// Get all refunds for a specific user
+export const getUserRefunds = async (req, res) => {
+    try {
+        const userId = req.userId;
+        
+        // Query for all cancellation/refund requests belonging to this user
+        const userRefunds = await orderCancellationModel.find({
+            userId: userId,
+        })
+        .populate({
+            path: 'orderId',
+            populate: {
+                path: 'items.productId items.bundleId',
+                select: 'name title images image'
+            }
+        })
+        .populate('userId', 'name email')
+        .sort({ 
+            requestDate: -1, 
+            'refundDetails.refundDate': -1, 
+            'adminResponse.processedDate': -1 
+        });
+
+        // Return the refunds
+        return res.status(200).json({
+            success: true,
+            error: false,
+            message: "User refunds retrieved successfully",
+            data: userRefunds
+        });
+    } catch (error) {
+        console.error("Error getting user refunds:", error);
+        return res.status(500).json({
+            success: false,
+            error: true,
+            message: "Internal server error while getting user refunds"
+        });
+    }
+};
+
+// Get refund invoice
+export const getRefundInvoice = async (req, res) => {
+    try {
+        const userId = req.userId;
+        const refundId = req.params.refundId;
+        
+        if (!refundId) {
+            return res.status(400).json({
+                success: false,
+                error: true,
+                message: "Refund ID is required"
+            });
+        }
+        
+        // Find the refund record
+        const refund = await orderCancellationModel.findOne({
+            userId: userId,
+            'refundDetails.refundId': refundId,
+            status: 'APPROVED',
+            'refundDetails.refundStatus': 'COMPLETED'
+        }).populate('orderId').populate('userId');
+        
+        if (!refund) {
+            return res.status(404).json({
+                success: false,
+                error: true,
+                message: "Refund not found or not authorized to access"
+            });
+        }
+        
+        // Check if invoice file exists
+        const invoicePath = `./invoices/refund-${refundId}.pdf`;
+        
+        if (!fs.existsSync(invoicePath)) {
+            return res.status(404).json({
+                success: false,
+                error: true,
+                message: "Invoice file not found"
+            });
+        }
+        
+        // Send the file
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', `attachment; filename=refund-invoice-${refundId}.pdf`);
+        
+        const fileStream = fs.createReadStream(invoicePath);
+        fileStream.pipe(res);
+        
+    } catch (error) {
+        console.error("Error getting refund invoice:", error);
+        return res.status(500).json({
+            success: false,
+            error: true,
+            message: "Internal server error while getting refund invoice"
         });
     }
 };

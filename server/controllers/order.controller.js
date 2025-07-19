@@ -5,6 +5,7 @@ import CartProductModel from "../models/cartProduct.model.js";
 import ProductModel from "../models/product.model.js";
 import BundleModel from "../models/bundles.js"; // Add bundle model import
 import sendEmail from "../config/sendEmail.js";
+import fs from 'fs';
 
 export const onlinePaymentOrderController = async (req, res) => {
   try {
@@ -807,33 +808,113 @@ export const updateOrderStatusController = async (req, res) => {
                     
                     const statusText = statusMap[orderStatus] || orderStatus.toLowerCase();
                     
-                    await sendEmail({
-                        sendTo: user.email,
-                        subject: `Order Status Update - ${orderStatus} - Casual Clothing Fashion`,
-                        html: `
-                          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 5px;">
-                            <h2 style="color: #333; border-bottom: 1px solid #eee; padding-bottom: 10px;">Order Status Update</h2>
-                            <p>Dear ${user.name},</p>
-                            <p>Your order with ID: <strong>${orderId}</strong> has been updated.</p>
+                    // If order is delivered, send detailed invoice PDF
+                    if (orderStatus === "DELIVERED") {
+                        try {
+                            // Import the PDF generation utility
+                            const { generateInvoicePdf } = await import('../utils/generateInvoicePdf.js');
                             
-                            <div style="background-color: #f5f5f5; padding: 15px; border-radius: 5px; margin: 20px 0; border-left: 4px solid #4caf50;">
-                              <h3 style="margin-top: 0; color: #333;">New Status: ${orderStatus}</h3>
-                              <p>Your order is now being ${statusText}.</p>
-                              ${orderStatus === "CANCELLED" ? `
-                                <p style="color: #d32f2f;"><strong>Stock Restored:</strong></p>
-                                ${order.items.map(item => `
-                                  <p style="color: #d32f2f; margin-left: 20px;">• ${item.productDetails.name}: ${item.quantity} units restored</p>
-                                `).join('')}
-                              ` : ''}
-                            </div>
+                            // Generate PDF
+                            const pdfPath = await generateInvoicePdf(updatedOrder, 'delivery');
                             
-                            <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee; color: #777; font-size: 12px;">
-                              <p>Thank you for shopping with Casual Clothing Fashion!</p>
-                              <p>This is an automated email. Please do not reply to this message.</p>
-                            </div>
-                          </div>
-                        `
-                    });
+                            // Send detailed delivery email with PDF attachment
+                            await sendEmail({
+                                sendTo: user.email,
+                                subject: `Your Order has been Delivered – [${orderId}]`,
+                                html: `
+                                  <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 5px;">
+                                    <h2 style="color: #28a745; border-bottom: 1px solid #eee; padding-bottom: 10px;">Order Delivered Successfully</h2>
+                                    <p>Dear ${user.name},</p>
+                                    <p>Great news! Your order with ID: <strong>${orderId}</strong> has been delivered.</p>
+                                    
+                                    <div style="background-color: #d4edda; padding: 15px; border-radius: 5px; margin: 20px 0; border-left: 4px solid #28a745;">
+                                      <h3 style="margin-top: 0; color: #333;">Delivery Confirmation</h3>
+                                      <p><strong>Order Date:</strong> ${new Date(order.orderDate).toLocaleDateString()}</p>
+                                      <p><strong>Delivery Date:</strong> ${new Date().toLocaleDateString()}</p>
+                                      <p><strong>Total Amount:</strong> ₹${order.totalAmt.toFixed(2)}</p>
+                                    </div>
+                                    
+                                    <p>We've attached your delivery invoice to this email for your records. Please keep it safe for any future reference.</p>
+                                    
+                                    <p>If you have any questions or need any assistance with your order, please don't hesitate to contact our customer support team.</p>
+                                    
+                                    <p>We hope you enjoy your purchase!</p>
+                                    
+                                    <p>Thank you for shopping with us.</p>
+                                    <p>Best regards,<br>casualclothings Team</p>
+                                    
+                                    <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee; color: #777; font-size: 12px;">
+                                      <p>Thank you for shopping with Casual Clothing Fashion!</p>
+                                      <p>This is an automated email. Please do not reply to this message.</p>
+                                    </div>
+                                  </div>
+                                `,
+                                attachments: [
+                                    {
+                                        filename: `delivery_invoice_${orderId}.pdf`,
+                                        path: pdfPath
+                                    }
+                                ]
+                            });
+                            
+                            // Clean up the PDF file after sending
+                            fs.promises.unlink(pdfPath).catch(err => console.error('Error deleting temp PDF:', err));
+                        } catch (pdfError) {
+                            console.error('Error generating/sending delivery PDF:', pdfError);
+                            
+                            // Fallback to regular email if PDF generation fails
+                            await sendEmail({
+                                sendTo: user.email,
+                                subject: `Order Status Update - ${orderStatus} - Casual Clothing Fashion`,
+                                html: `
+                                  <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 5px;">
+                                    <h2 style="color: #333; border-bottom: 1px solid #eee; padding-bottom: 10px;">Order Status Update</h2>
+                                    <p>Dear ${user.name},</p>
+                                    <p>Your order with ID: <strong>${orderId}</strong> has been updated.</p>
+                                    
+                                    <div style="background-color: #f5f5f5; padding: 15px; border-radius: 5px; margin: 20px 0; border-left: 4px solid #4caf50;">
+                                      <h3 style="margin-top: 0; color: #333;">New Status: ${orderStatus}</h3>
+                                      <p>Your order is now being ${statusText}.</p>
+                                    </div>
+                                    
+                                    <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee; color: #777; font-size: 12px;">
+                                      <p>Thank you for shopping with Casual Clothing Fashion!</p>
+                                      <p>This is an automated email. Please do not reply to this message.</p>
+                                    </div>
+                                  </div>
+                                `
+                            });
+                        }
+                    } else {
+                        // Regular status update email for non-delivery statuses
+                        await sendEmail({
+                            sendTo: user.email,
+                            subject: `Order Status Update - ${orderStatus} - Casual Clothing Fashion`,
+                            html: `
+                              <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 5px;">
+                                <h2 style="color: #333; border-bottom: 1px solid #eee; padding-bottom: 10px;">Order Status Update</h2>
+                                <p>Dear ${user.name},</p>
+                                <p>Your order with ID: <strong>${orderId}</strong> has been updated.</p>
+                                
+                                <div style="background-color: #f5f5f5; padding: 15px; border-radius: 5px; margin: 20px 0; border-left: 4px solid #4caf50;">
+                                  <h3 style="margin-top: 0; color: #333;">New Status: ${orderStatus}</h3>
+                                  <p>Your order is now being ${statusText}.</p>
+                                  ${orderStatus === "CANCELLED" ? `
+                                    <p style="color: #d32f2f;"><strong>Stock Restored:</strong></p>
+                                    ${order.items.map(item => `
+                                      <p style="color: #d32f2f; margin-left: 20px;">• ${item.productDetails?.name || 'Product'}: ${item.quantity} units restored</p>
+                                    `).join('')}
+                                  ` : ''}
+                                </div>
+                                
+                                <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee; color: #777; font-size: 12px;">
+                                  <p>Thank you for shopping with Casual Clothing Fashion!</p>
+                                  <p>This is an automated email. Please do not reply to this message.</p>
+                                </div>
+                              </div>
+                            `
+                        });
+                    }
                 } catch (emailError) {
                     console.error("Status update email sending failed:", emailError);
                 }

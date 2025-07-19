@@ -87,6 +87,23 @@ const orderSchema = mongoose.Schema({
         type: Number,
         default: 0
     },
+    refundDetails: {
+        refundId: {
+            type: String
+        },
+        refundAmount: {
+            type: Number
+        },
+        refundPercentage: {
+            type: Number
+        },
+        refundDate: {
+            type: Date
+        },
+        retainedAmount: {
+            type: Number
+        }
+    }
 }, {
     timestamps: true
 });

@@ -1,8 +1,61 @@
 import React from 'react'
 import { FaTimes, FaFileInvoice, FaCalendarAlt, FaUser, FaMapMarkerAlt, FaPhone } from 'react-icons/fa'
 
-function InvoiceModal({ payment, onClose }) {
-    if (!payment) return null
+function InvoiceModal({ payment: originalPayment, onClose }) {
+    if (!originalPayment) return null
+    
+    // Create a copy of payment and ensure refundDetails exists
+    const payment = {
+        ...originalPayment,
+        refundDetails: originalPayment.refundDetails || {}
+    };
+    
+    // Calculate refund and retained amounts if not already set
+    console.log('Original payment data:', originalPayment);
+    console.log('Original refund details:', originalPayment.refundDetails);
+    
+    if (payment.paymentStatus && (
+        payment.paymentStatus.includes('REFUND') || 
+        payment.paymentStatus === 'REFUND_SUCCESSFUL' || 
+        payment.paymentStatus.toLowerCase().includes('refund')
+    )) {
+        // Ensure refundDetails exists
+        if (!payment.refundDetails) {
+            payment.refundDetails = {};
+        }
+        
+        console.log('Before calculation - refundDetails:', payment.refundDetails);
+        
+        // If we have a refund percentage but no refund amount, calculate it
+        if (typeof payment.refundDetails.refundPercentage !== 'undefined' && !payment.refundDetails.refundAmount) {
+            const percentage = parseFloat(payment.refundDetails.refundPercentage) || 0;
+            payment.refundDetails.refundAmount = (payment.totalAmt || 0) * (percentage / 100);
+        }
+        
+        // If we have refund amount but no percentage, calculate it
+        if (payment.refundDetails.refundAmount && typeof payment.refundDetails.refundPercentage === 'undefined') {
+            payment.refundDetails.refundPercentage = ((payment.refundDetails.refundAmount / (payment.totalAmt || 1)) * 100).toFixed(0);
+        }
+        
+        // Calculate retained amount if not set
+        if (!payment.refundDetails.retainedAmount) {
+            payment.refundDetails.retainedAmount = (payment.totalAmt || 0) - (payment.refundDetails.refundAmount || 0);
+        }
+        
+        // Default to 75% refund if no percentage is set
+        if (typeof payment.refundDetails.refundPercentage === 'undefined' || payment.refundDetails.refundPercentage === null) {
+            payment.refundDetails.refundPercentage = 75;
+            payment.refundDetails.refundAmount = (payment.totalAmt || 0) * 0.75;
+            payment.refundDetails.retainedAmount = (payment.totalAmt || 0) * 0.25;
+        }
+        
+        console.log('After calculation - refundDetails:', payment.refundDetails);
+    }
+    
+    // Debug: Check payment object structure
+    console.log('Payment object in InvoiceModal:', payment);
+    console.log('Payment status:', payment.paymentStatus);
+    console.log('Refund details (after calculation):', payment.refundDetails);
 
     const formatCurrency = (amount) => {
         return new Intl.NumberFormat('en-IN', {
@@ -131,6 +184,134 @@ function InvoiceModal({ payment, onClose }) {
                             </div>
                         </div>
                     </div>
+                    
+                    {/* Debug payment status */}
+                    {console.log('Payment status check:', payment.paymentStatus, 
+                       'REFUND_SUCCESSFUL check:', payment.paymentStatus === 'REFUND_SUCCESSFUL', 
+                       'includes REFUND check:', payment.paymentStatus && payment.paymentStatus.includes('REFUND'))}
+                    
+                    {/* Refund Information - Show only if the order was refunded */}
+                    {payment.paymentStatus && (
+                        payment.paymentStatus.includes('REFUND') || 
+                        payment.paymentStatus === 'REFUND_SUCCESSFUL' || 
+                        payment.paymentStatus.toLowerCase().includes('refund')
+                    ) && (
+                        <div className="mb-8">
+                            <h3 className="text-lg font-semibold text-gray-900 mb-3 flex items-center">
+                                <FaCalendarAlt className="mr-2 text-red-600" />
+                                Refund Information
+                            </h3>
+                            <div className="bg-red-50 p-4 rounded-lg border border-red-100">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div className="col-span-1 md:col-span-2">
+                                        <div className="flex flex-wrap items-center mb-2">
+                                            <span className="bg-red-100 text-red-800 px-3 py-1 rounded-full text-sm font-medium mr-2">
+                                                REFUNDED
+                                            </span>
+                                            <span className="text-sm text-gray-600">
+                                                {payment.refundDetails && payment.refundDetails.refundDate ? 
+                                                  `Processed on ${new Date(payment.refundDetails.refundDate).toLocaleDateString('en-IN')}` : 
+                                                  'Processing date not available'}
+                                            </span>
+                                        </div>
+                                        
+                                        <div className="bg-white p-3 rounded-lg mt-2 text-sm">
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-2">
+                                                <div>
+                                                    <p className="font-medium text-gray-700">Order Date:</p>
+                                                    <p>{new Date(payment.orderDate).toLocaleDateString('en-IN')}</p>
+                                                </div>
+                                                
+                                                {payment.refundDetails && payment.refundDetails.requestDate && (
+                                                    <div>
+                                                        <p className="font-medium text-gray-700">Cancellation Request Date:</p>
+                                                        <p>{new Date(payment.refundDetails.requestDate).toLocaleDateString('en-IN')}</p>
+                                                    </div>
+                                                )}
+                                                
+                                                {payment.refundDetails && payment.refundDetails.approvalDate && (
+                                                    <div>
+                                                        <p className="font-medium text-gray-700">Admin Approval Date:</p>
+                                                        <p>{new Date(payment.refundDetails.approvalDate).toLocaleDateString('en-IN')}</p>
+                                                    </div>
+                                                )}
+                                                
+                                                {payment.refundDetails && payment.refundDetails.refundDate && (
+                                                    <div>
+                                                        <p className="font-medium text-gray-700">Refund Completed Date:</p>
+                                                        <p>{new Date(payment.refundDetails.refundDate).toLocaleDateString('en-IN')}</p>
+                                                    </div>
+                                                )}
+                                                
+                                                {payment.refundDetails && payment.refundDetails.reason && (
+                                                    <div className="col-span-1 md:col-span-2">
+                                                        <p className="font-medium text-gray-700">Reason for Cancellation:</p>
+                                                        <p>{payment.refundDetails.reason}</p>
+                                                    </div>
+                                                )}
+                                                
+                                                {payment.refundDetails && payment.refundDetails.adminComments && (
+                                                    <div className="col-span-1 md:col-span-2">
+                                                        <p className="font-medium text-gray-700">Admin Comments:</p>
+                                                        <p>{payment.refundDetails.adminComments}</p>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div>
+                                        <p className="text-sm text-gray-600">Refund ID</p>
+                                        <p className="font-semibold">{payment.refundDetails?.refundId || 'N/A'}</p>
+                                    </div>
+                                    
+                                    <div>
+                                        <p className="text-sm text-gray-600">Refund Date</p>
+                                        <p className="font-semibold">
+                                            {payment.refundDetails?.refundDate ? 
+                                                new Date(payment.refundDetails.refundDate).toLocaleDateString('en-IN') : 'N/A'}
+                                        </p>
+                                    </div>
+                                    
+                                    <div>
+                                        <p className="text-sm text-gray-600">Refund Percentage</p>
+                                        <p className="font-semibold">{parseFloat(payment.refundDetails?.refundPercentage || 0).toFixed(0)}%</p>
+                                    </div>
+                                    
+                                    <div>
+                                        <p className="text-sm text-gray-600">Refund Method</p>
+                                        <p className="font-semibold">Original Payment Method</p>
+                                    </div>
+                                    
+                                    <div className="bg-white p-3 rounded-lg border border-red-100 col-span-1 md:col-span-2">
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                            <div>
+                                                <p className="text-xs text-gray-500">ORIGINAL ORDER AMOUNT</p>
+                                                <p className="text-xl font-bold text-gray-900">{formatCurrency(payment.totalAmt || 0)}</p>
+                                            </div>
+                                            <div>
+                                                <p className="text-xs text-gray-500">
+                                                    REFUNDED AMOUNT ({parseFloat(payment.refundDetails?.refundPercentage || 0).toFixed(0)}%)
+                                                </p>
+                                                <p className="text-xl font-bold text-red-600">
+                                                    {formatCurrency(payment.refundDetails?.refundAmount || 0)}
+                                                </p>
+                                            </div>
+                                            <div>
+                                                <p className="text-xs text-gray-500">
+                                                    RETAINED AMOUNT ({(100 - parseFloat(payment.refundDetails?.refundPercentage || 0)).toFixed(0)}%)
+                                                </p>
+                                                <p className="text-xl font-bold text-green-600">
+                                                    {formatCurrency(payment.refundDetails?.retainedAmount || 
+                                                        (payment.totalAmt - (payment.refundDetails?.refundAmount || 0)))}
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
 
                     {/* Order Items */}
                     <div className="mb-8">

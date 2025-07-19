@@ -21,7 +21,8 @@ function PaymentStatsCards() {
         failedPayments: 0,
         codOrders: 0,
         onlinePayments: 0,
-        refundedAmount: 0,
+        refundedAmount: 0, // Actual refunded amount
+        retainedAmount: 0, // Amount retained from partial refunds
         pendingPayments: 0
     })
     const [loading, setLoading] = useState(true)
@@ -65,7 +66,7 @@ function PaymentStatsCards() {
             borderColor: 'border-green-200',
             trend: '+12.5%',
             trendUp: true,
-            subtitle: 'After refunds'
+            subtitle: 'After refunds + retained'
         },
         {
             title: 'Gross Revenue',
@@ -87,7 +88,18 @@ function PaymentStatsCards() {
             borderColor: 'border-red-200',
             trend: '+2.8%',
             trendUp: false,
-            subtitle: 'Total refunds'
+            subtitle: 'Actual refunds'
+        },
+        {
+            title: 'Retained Amount',
+            value: formatCurrency(stats.retainedAmount),
+            icon: <FaMoneyBillWave className="text-teal-600" />,
+            bgColor: 'bg-teal-50',
+            textColor: 'text-teal-800',
+            borderColor: 'border-teal-200',
+            trend: '+1.4%',
+            trendUp: true,
+            subtitle: 'From partial refunds'
         },
         {
             title: 'Total Payments',

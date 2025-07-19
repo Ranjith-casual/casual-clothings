@@ -298,6 +298,10 @@ const SummaryApi = {
         url: '/api/order-cancellation/admin/refunds',
         method: 'get'
     },
+    getUserRefunds: {
+        url: '/api/order-cancellation/user-refunds',
+        method: 'get'
+    },
     completeRefund: {
         url: '/api/order-cancellation/admin/refund/complete',
         method: 'put'

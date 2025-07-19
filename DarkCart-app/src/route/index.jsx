@@ -20,6 +20,7 @@ import UserMenuMobile from "../pages/UserMenuMobile";
 import Dashboard from "../layout/Dashboard";
 import Profile from "../pages/Profile";
 import MyOrders from "../pages/MyOrders";
+import MyRefunds from "../pages/MyRefunds";
 import Address from "../pages/Address";
 import WishlistPage from "../pages/WishlistPage";
 import CategoryPage from "../pages/CategoryPage";
@@ -126,6 +127,9 @@ const router = createBrowserRouter([
                 },{
                     path:"myorders",
                     element:<MyOrders/>
+                },{
+                    path:"myrefunds",
+                    element:<MyRefunds/>
                 },{
                     path:"address",
                     element:<Address/>
