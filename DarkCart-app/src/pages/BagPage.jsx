@@ -568,38 +568,38 @@ const BagPage = () => {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header Section with stepper */}
-      <div className="bg-black shadow-sm border-b text-white">
-        <div className="container mx-auto px-4 py-3">
+      <div className="bg-black shadow-md border-b text-white">
+        <div className="container mx-auto px-4 sm:px-6 py-3 sm:py-4">
           <div className="flex items-center justify-between">
-            <div className="w-24">
+            <div className="w-20 sm:w-24">
               <Link to="/">
-                <img src={Logo} alt="casualclothings Logo" className="h-10" />
+                <img src={Logo} alt="casualclothings Logo" className="h-8 sm:h-10" />
               </Link>
             </div>
-            <div className="flex items-center space-x-2">
-              <div className="text-xs uppercase tracking-wide text-teal-400 font-medium">BAG</div>
-              <div className="w-8 h-px bg-gray-600"></div>
-              <div className="text-xs uppercase tracking-wide text-gray-300">
-                <span className="cursor-pointer hover:text-white">ADDRESS</span>
+            <div className="flex items-center space-x-2 sm:space-x-3">
+              <div className="text-2xs sm:text-xs uppercase tracking-widest font-medium text-white">BAG</div>
+              <div className="w-4 sm:w-8 h-px bg-gray-600"></div>
+              <div className="text-2xs sm:text-xs uppercase tracking-widest font-medium text-gray-300">
+                <span className="cursor-pointer hover:text-white transition-colors">ADDRESS</span>
               </div>
-              <div className="w-8 h-px bg-gray-600"></div>
-              <div className="text-xs uppercase tracking-wide text-gray-300">
+              <div className="w-4 sm:w-8 h-px bg-gray-600"></div>
+              <div className="text-2xs sm:text-xs uppercase tracking-widest font-medium text-gray-300">
                 <span className="cursor-not-allowed">PAYMENT</span>
               </div>
             </div>
-            <div className="w-24">
+            <div className="w-20 sm:w-24">
               {/* Placeholder to balance the layout */}
             </div>
           </div>
         </div>
       </div>
 
-      <div className="container mx-auto px-4 py-6">
+      <div className="container mx-auto px-4 sm:px-6 py-6 sm:py-8">
         {cartItemsList.length === 0 ? (
-          <div className="bg-white rounded shadow p-8 text-center">
-            <div className="text-xl font-medium mb-4">Your bag is empty</div>
-            <p className="text-gray-600 mb-6">Looks like you haven't added anything to your bag yet.</p>
-            <Link to="/" className="inline-block bg-black text-white px-6 py-3 rounded hover:bg-gray-800 transition-colors">
+          <div className="bg-white rounded-lg shadow-md p-6 sm:p-8 text-center">
+            <div className="text-lg sm:text-xl font-medium tracking-tight mb-4">Your bag is empty</div>
+            <p className="text-gray-600 mb-6 text-sm sm:text-base">Looks like you haven't added anything to your bag yet.</p>
+            <Link to="/" className="inline-block bg-black text-white px-5 sm:px-6 py-2.5 sm:py-3 rounded-md hover:bg-gray-800 transition-colors text-sm sm:text-base font-medium tracking-wide">
               Continue Shopping
             </Link>
           </div>
@@ -630,7 +630,7 @@ const BagPage = () => {
                   </div>
                 </div>
                 
-                <div className="p-4">
+                <div className="p-4 sm:p-5">
                   {/* Debug button to check cart structure */}
                   {import.meta.env.DEV && (
                     <button 
@@ -652,7 +652,7 @@ const BagPage = () => {
                         }
                         toast.success("Cart structure logged to console for debugging");
                       }}
-                      className="mb-4 text-xs px-2 py-1 bg-gray-200 text-gray-700 rounded"
+                      className="mb-4 text-xs px-2 py-1 bg-gray-200 text-gray-700 rounded-md"
                     >
                       Debug Cart Structure
                     </button>
@@ -684,7 +684,7 @@ const BagPage = () => {
                     const brand = getProductProperty(item, 'brand', '');
                     
                     return (
-                      <div key={`bag-item-${itemId}-${index}`} className={`flex border-b last:border-b-0 py-4 ${isSelected ? 'bg-blue-50' : ''} ${!isItemAvailable(item) ? 'opacity-75' : ''}`}>
+                      <div key={`bag-item-${itemId}-${index}`} className={`flex border-b last:border-b-0 py-5 ${isSelected ? 'bg-gray-50' : ''} ${!isItemAvailable(item) ? 'opacity-75' : ''}`}>
                         <div className="flex flex-col sm:flex-row items-start w-full">
                           {/* Checkbox and Product Image */}
                           <div className="flex items-start">
@@ -695,14 +695,14 @@ const BagPage = () => {
                                   checked={isSelected}
                                   onChange={() => handleItemSelection(item._id)}
                                   disabled={!isItemAvailable(item)}
-                                  className={`h-5 w-5 border-gray-300 rounded ${isItemAvailable(item) ? 'text-red-500 focus:ring-red-500' : 'text-gray-300 cursor-not-allowed'}`}
+                                  className={`h-5 w-5 border-gray-300 rounded ${isItemAvailable(item) ? 'text-black focus:ring-black' : 'text-gray-300 cursor-not-allowed'}`}
                                 />
                                 {!isItemAvailable(item) && (
                                   <div className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full"></div>
                                 )}
                               </div>
                             )}
-                            <div className="w-20 h-24 flex-shrink-0">
+                            <div className="w-20 h-24 sm:w-24 sm:h-28 flex-shrink-0">
                               <img 
                                 src={imageSrc} 
                                 alt={pricing.productTitle}
@@ -716,14 +716,14 @@ const BagPage = () => {
                           </div>
                           
                           {/* Product Details */}
-                          <div className="ml-8 flex-1 mt-4 sm:mt-0">
+                          <div className="ml-4 sm:ml-8 flex-1 mt-4 sm:mt-0">
                             {brand && (
-                              <div className="text-gray-700 font-medium">{brand}</div>
+                              <div className="text-gray-600 font-medium text-sm">{brand}</div>
                             )}
-                            <h3 className="font-medium text-lg">
+                            <h3 className="font-medium text-md sm:text-lg">
                               {pricing.productTitle}
                               {pricing.isBundle && (
-                                <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-200 text-gray-800">
                                   Bundle
                                 </span>
                               )}
@@ -805,7 +805,7 @@ const BagPage = () => {
                             {/* Price Display */}
                             <div className="flex items-center mt-3">
                               <div className="text-md">
-                                <span className="font-semibold text-lg">
+                                <span className="font-semibold text-lg text-gray-900">
                                   {pricing.finalPrice > 0 ? DisplayPriceInRupees(pricing.totalPrice) : "Price unavailable"}
                                 </span>
                                 {pricing.originalPrice > pricing.finalPrice && pricing.originalPrice > 0 && (
@@ -814,22 +814,22 @@ const BagPage = () => {
                                   </span>
                                 )}
                                 {pricing.quantity > 1 && (
-                                  <span className="text-xs text-gray-500 ml-1 block">
+                                  <span className="text-xs text-gray-600 ml-1 block">
                                     ({DisplayPriceInRupees(pricing.finalPrice)} each)
                                   </span>
                                 )}
                               </div>
                             </div>
                             
-                            <div className="flex items-center justify-between mt-4">
-                              <div className="flex items-center border rounded-md">
+                            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mt-4 space-y-3 sm:space-y-0">
+                              <div className="flex items-center border border-gray-300 rounded-md">
                                 <button 
                                   onClick={() => handleQuantityChange(item, pricing.quantity, -1)}
-                                  className="px-3 py-1 text-lg font-medium hover:bg-gray-100"
+                                  className="px-3 py-1 text-lg font-medium hover:bg-gray-100 text-gray-800"
                                 >
                                   -
                                 </button>
-                                <div className="px-3 py-1 text-sm font-medium">
+                                <div className="px-3 py-1 text-sm font-medium text-gray-800">
                                   {pricing.quantity}
                                 </div>
                                 <button 
@@ -854,7 +854,7 @@ const BagPage = () => {
                                       }
                                       return stockLimit !== null && pricing.quantity >= stockLimit
                                         ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
-                                        : 'hover:bg-gray-100';
+                                        : 'hover:bg-gray-100 text-gray-800';
                                     })()
                                   }`}
                                 >
@@ -865,13 +865,13 @@ const BagPage = () => {
                               <div className="flex space-x-4">
                                 <button 
                                   onClick={() => moveToWishlist(item)}
-                                  className="text-sm text-gray-700 hover:text-teal-600"
+                                  className="text-xs sm:text-sm text-gray-800 hover:text-gray-600 font-medium"
                                 >
                                   MOVE TO WISHLIST
                                 </button>
                                 <button 
                                   onClick={() => handleRemoveItem(item)}
-                                  className="text-sm text-gray-700 hover:text-teal-600"
+                                  className="text-xs sm:text-sm text-gray-800 hover:text-gray-600 font-medium"
                                 >
                                   REMOVE
                                 </button>
@@ -902,8 +902,8 @@ const BagPage = () => {
             {/* Right Column - Price Details (Only for selected items) */}
             <div className="lg:col-span-1">
               <div className="bg-white rounded shadow sticky top-4">
-                <div className="p-4 border-b">
-                  <h2 className="text-lg font-medium">
+                <div className="p-4 sm:p-5 border-b">
+                  <h2 className="text-lg font-medium text-gray-900">
                     {cartItemsList.length === 1 
                       ? `PRICE DETAILS (${selectedTotals.totalQty} ${selectedTotals.totalQty === 1 ? 'Item' : 'Items'})`
                       : `PRICE DETAILS (${selectedTotals.totalQty} ${selectedTotals.totalQty === 1 ? 'Item' : 'Items'} Selected)`
@@ -911,36 +911,36 @@ const BagPage = () => {
                   </h2>
                 </div>
                 
-                <div className="p-4">
+                <div className="p-4 sm:p-5">
                   {selectedItems.length === 0 ? (
                     <div className="text-center py-8">
-                      <p className="text-gray-500 mb-4">No items selected for checkout</p>
-                      <p className="text-sm text-gray-400">Select items from your bag to see price details</p>
+                      <p className="text-gray-600 mb-4">No items selected for checkout</p>
+                      <p className="text-sm text-gray-500">Select items from your bag to see price details</p>
                     </div>
                   ) : (
-                    <div className="space-y-3">
+                    <div className="space-y-4">
                       <div className="flex justify-between">
-                        <span className="text-gray-700">Total MRP</span>
-                        <span>₹{selectedTotals.totalOriginalPrice.toFixed(2)}</span>
+                        <span className="text-gray-800">Total MRP</span>
+                        <span className="text-gray-900">₹{selectedTotals.totalOriginalPrice.toFixed(2)}</span>
                       </div>
                       
                       <div className="flex justify-between">
-                        <span className="text-gray-700">Discount on MRP</span>
-                        <span className="text-green-600">-₹{(selectedTotals.totalOriginalPrice - selectedTotals.totalPrice).toFixed(2)}</span>
+                        <span className="text-gray-800">Discount on MRP</span>
+                        <span className="text-gray-900">-₹{(selectedTotals.totalOriginalPrice - selectedTotals.totalPrice).toFixed(2)}</span>
                       </div>
                       
                       <div className="flex justify-between">
-                        <span className="text-gray-700">Platform Fee</span>
+                        <span className="text-gray-800">Platform Fee</span>
                         <div className="flex items-center">
                           <span className="line-through text-gray-500 mr-1">₹99</span>
-                          <span className="text-green-600">FREE</span>
+                          <span className="text-gray-900">FREE</span>
                         </div>
                       </div>
                       
-                      <div className="border-t pt-3 mt-3">
+                      <div className="border-t pt-4 mt-4">
                         <div className="flex justify-between font-semibold">
-                          <span>Total Amount</span>
-                          <span>₹{selectedTotals.totalPrice.toFixed(2)}</span>
+                          <span className="text-gray-900">Total Amount</span>
+                          <span className="text-gray-900">₹{selectedTotals.totalPrice.toFixed(2)}</span>
                         </div>
                       </div>
                     </div>
@@ -949,7 +949,7 @@ const BagPage = () => {
                   <button
                     onClick={handleProceedToCheckout}
                     disabled={selectedItems.length === 0}
-                    className="w-full bg-red-500 hover:bg-red-600 text-white py-3 mt-6 font-medium flex items-center justify-center disabled:bg-gray-300 disabled:cursor-not-allowed"
+                    className="w-full bg-black hover:bg-gray-900 text-white py-3.5 mt-6 font-medium flex items-center justify-center disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors duration-200"
                   >
                     <span>
                       {cartItemsList.length === 1 
@@ -964,7 +964,7 @@ const BagPage = () => {
                     <p>Safe and Secure Payments. Easy returns.</p>
                     <p>100% Authentic products.</p>
                     {selectedItems.length > 0 && cartItemsList.length > 1 && (
-                      <p className="mt-2 text-sm font-medium text-blue-600">
+                      <p className="mt-2 text-sm font-medium text-gray-800">
                         {cartItemsList.length - selectedItems.length} items will remain in your bag
                       </p>
                     )}
