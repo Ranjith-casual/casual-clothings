@@ -5,10 +5,6 @@ import Contact from '../components/Contact'; // Import your Contact component
 
 function About() {
   // Default store location
-  const [storeLocation] = useState({
-    name: "Casual Clothing Fashion Headquarters",
-    address: "123 Fashion Avenue, New York, NY 10001"
-  });
 
   return (
     <div className="bg-gray-50 min-h-screen">

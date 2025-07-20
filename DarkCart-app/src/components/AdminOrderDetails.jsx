@@ -70,12 +70,12 @@ const AdminOrderDetails = ({ order, onClose }) => {
             duration: 5000
           });
         } else {
-          toast.error(result.message || 'Failed to update order status');
+          // toast.error(result.message || 'Failed to update order status');
         }
       }
     } catch (error) {
       console.error('Error updating order status:', error);
-      toast.error('Failed to update order status');
+      // toast.error('Failed to update order status');
     } finally {
       setUpdatingStatus(false);
     }

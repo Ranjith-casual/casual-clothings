@@ -337,10 +337,16 @@ const calculateRetainedAmount = async () => {
 
 export const downloadInvoice = async (req, res) => {
     try {
+        console.log('=== Download Invoice Request ===');
+        console.log('Request body:', req.body);
+        console.log('User ID:', req.userId);
+        console.log('User role:', req.user?.role);
+        
         const { orderId, orderData } = req.body;
         const userId = req.userId; // Get userId from auth middleware
         
         if (!orderId) {
+            console.log('Error: Order ID is required');
             return res.status(400).json({
                 success: false,
                 error: true,
@@ -354,14 +360,18 @@ export const downloadInvoice = async (req, res) => {
             query.userId = userId; // Restrict to user's own orders
         }
         
+        console.log('Query for order lookup:', query);
+        
         // Find the order
         let order;
         if (orderData && orderData.orderId === orderId) {
             // Use provided order data if available and matches
             order = orderData;
+            console.log('Using provided order data');
             
             // Verify the user owns this order (security check)
             if (req.user?.role !== 'ADMIN' && order.userId !== userId && order.userId?._id !== userId) {
+                console.log('Error: Access denied for user', userId, 'trying to access order for user', order.userId);
                 return res.status(403).json({
                     success: false,
                     error: true,
@@ -369,6 +379,7 @@ export const downloadInvoice = async (req, res) => {
                 });
             }
         } else {
+            console.log('Fetching order from database');
             // Fetch from database
             order = await orderModel.findOne(query)
                 .populate('userId', 'name email')
@@ -384,12 +395,20 @@ export const downloadInvoice = async (req, res) => {
         }
         
         if (!order) {
+            console.log('Error: Order not found for query:', query);
             return res.status(404).json({
                 success: false,
                 error: true,
                 message: "Order not found or access denied"
             });
         }
+        
+        console.log('Order found:', {
+            orderId: order.orderId,
+            orderStatus: order.orderStatus,
+            totalAmt: order.totalAmt,
+            itemsCount: order.items?.length
+        });
         
         // Determine invoice type based on order status
         let invoiceType = 'order';
@@ -399,8 +418,25 @@ export const downloadInvoice = async (req, res) => {
             invoiceType = 'refund';
         }
         
+        console.log('Invoice type:', invoiceType);
+        
         // Generate PDF invoice
+        console.log('Generating PDF invoice...');
         const { filepath, filename } = await generateInvoicePDF(order, invoiceType);
+        
+        console.log('PDF generated:', { filepath, filename });
+        
+        // Check if file was created successfully
+        if (!fs.existsSync(filepath)) {
+            console.log('Error: PDF file does not exist at path:', filepath);
+            return res.status(500).json({
+                success: false,
+                error: true,
+                message: "Failed to generate PDF file"
+            });
+        }
+        
+        console.log('File exists, setting response headers...');
         
         // Set response headers for PDF download
         res.setHeader('Content-Type', 'application/pdf');
@@ -408,15 +444,18 @@ export const downloadInvoice = async (req, res) => {
         res.setHeader('Cache-Control', 'no-cache');
         
         // Stream the PDF file
-        const fs = await import('fs');
         const fileStream = fs.createReadStream(filepath);
+        
+        console.log('Starting file stream...');
         
         fileStream.pipe(res);
         
         // Clean up the temporary file after streaming
         fileStream.on('end', () => {
+            console.log('File stream ended, cleaning up...');
             fs.unlink(filepath, (err) => {
                 if (err) console.error('Error deleting temp PDF:', err);
+                else console.log('Temp PDF file deleted successfully');
             });
         });
         
@@ -446,6 +485,8 @@ export const downloadInvoice = async (req, res) => {
 const generateInvoicePDF = async (order, type = 'order') => {
     return new Promise((resolve, reject) => {
         try {
+            console.log(`=== Generating ${type} PDF for order ${order.orderId} ===`);
+            
             // Create PDF with proper settings for compatibility
             const doc = new PDFDocument({ 
                 size: 'A4',
@@ -463,14 +504,20 @@ const generateInvoicePDF = async (order, type = 'order') => {
             const filename = `${type}-invoice-${order.orderId}-${Date.now()}.pdf`;
             const filepath = path.join(process.cwd(), 'temp', filename);
             
+            console.log('PDF filename:', filename);
+            console.log('PDF filepath:', filepath);
+            
             // Ensure temp directory exists
             const tempDir = path.join(process.cwd(), 'temp');
             if (!fs.existsSync(tempDir)) {
+                console.log('Creating temp directory:', tempDir);
                 fs.mkdirSync(tempDir, { recursive: true });
             }
             
             const stream = fs.createWriteStream(filepath);
             doc.pipe(stream);
+            
+            console.log('PDF document created, starting content generation...');
             
             // Color scheme
             const primaryColor = '#2C3E50';
@@ -974,14 +1021,18 @@ const generateInvoicePDF = async (order, type = 'order') => {
             doc.end();
             
             stream.on('finish', () => {
+                console.log('PDF generation completed successfully');
+                console.log('File written to:', filepath);
                 resolve({ filepath, filename });
             });
             
             stream.on('error', (error) => {
+                console.error('Stream error during PDF generation:', error);
                 reject(error);
             });
             
         } catch (error) {
+            console.error('Error in generateInvoicePDF:', error);
             reject(error);
         }
     });

@@ -173,8 +173,8 @@ function MyOrders() {
       setDownloadingInvoices(prev => new Set([...prev, order.orderId]));
       
       const response = await Axios({
-        url: `/api/payment/invoice/download-user`,
-        method: 'POST',
+        url: SummaryApi.downloadUserInvoice.url,
+        method: SummaryApi.downloadUserInvoice.method,
         data: {
           orderId: order.orderId,
           orderData: order
@@ -206,7 +206,26 @@ function MyOrders() {
       toast.success('Invoice downloaded successfully!');
     } catch (error) {
       console.error('Error downloading invoice:', error);
-      toast.error('Failed to download invoice. Please try again.');
+      
+      // More specific error messages
+      if (error.response) {
+        // Server responded with error status
+        if (error.response.status === 403) {
+          toast.error('Access denied. You can only download your own invoices.');
+        } else if (error.response.status === 404) {
+          toast.error('Invoice not found for this order.');
+        } else if (error.response.status === 500) {
+          toast.error('Server error while generating invoice. Please try again later.');
+        } else {
+          toast.error(`Error: ${error.response.data?.message || 'Failed to download invoice'}`);
+        }
+      } else if (error.request) {
+        // Network error
+        toast.error('Network error. Please check your connection and try again.');
+      } else {
+        // Other error
+        toast.error('Failed to download invoice. Please try again.');
+      }
     } finally {
       // Remove this order from downloading set
       setDownloadingInvoices(prev => {
