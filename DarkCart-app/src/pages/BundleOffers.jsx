@@ -335,36 +335,35 @@ const BundleOffers = () => {
 
   return (
     <NoHeaderLayout>
-      <div className="min-h-screen bg-white">
+      <div className="min-h-screen bg-white font-['Inter']">
         {/* Hero Section */}
       
-
       {/* Filters and Search Section */}
-      <div className="bg-gradient-to-r from-gray-50 to-gray-100 border-b border-gray-200 py-8">
-        <div className="container mx-auto px-4">
+      <div className="bg-white border-b border-gray-100 py-5 sm:py-6">
+        <div className="container mx-auto px-4 sm:px-6">
           {/* Search Bar */}
-          <div className="mb-6">
-            <div className="relative max-w-md mx-auto shadow-sm hover:shadow-md transition-shadow duration-300">
+          <div className="mb-4">
+            <div className="relative max-w-md mx-auto">
               <input
                 type="text"
                 placeholder="Search bundles..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full px-4 py-3 pl-12 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-black font-light"
+                className="w-full px-4 py-2 pl-10 border border-gray-200 rounded focus:ring-1 focus:ring-black focus:border-black font-light text-sm bg-white transition-all"
               />
-              <FaSearch className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400" />
+              <FaSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
             </div>
           </div>
 
           {/* Additional Filters */}
-          <div className="flex flex-wrap justify-center gap-4 md:gap-6">
+          <div className="flex flex-wrap justify-center gap-3 md:gap-4">
             {/* Sort By */}
-            <div className="flex items-center gap-2 bg-white px-3 py-1 rounded-lg shadow-sm border border-gray-200 hover:border-gray-300 transition-all duration-300">
-              <FaFilter className="text-gray-600" />
+            <div className="flex items-center gap-2 bg-white px-3 py-1.5 rounded border border-gray-200 hover:border-gray-300 transition-all duration-300">
+              <FaFilter className="text-gray-500 text-xs" />
               <select
                 value={sortBy}
                 onChange={(e) => setSortBy(e.target.value)}
-                className="px-3 py-2 bg-transparent appearance-none focus:outline-none font-medium text-gray-700"
+                className="px-1 py-1 bg-transparent appearance-none focus:outline-none text-gray-700 text-xs sm:text-sm"
               >
                 <option value="newest">Newest First</option>
                 <option value="price-low">Price: Low to High</option>
@@ -375,12 +374,12 @@ const BundleOffers = () => {
             </div>
 
             {/* Price Range */}
-            <div className="flex items-center gap-2 bg-white px-3 py-1 rounded-lg shadow-sm border border-gray-200 hover:border-gray-300 transition-all duration-300">
-              <span className="text-gray-700 font-medium">Price:</span>
+            <div className="flex items-center gap-2 bg-white px-3 py-1.5 rounded border border-gray-200 hover:border-gray-300 transition-all duration-300">
+              <span className="text-gray-700 text-sm">Price:</span>
               <select
                 value={priceRange}
                 onChange={(e) => setPriceRange(e.target.value)}
-                className="px-3 py-2 bg-transparent appearance-none focus:outline-none font-medium text-gray-700"
+                className="px-1 py-1 bg-transparent appearance-none focus:outline-none text-gray-700 text-xs sm:text-sm"
               >
                 <option value="all">All Prices</option>
                 <option value="under-1000">Under ₹1,000</option>
@@ -394,42 +393,42 @@ const BundleOffers = () => {
       </div>
 
       {/* Container for Bundle Section */}
-      <div className="container mx-auto px-4 py-10 bg-white">
+      <div className="container mx-auto px-4 py-8 bg-white">
         {/* Results Count */}
-        <div className="mb-8">
-          <p className="text-gray-600 font-light tracking-wide flex items-center gap-2">
-            <span className="inline-block w-2 h-2 bg-black rounded-full"></span>
-            Showing <span className="font-semibold text-black">{filteredBundles.length}</span> of <span className="font-semibold text-black">{bundles.length}</span> bundles
+        <div className="mb-6">
+          <p className="text-gray-600 text-sm flex items-center gap-2">
+            <span className="inline-block w-1.5 h-1.5 bg-black rounded-full"></span>
+            Showing <span className="font-medium text-black">{filteredBundles.length}</span> of <span className="font-medium text-black">{bundles.length}</span> bundles
             {searchTerm && <span className="font-medium"> for "<span className="text-black italic">{searchTerm}</span>"</span>}
           </p>
         </div>
 
         {/* Bundle Collection Section */}
-        <div className="mb-12">
-          <div className="mb-8 text-center">
-            <h2 className="text-2xl md:text-3xl font-bold text-black mb-2 tracking-tight">Bundle Collection</h2>
-            <p className="text-gray-600 font-light tracking-wider">Discover amazing bundle deals with great savings</p>
+        <div className="mb-8">
+          <div className="mb-6 text-center">
+            <h2 className="text-2xl md:text-3xl font-bold text-black mb-2 font-['Playfair_Display']">Bundle Collection</h2>
+            <p className="text-gray-600 text-sm">Discover amazing bundle deals with great savings</p>
           </div>
         </div>
         <motion.div
           variants={containerVariants}
           initial="hidden"
           animate="visible"
-          className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5"
+          className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 md:gap-4"
         >
           <AnimatePresence>
             {loading ? (
               // Loading skeletons for grid layout
-              [...Array(9)].map((_, index) => (
-                <div key={index} className="bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden animate-pulse h-full">
+              [...Array(10)].map((_, index) => (
+                <div key={index} className="bg-white rounded border border-gray-100 overflow-hidden animate-pulse h-full">
                   {/* Vertical Layout */}
-                  <div className="block h-full flex flex-col">
-                    <div className="h-48 bg-gray-300"></div>
-                    <div className="p-4 flex-1">
-                      <div className="h-5 bg-gray-300 rounded mb-2"></div>
-                      <div className="h-3 bg-gray-300 rounded mb-3"></div>
-                      <div className="h-3 bg-gray-300 rounded w-1/2 mb-3"></div>
-                      <div className="h-12 bg-gray-300 rounded mt-auto"></div>
+                  <div className="h-full flex flex-col">
+                    <div className="aspect-square bg-gray-100"></div>
+                    <div className="p-3 flex-1">
+                      <div className="h-4 bg-gray-200 rounded mb-2"></div>
+                      <div className="h-3 bg-gray-200 rounded mb-2"></div>
+                      <div className="h-3 bg-gray-200 rounded w-1/2 mb-2"></div>
+                      <div className="h-6 bg-gray-200 rounded mt-auto"></div>
                     </div>
                   </div>
                 </div>
@@ -443,7 +442,7 @@ const BundleOffers = () => {
                   initial="hidden"
                   animate="visible"
                   exit="hidden"
-                  className="bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden hover:shadow-2xl hover:border-gray-400 transition-all duration-500 relative group transform hover:-translate-y-1 hover:scale-[1.02] h-full flex flex-col"
+                  className="bg-white rounded border border-gray-100 overflow-hidden hover:border-gray-300 transition-all duration-300 relative group h-full flex flex-col"
                   onMouseEnter={() => {
                     // Start auto-rotation when hovering the card
                     const allImages = getAllBundleImages(bundle);
@@ -467,8 +466,8 @@ const BundleOffers = () => {
                   <div className="flex flex-col h-full">
                     {/* Tag */}
                     {bundle.tag && (
-                      <div className="absolute top-4 left-4 z-10">
-                        <span className="px-3 py-1 rounded-full text-xs font-bold text-white bg-black">
+                      <div className="absolute top-2 left-2 z-10">
+                        <span className="px-1.5 py-0.5 rounded-sm text-[10px] font-medium text-white bg-black">
                           {bundle.tag}
                         </span>
                       </div>
@@ -478,16 +477,14 @@ const BundleOffers = () => {
                     <button 
                       onClick={(e) => handleWishlistToggle(e, bundle._id)}
                       disabled={wishlistLoading[bundle._id]}
-                      className={`absolute top-4 right-4 z-10 p-2 rounded-full border transition-all duration-200 ${
+                      className={`absolute top-2 right-2 z-10 p-1 rounded-full border transition-all duration-200 ${
                         wishlistItems.includes(bundle._id)
-                          ? 'bg-red-50 border-red-500 text-red-600 hover:bg-red-100'
-                          : 'bg-white border-gray-300 text-gray-400 hover:border-black hover:text-black'
+                          ? 'bg-white border-gray-300 text-black'
+                          : 'bg-white border-gray-200 text-gray-400 hover:text-black hover:border-gray-300'
                       } ${wishlistLoading[bundle._id] ? 'animate-pulse' : ''}`}
                     >
-                      <FaHeart className={`w-4 h-4 ${wishlistItems.includes(bundle._id) ? 'fill-current' : ''}`} />
+                      <FaHeart className={`w-2.5 h-2.5 ${wishlistItems.includes(bundle._id) ? 'fill-current' : ''}`} />
                     </button>
-
-                    {/* No Quick View Overlay - Image directly links to bundle page */}
 
                     {/* Clickable Content */}
                     <Link 
@@ -495,7 +492,7 @@ const BundleOffers = () => {
                       className="flex flex-col flex-1"
                     >
                       {/* Enhanced Product Images Carousel */}
-                      <div className="relative h-48 bg-gray-100 overflow-hidden rounded-t-2xl">
+                      <div className="relative aspect-square bg-white overflow-hidden">
                         {(() => {
                           const allImages = getAllBundleImages(bundle);
                           const currentIndex = imageIndexes[bundle._id] || 0;
@@ -508,7 +505,7 @@ const BundleOffers = () => {
                                 key={currentIndex}
                                 src={currentImage}
                                 alt={bundle.title}
-                                className="w-full h-full object-cover"
+                                className="w-full h-full object-contain p-2"
                                 initial={{ opacity: 0 }}
                                 animate={{ opacity: 1 }}
                                 transition={{ duration: 0.3 }}
@@ -519,19 +516,19 @@ const BundleOffers = () => {
                                 <div className="image-controls opacity-0 group-hover:opacity-100 transition-opacity duration-300">
                                   <button
                                     onClick={(e) => prevImage(e, bundle._id, allImages.length)}
-                                    className="absolute left-2 top-1/2 transform -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white p-2 rounded-full transition-all duration-200"
+                                    className="absolute left-1 top-1/2 transform -translate-y-1/2 bg-white text-gray-700 p-1 rounded-full transition-all duration-200 border border-gray-200"
                                   >
-                                    <FaChevronLeft className="w-3 h-3" />
+                                    <FaChevronLeft className="w-2 h-2" />
                                   </button>
                                   <button
                                     onClick={(e) => nextImage(e, bundle._id, allImages.length)}
-                                    className="absolute right-2 top-1/2 transform -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white p-2 rounded-full transition-all duration-200"
+                                    className="absolute right-1 top-1/2 transform -translate-y-1/2 bg-white text-gray-700 p-1 rounded-full transition-all duration-200 border border-gray-200"
                                   >
-                                    <FaChevronRight className="w-3 h-3" />
+                                    <FaChevronRight className="w-2 h-2" />
                                   </button>
                                   
                                   {/* Image Indicators */}
-                                  <div className="absolute bottom-2 left-1/2 transform -translate-x-1/2 flex gap-1">
+                                  <div className="absolute bottom-1 left-1/2 transform -translate-x-1/2 flex gap-0.5">
                                     {allImages.map((_, index) => (
                                       <button
                                         key={index}
@@ -543,8 +540,8 @@ const BundleOffers = () => {
                                             [bundle._id]: index
                                           }));
                                         }}
-                                        className={`w-2 h-2 rounded-full transition-all duration-200 ${
-                                          index === currentIndex ? 'bg-white' : 'bg-white/50'
+                                        className={`w-1 h-1 rounded-full transition-all duration-200 ${
+                                          index === currentIndex ? 'bg-black' : 'bg-gray-400'
                                         }`}
                                       />
                                     ))}
@@ -563,64 +560,57 @@ const BundleOffers = () => {
                       </div>
 
                       {/* Content */}
-                      <div className="p-4 flex-1 flex flex-col">
-                        <h3 className="text-base font-bold text-black mb-1 tracking-tight leading-tight line-clamp-1">{bundle.title}</h3>
+                      <div className="p-2.5 flex-1 flex flex-col">
+                        <h3 className="text-xs font-medium text-gray-900 mb-0.5 leading-tight line-clamp-1">{bundle.title}</h3>
                         
-                        {/* Enhanced Description */}
-                        <div className="mb-2">
-                          <p className="text-gray-600 text-xs leading-relaxed line-clamp-1">
-                            {getEnhancedDescription(bundle)}
-                          </p>
-                        </div>
-
-                        {/* Enhanced Price Section */}
-                        <div className="p-2 rounded-lg mb-2">
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <span className="text-base font-bold text-black tracking-tight">
-                                ₹{bundle.bundlePrice?.toLocaleString()}
-                              </span>
-                              <span className="text-xs text-gray-500 line-through ml-1 font-light">
-                                ₹{bundle.originalPrice?.toLocaleString()}
-                              </span>
-                            </div>
-                            <div className="text-xs font-medium px-2 py-0.5 rounded-full bg-green-100 text-green-700">
-                              {bundle.discount || Math.round(((bundle.originalPrice - bundle.bundlePrice) / bundle.originalPrice) * 100)}% OFF
-                            </div>
+                        {/* Enhanced Price Section - Simplified */}
+                        <div className="flex items-center justify-between mb-1">
+                          <div className="flex items-baseline gap-1">
+                            <span className="text-xs font-medium text-black">
+                              ₹{bundle.bundlePrice?.toLocaleString()}
+                            </span>
+                            <span className="text-[10px] text-gray-500 line-through">
+                              ₹{bundle.originalPrice?.toLocaleString()}
+                            </span>
+                          </div>
+                          <div className="text-[8px] font-medium px-1 py-0.5 rounded-sm bg-red-500 text-white">
+                            {bundle.discount || Math.round(((bundle.originalPrice - bundle.bundlePrice) / bundle.originalPrice) * 100)}% OFF
                           </div>
                         </div>
                         
-                        {/* Stock Status */}
-                        <div className="flex items-center gap-1 mb-2 text-xs">
+                        {/* Stock Status - Simplified */}
+                        <div className="flex items-center text-[8px] mb-1">
                           {bundle.stock > 0 ? (
-                            <span className={`font-medium flex items-center gap-1 ${bundle.stock < 10 ? 'text-amber-600' : 'text-green-600'}`}>
-                              <span className={`inline-block w-1.5 h-1.5 rounded-full ${bundle.stock < 10 ? 'bg-amber-600' : 'bg-green-600'}`}></span>
-                              {bundle.stock < 10 ? `Only ${bundle.stock} left!` : 'In Stock'}
+                            <span className={`flex items-center gap-0.5 ${bundle.stock < 10 ? 'text-green-600' : 'text-green-600'}`}>
+                              <span className={`inline-block w-1 h-1 rounded-full ${bundle.stock < 10 ? 'bg-green-600' : 'bg-green-600'}`}></span>
+                              {bundle.stock < 10 ? `Only ${bundle.stock} left` : 'In Stock'}
                             </span>
                           ) : (
-                            <span className="text-red-500 font-medium flex items-center gap-1">
-                              <span className="inline-block w-1.5 h-1.5 bg-red-500 rounded-full"></span>
+                            <span className="text-gray-500 flex items-center gap-0.5">
+                              <span className="inline-block w-1 h-1 bg-gray-500 rounded-full"></span>
                               Out of Stock
                             </span>
                           )}
                         </div>
                         
-                        {/* Time-Limited Offer Countdown */}
+                        {/* Time-Limited Offer Countdown - Smaller */}
                         {bundle.isTimeLimited && (
-                          <div className="mb-4">
-                            <CountdownTimer 
-                              endDate={bundle.endDate}
-                              startDate={bundle.startDate}
-                              onExpire={() => fetchBundles()} // Refresh when expired
-                            />
+                          <div className="mb-1">
+                            <div className="scale-75 origin-left">
+                              <CountdownTimer 
+                                endDate={bundle.endDate}
+                                startDate={bundle.startDate}
+                                onExpire={() => fetchBundles()} // Refresh when expired
+                              />
+                            </div>
                           </div>
                         )}
 
                         {/* Condensed Items List - Simpler for grid layout */}
                         {bundle.items && bundle.items.length > 0 && (
-                          <div className="flex items-center gap-1.5 mb-2 mt-auto">
-                            <FaGift className="w-3 h-3 text-gray-500" />
-                            <span className="text-xs text-gray-600 font-medium">
+                          <div className="flex items-center gap-1 mt-auto">
+                            <FaGift className="w-2 h-2 text-gray-500" />
+                            <span className="text-[8px] text-gray-600">
                               {bundle.items.length} items included
                             </span>
                           </div>
@@ -642,12 +632,12 @@ const BundleOffers = () => {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5 }}
-            className="text-center py-20 px-4 max-w-lg mx-auto"
+            className="text-center py-16 px-4 max-w-md mx-auto"
           >
-            <div className="bg-gray-50 p-8 rounded-2xl shadow-sm border border-gray-200">
-              <FaGift className="text-6xl text-gray-400 mx-auto mb-6 opacity-60" />
-              <h3 className="text-2xl font-bold text-black mb-3 tracking-tight">No bundles found</h3>
-              <p className="text-gray-600 mb-6 font-light tracking-wide">
+            <div className="bg-white p-6 rounded border border-gray-100">
+              <FaGift className="text-5xl text-gray-300 mx-auto mb-4" />
+              <h3 className="text-xl font-bold text-black mb-2 font-['Playfair_Display']">No bundles found</h3>
+              <p className="text-gray-600 mb-5 text-sm">
                 {searchTerm 
                   ? `No bundles match your search "${searchTerm}"`
                   : "Try adjusting your filters or check back later for new offers!"
@@ -660,7 +650,7 @@ const BundleOffers = () => {
                     setPriceRange("all");
                     setSortBy("newest");
                   }}
-                  className="bg-black text-white px-6 py-2.5 rounded-lg font-semibold shadow-md hover:bg-gray-800 transition-all duration-300 flex items-center gap-2 mx-auto"
+                  className="bg-black text-white px-5 py-2 rounded font-medium hover:bg-gray-800 transition-all duration-300 flex items-center gap-2 mx-auto"
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
                     <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
@@ -674,19 +664,19 @@ const BundleOffers = () => {
       </div>
 
       {/* Bottom CTA Section */}
-      <div className="bg-gradient-to-r from-gray-50 to-gray-100 text-white py-16 border-t border-gray-200">
-        <div className="container mx-auto px-4 text-center">
-          <h2 className="text-2xl md:text-4xl font-bold mb-4 text-gray-900 tracking-tight">
+      <div className="bg-white py-10 sm:py-12 border-t border-gray-100">
+        <div className="container mx-auto px-4 sm:px-6 text-center">
+          <h2 className="text-xl sm:text-2xl font-bold mb-2 sm:mb-3 text-gray-900 font-['Playfair_Display']">
             Found the Perfect Bundle?
           </h2>
-          <p className="text-lg mb-8 mx-auto text-gray-700 font-light tracking-wide">
+          <p className="text-sm mb-5 sm:mb-6 mx-auto text-gray-600 max-w-lg">
             Continue shopping for individual items or explore more collections
           </p>
           <Link
             to="/"
-            className="inline-flex items-center gap-3 bg-black text-white px-8 py-3.5 rounded-full font-bold hover:bg-gray-800 border-2 border-black shadow-md hover:shadow-lg transform hover:scale-105 transition-all duration-300"
+            className="inline-flex items-center gap-2 bg-black text-white px-5 sm:px-6 py-2 sm:py-2.5 rounded font-medium hover:bg-gray-800 transition-all duration-300"
           >
-            <FaShoppingCart className="text-lg" />
+            <FaShoppingCart className="text-xs sm:text-sm" />
             Continue Shopping
           </Link>
         </div>

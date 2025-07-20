@@ -797,16 +797,16 @@ const BundleItemsModal = ({ bundle, bundleData, isOpen, onClose, orderContext = 
         </div>
 
         {/* Modal Footer */}
-        <div className="border-t border-gray-200 p-4 bg-gray-50">
+        <div className="border-t border-gray-300 p-3 sm:p-4 bg-gray-100">
           <div className="flex items-center justify-between">
-            <div className="text-sm text-gray-600">
+            <div className="text-xs sm:text-sm text-gray-700">
               {orderContext && (
                 <span>From Order: #{orderContext.orderId || orderContext._id}</span>
               )}
             </div>
             <button
               onClick={onClose}
-              className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 transition-colors"
+              className="px-3 py-1.5 sm:px-4 sm:py-2 bg-black text-white rounded-md hover:bg-gray-800 transition-all shadow-sm text-sm"
             >
               Close
             </button>

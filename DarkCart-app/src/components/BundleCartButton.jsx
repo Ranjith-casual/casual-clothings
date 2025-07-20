@@ -44,15 +44,15 @@ const BundleCartButton = ({
   };
 
   const baseClasses = `
-    py-3 px-6 rounded-lg font-semibold transition-all duration-300 group
+    py-2 sm:py-3 px-4 sm:px-6 rounded-lg font-semibold transition-all duration-300 group
     disabled:opacity-50 disabled:cursor-not-allowed
-    flex items-center justify-center gap-2
+    flex items-center justify-center gap-2 text-sm sm:text-base
   `;
 
   const variantClasses = {
-    primary: 'bg-gradient-to-r from-gray-600 to-gray-700 text-white hover:from-gray-700 hover:to-gray-800',
-    secondary: 'bg-white theme-text-primary border theme-border hover:theme-bg-gray',
-    outline: 'border border-gray-300 text-gray-700 hover:bg-gray-50'
+    primary: 'bg-gradient-to-r from-gray-800 to-black text-white hover:from-black hover:to-gray-800 shadow-md',
+    secondary: 'bg-white text-gray-800 border border-gray-300 hover:bg-gray-100 shadow-sm',
+    outline: 'border border-gray-400 text-gray-800 hover:bg-gray-50'
   };
 
   return (
