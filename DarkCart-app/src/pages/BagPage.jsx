@@ -7,7 +7,7 @@ import { useGlobalContext } from '../provider/GlobalProvider';
 import { FaArrowRight } from 'react-icons/fa';
 import { toast } from 'react-hot-toast';
 import Logo from '../assets/logo.png';
-import noCart from '../assets/noCart.jpg';
+import noCart from '../assets/empty-cuate.png';
 import Axios from '../utils/Axios';
 import SummaryApi from '../common/SummaryApi';
 import ErrorBoundary from '../components/ErrorBoundary';

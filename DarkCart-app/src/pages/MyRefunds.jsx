@@ -5,7 +5,7 @@ import Axios from '../utils/Axios';
 import SummaryApi from '../common/SummaryApi';
 import AnimatedImage from '../components/NoData';
 import BundleItemsModal from '../components/BundleItemsModal';
-import noCart from '../assets/noCart.jpg';
+import noCart from '../assets/empty-cuate.png';
 
 // Helper function for formatting dates
 const formatDate = (dateString) => {

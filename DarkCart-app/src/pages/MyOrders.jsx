@@ -11,7 +11,7 @@ import ProductDetailsModal from '../components/ProductDetailsModal';
 import BundleItemsModal from '../components/BundleItemsModal';
 import { useGlobalContext } from '../provider/GlobalProvider';
 import { setOrders } from '../store/orderSlice';
-import noCart from '../assets/noCart.jpg'; // Import fallback image
+import noCart from '../assets/empty-cuate.png'; // Import fallback image
 
 function MyOrders() {
   // Get all orders from Redux store

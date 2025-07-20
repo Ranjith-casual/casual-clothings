@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { FaTimes, FaHeart, FaShare, FaShoppingCart, FaTag, FaBox, FaStar, FaInfoCircle } from 'react-icons/fa';
 import { DisplayPriceInRupees } from '../utils/DisplayPriceInRupees';
-import noCart from '../assets/noCart.jpg';
+import noCart from '../assets/empty-cuate.png';
 import Axios from '../utils/Axios';
 import SummaryApi from '../common/SummaryApi';
 

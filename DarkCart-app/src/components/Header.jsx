@@ -328,18 +328,7 @@ function Header() {
                         Bundle Offers
                       </span>
                     </Link>
-                    <Link to="/seasonal-sale" className="flex items-center px-5 py-2.5 text-gray-700 hover:bg-black hover:text-white text-sm transition-all duration-300 group">
-                      <span 
-                        className="group-hover:translate-x-0.5 transition-transform duration-300"
-                        style={{ 
-                          fontFamily: "'Inter', sans-serif",
-                          fontWeight: '300',
-                          letterSpacing: '0.03em',
-                        }}
-                      >
-                        Seasonal Sale
-                      </span>
-                    </Link>
+                  
                   </div>
                 )}
               </div>
@@ -790,21 +779,7 @@ function Header() {
                         >
                           Bundle Offers
                         </Link>
-                        <Link
-                          to="/seasonal-sale"
-                          className="flex items-center text-gray-600 hover:text-black hover:bg-black/5 pl-10 pr-5 py-2.5 text-sm transition-all duration-300"
-                          onClick={() => {
-                            setShowPrimeDealsDropdown(false);
-                            setTimeout(() => setMobileMenuOpen(false), 200);
-                          }}
-                          style={{ 
-                            fontFamily: "'Inter', sans-serif",
-                            fontWeight: '300',
-                            letterSpacing: '0.03em',
-                          }}
-                        >
-                          Seasonal Sale
-                        </Link>
+                       
                       </div>
                     </div>
 
