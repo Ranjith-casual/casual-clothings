@@ -9,6 +9,27 @@
   --fashion-text: #333333;
   --fashion-light: #ffffff;
   --fashion-border: #e5e5e5;
+  
+  /* Extended theme colors for consistency */
+  --fashion-success: #059669;
+  --fashion-success-light: #d1fae5;
+  --fashion-success-text: #065f46;
+  
+  --fashion-warning: #d97706;
+  --fashion-warning-light: #fef3c7;
+  --fashion-warning-text: #92400e;
+  
+  --fashion-error: #dc2626;
+  --fashion-error-light: #fee2e2;
+  --fashion-error-text: #991b1b;
+  
+  --fashion-info: #2563eb;
+  --fashion-info-light: #dbeafe;
+  --fashion-info-text: #1e40af;
+  
+  --fashion-muted: #6b7280;
+  --fashion-muted-light: #f9fafb;
+  --fashion-muted-text: #4b5563;
 }
 
 html{
@@ -25,6 +46,236 @@ body{
     min-height: 100%; /* Ensure body takes at least full height */
     position: relative; /* Create positioning context */
     overflow-y: auto !important; /* Force vertical scrolling */
+}
+
+/* Custom Scrollbar Styles to match theme */
+::-webkit-scrollbar {
+    width: 12px;
+    height: 12px;
+}
+
+::-webkit-scrollbar-track {
+    background: var(--fashion-accent); /* Light gray background */
+    border-radius: 6px;
+    border: 1px solid var(--fashion-border);
+}
+
+::-webkit-scrollbar-thumb {
+    background: linear-gradient(180deg, #6b7280 0%, var(--fashion-primary) 100%);
+    border-radius: 6px;
+    border: 2px solid var(--fashion-accent);
+    transition: all 0.3s ease;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(180deg, var(--fashion-primary) 0%, #1f2937 100%);
+    transform: scale(1.05);
+}
+
+::-webkit-scrollbar-thumb:active {
+    background: var(--fashion-primary);
+}
+
+::-webkit-scrollbar-corner {
+    background: var(--fashion-accent);
+}
+
+/* Firefox scrollbar styling */
+* {
+    scrollbar-width: thin;
+    scrollbar-color: var(--fashion-primary) var(--fashion-accent);
+}
+
+/* Modern scrollbar for containers */
+.custom-scrollbar::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+    background: rgba(243, 244, 246, 0.5);
+    border-radius: 4px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+    background: rgba(107, 114, 128, 0.7);
+    border-radius: 4px;
+    transition: background 0.3s ease;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: var(--fashion-primary);
+}
+
+/* Scrollbar styles for modals and dropdowns */
+.modal-scrollbar::-webkit-scrollbar {
+    width: 6px;
+}
+
+.modal-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.modal-scrollbar::-webkit-scrollbar-thumb {
+    background: rgba(107, 114, 128, 0.4);
+    border-radius: 3px;
+}
+
+.modal-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: rgba(107, 114, 128, 0.7);
+}
+
+/* Horizontal scrollbar for product carousels */
+.horizontal-scroll::-webkit-scrollbar {
+    height: 6px;
+}
+
+.horizontal-scroll::-webkit-scrollbar-track {
+    background: rgba(243, 244, 246, 0.3);
+    border-radius: 3px;
+}
+
+.horizontal-scroll::-webkit-scrollbar-thumb {
+    background: var(--fashion-primary);
+    border-radius: 3px;
+    opacity: 0.7;
+}
+
+.horizontal-scroll::-webkit-scrollbar-thumb:hover {
+    opacity: 1;
+}
+
+/* Animated scrollbar effects */
+@keyframes scrollbar-pulse {
+    0%, 100% { opacity: 0.6; }
+    50% { opacity: 1; }
+}
+
+::-webkit-scrollbar-thumb:active {
+    animation: scrollbar-pulse 0.3s ease-in-out;
+}
+
+/* Premium scrollbar for product lists */
+.product-scroll::-webkit-scrollbar {
+    width: 10px;
+}
+
+.product-scroll::-webkit-scrollbar-track {
+    background: linear-gradient(to bottom, var(--fashion-accent), rgba(243, 244, 246, 0.8));
+    border-radius: 5px;
+}
+
+.product-scroll::-webkit-scrollbar-thumb {
+    background: linear-gradient(to bottom, #9ca3af, var(--fashion-primary));
+    border-radius: 5px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2);
+}
+
+.product-scroll::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(to bottom, var(--fashion-primary), #1f2937);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.3);
+}
+
+/* Theme Utility Classes */
+.theme-primary {
+    color: var(--fashion-primary);
+}
+
+.theme-bg-primary {
+    background-color: var(--fashion-primary);
+}
+
+.theme-border-primary {
+    border-color: var(--fashion-primary);
+}
+
+.theme-secondary {
+    color: var(--fashion-secondary);
+}
+
+.theme-bg-secondary {
+    background-color: var(--fashion-secondary);
+}
+
+.theme-success {
+    color: var(--fashion-success);
+}
+
+.theme-bg-success {
+    background-color: var(--fashion-success);
+}
+
+.theme-bg-success-light {
+    background-color: var(--fashion-success-light);
+}
+
+.theme-text-success {
+    color: var(--fashion-success-text);
+}
+
+.theme-warning {
+    color: var(--fashion-warning);
+}
+
+.theme-bg-warning {
+    background-color: var(--fashion-warning);
+}
+
+.theme-bg-warning-light {
+    background-color: var(--fashion-warning-light);
+}
+
+.theme-text-warning {
+    color: var(--fashion-warning-text);
+}
+
+.theme-error {
+    color: var(--fashion-error);
+}
+
+.theme-bg-error {
+    background-color: var(--fashion-error);
+}
+
+.theme-bg-error-light {
+    background-color: var(--fashion-error-light);
+}
+
+.theme-text-error {
+    color: var(--fashion-error-text);
+}
+
+.theme-info {
+    color: var(--fashion-info);
+}
+
+.theme-bg-info {
+    background-color: var(--fashion-info);
+}
+
+.theme-bg-info-light {
+    background-color: var(--fashion-info-light);
+}
+
+.theme-text-info {
+    color: var(--fashion-info-text);
+}
+
+.theme-muted {
+    color: var(--fashion-muted);
+}
+
+.theme-bg-muted {
+    background-color: var(--fashion-muted);
+}
+
+.theme-bg-muted-light {
+    background-color: var(--fashion-muted-light);
+}
+
+.theme-text-muted {
+    color: var(--fashion-muted-text);
 }
 
 .fashion-heading {

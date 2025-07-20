@@ -3,6 +3,7 @@ import orderModel from "../models/order.model.js";
 import UserModel from "../models/users.model.js";
 import orderCancellationModel from "../models/orderCancellation.model.js";
 import sendEmail from "../config/sendEmail.js";
+import { generateInvoicePdf } from "../utils/generateInvoicePdf.js";
 import PDFDocument from 'pdfkit';
 import fs from 'fs';
 import path from 'path';
@@ -400,22 +401,22 @@ export const downloadInvoice = async (req, res) => {
         }
         
         // Generate PDF invoice
-        const { filepath, filename } = await generateInvoicePDF(order, invoiceType);
+        const filePath = await generateInvoicePdf(order, invoiceType);
         
         // Set response headers for PDF download
         res.setHeader('Content-Type', 'application/pdf');
-        res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+        res.setHeader('Content-Disposition', `attachment; filename="${path.basename(filePath)}"`);
         res.setHeader('Cache-Control', 'no-cache');
         
         // Stream the PDF file
         const fs = await import('fs');
-        const fileStream = fs.createReadStream(filepath);
+        const fileStream = fs.createReadStream(filePath);
         
         fileStream.pipe(res);
         
         // Clean up the temporary file after streaming
         fileStream.on('end', () => {
-            fs.unlink(filepath, (err) => {
+            fs.unlink(filePath, (err) => {
                 if (err) console.error('Error deleting temp PDF:', err);
             });
         });
@@ -991,7 +992,8 @@ const generateInvoicePDF = async (order, type = 'order') => {
 export const sendRefundInvoiceEmail = async (order, refundDetails) => {
     try {
         // Generate PDF invoice
-        const { filepath, filename } = await generateInvoicePDF(order, 'refund');
+        const filePath = await generateInvoicePdf(order, 'refund');
+        const filename = path.basename(filePath);
         
         // Email template for refund with invoice
         const emailTemplate = `
@@ -1046,14 +1048,14 @@ export const sendRefundInvoiceEmail = async (order, refundDetails) => {
             html: emailTemplate,
             attachments: [{
                 filename: filename,
-                path: filepath
+                path: filePath
             }]
         });
         
         // Clean up temporary file
         setTimeout(() => {
-            if (fs.existsSync(filepath)) {
-                fs.unlinkSync(filepath);
+            if (fs.existsSync(filePath)) {
+                fs.unlinkSync(filePath);
             }
         }, 60000); // Delete after 1 minute
         
@@ -1069,7 +1071,8 @@ export const sendRefundInvoiceEmail = async (order, refundDetails) => {
 export const sendDeliveryInvoiceEmail = async (order) => {
     try {
         // Generate PDF invoice
-        const { filepath, filename } = await generateInvoicePDF(order, 'delivery');
+        const filePath = await generateInvoicePdf(order, 'delivery');
+        const filename = path.basename(filePath);
         
         // Email template for delivery confirmation with invoice
         const emailTemplate = `
@@ -1124,14 +1127,14 @@ export const sendDeliveryInvoiceEmail = async (order) => {
             html: emailTemplate,
             attachments: [{
                 filename: filename,
-                path: filepath
+                path: filePath
             }]
         });
         
         // Clean up temporary file
         setTimeout(() => {
-            if (fs.existsSync(filepath)) {
-                fs.unlinkSync(filepath);
+            if (fs.existsSync(filePath)) {
+                fs.unlinkSync(filePath);
             }
         }, 60000); // Delete after 1 minute
         

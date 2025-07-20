@@ -75,9 +75,9 @@ function UserStatsCards() {
         {
             title: "Total Users",
             value: stats.totalUsers,
-            icon: <FaUsers className="text-blue-500" />,
-            bgColor: "bg-blue-50",
-            textColor: "text-blue-600"
+            icon: <FaUsers className="theme-text-primary" />,
+            bgColor: "theme-bg-secondary-light",
+            textColor: "theme-text-primary"
         },
         {
             title: "Active Users",
@@ -96,9 +96,9 @@ function UserStatsCards() {
         {
             title: "Admins",
             value: stats.roleDistribution.admins,
-            icon: <FaUserShield className="text-purple-500" />,
-            bgColor: "bg-purple-50",
-            textColor: "text-purple-600"
+            icon: <FaUserShield className="theme-text-secondary" />,
+            bgColor: "theme-bg-secondary-light",
+            textColor: "theme-text-primary"
         },
         {
             title: "Sellers",
@@ -117,9 +117,9 @@ function UserStatsCards() {
         {
             title: "New This Month",
             value: stats.recentRegistrations,
-            icon: <FaCalendarAlt className="text-indigo-500" />,
-            bgColor: "bg-indigo-50",
-            textColor: "text-indigo-600"
+            icon: <FaCalendarAlt className="theme-text-secondary" />,
+            bgColor: "theme-bg-gray",
+            textColor: "theme-text-primary"
         }
     ]
 

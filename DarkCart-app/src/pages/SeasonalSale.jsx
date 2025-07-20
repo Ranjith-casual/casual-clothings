@@ -302,8 +302,8 @@ const SeasonalSale = () => {
                           product.tag === "Hot Deal" ? "bg-red-500" :
                           product.tag === "Bestseller" ? "bg-green-500" :
                           product.tag === "Limited Edition" ? "bg-orange-500" :
-                          product.tag === "New Arrival" ? "bg-blue-500" :
-                          product.tag === "Premium" ? "bg-purple-500" :
+                          product.tag === "New Arrival" ? "theme-bg-primary" :
+                          product.tag === "Premium" ? "theme-bg-secondary" :
                           product.tag === "Flash Sale" ? "bg-pink-500" :
                           product.tag === "Clearance" ? "bg-yellow-500" :
                           "bg-gray-500"
@@ -433,7 +433,7 @@ const SeasonalSale = () => {
               placeholder="Enter your email"
               className="flex-1 px-4 py-3 rounded-lg text-gray-800 focus:outline-none focus:ring-2 focus:ring-white"
             />
-            <button className="bg-white text-purple-600 px-6 py-3 rounded-lg font-semibold hover:bg-gray-100 transition-colors">
+            <button className="bg-white theme-text-primary px-6 py-3 rounded-lg font-semibold hover:bg-gray-100 transition-colors">
               Subscribe
             </button>
           </div>

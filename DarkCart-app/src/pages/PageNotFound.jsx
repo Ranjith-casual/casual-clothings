@@ -39,13 +39,13 @@ const PageNotFound = () => {
         <div className="mt-8 pt-8 border-t border-gray-200">
           <p className="text-sm text-gray-500 mb-4">Need help? Try these links:</p>
           <div className="flex flex-wrap justify-center gap-4 text-sm">
-            <Link to="/about" className="text-blue-600 hover:text-blue-800">
+            <Link to="/about" className="text-gray-600 hover:text-gray-900">
               About Us
             </Link>
-            <Link to="/faq" className="text-blue-600 hover:text-blue-800">
+            <Link to="/faq" className="text-gray-600 hover:text-gray-900">
               FAQ
             </Link>
-            <Link to="/dashboard/profile" className="text-blue-600 hover:text-blue-800">
+            <Link to="/dashboard/profile" className="text-gray-600 hover:text-gray-900">
               My Account
             </Link>
           </div>

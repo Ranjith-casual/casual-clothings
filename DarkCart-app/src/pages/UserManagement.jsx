@@ -97,7 +97,7 @@ function UserManagement() {
     const getRoleColor = (role) => {
         switch (role) {
             case 'ADMIN': return 'bg-red-100 text-red-800'
-            case 'SELLER': return 'bg-blue-100 text-blue-800'
+            case 'SELLER': return 'theme-bg-secondary-light theme-text-primary'
             case 'BUYER': return 'bg-green-100 text-green-800'
             default: return 'bg-gray-100 text-gray-800'
         }
@@ -244,7 +244,7 @@ function UserManagement() {
                                                 <div className="flex space-x-2">
                                                     <button
                                                         onClick={() => handleViewDetails(user)}
-                                                        className="text-blue-600 hover:text-blue-900"
+                                                        className="theme-text-primary hover:theme-text-secondary"
                                                         title="View Details"
                                                     >
                                                         <FaEye />

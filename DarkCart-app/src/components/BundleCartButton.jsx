@@ -50,8 +50,8 @@ const BundleCartButton = ({
   `;
 
   const variantClasses = {
-    primary: 'bg-gradient-to-r from-purple-600 to-pink-600 text-white hover:from-purple-700 hover:to-pink-700',
-    secondary: 'bg-white text-purple-600 border border-purple-600 hover:bg-purple-50',
+    primary: 'bg-gradient-to-r from-gray-600 to-gray-700 text-white hover:from-gray-700 hover:to-gray-800',
+    secondary: 'bg-white theme-text-primary border theme-border hover:theme-bg-gray',
     outline: 'border border-gray-300 text-gray-700 hover:bg-gray-50'
   };
 

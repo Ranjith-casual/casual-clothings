@@ -101,7 +101,7 @@ function Blog() {
               key={index}
               className={`px-4 py-2 rounded-full text-sm font-medium ${
                 index === 0 
-                  ? 'bg-indigo-600 text-white' 
+                  ? 'theme-bg-primary text-white' 
                   : 'bg-white text-gray-700 hover:bg-gray-100'
               }`}
             >

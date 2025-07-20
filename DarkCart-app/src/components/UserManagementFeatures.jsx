@@ -36,7 +36,7 @@ function UserManagementFeatures() {
     }, []);
     const features = [
         {
-            icon: <FaUsers className="text-blue-500" />,
+            icon: <FaUsers className="theme-text-primary" />,
             title: "View All Users",
             description: "Browse and search through all registered users with advanced filtering options",
             capabilities: [
@@ -69,7 +69,7 @@ function UserManagementFeatures() {
             ]
         },
         {
-            icon: <FaHistory className="text-purple-500" />,
+            icon: <FaHistory className="theme-text-secondary" />,
             title: "Order History Tracking",
             description: "View complete order history and purchase patterns",
             capabilities: [
@@ -105,7 +105,7 @@ function UserManagementFeatures() {
                         <ul className="space-y-1 sm:space-y-2">
                             {feature.capabilities.map((capability, capIndex) => (
                                 <li key={capIndex} className="flex items-center text-xs sm:text-sm text-gray-700">
-                                    <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-blue-500 rounded-full mr-2"></div>
+                                    <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 theme-bg-primary rounded-full mr-2"></div>
                                     <span className="tracking-wide">{capability}</span>
                                 </li>
                             ))}
@@ -114,9 +114,9 @@ function UserManagementFeatures() {
                 ))}
             </div>
 
-            <div className="mt-4 sm:mt-6 p-3 sm:p-4 bg-blue-50 rounded-lg shadow-sm border border-blue-100">
-                <h5 className="font-semibold text-blue-900 mb-1 sm:mb-2 text-xs sm:text-sm tracking-wide">Quick Actions Available:</h5>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-1 sm:gap-2 text-xs sm:text-sm text-blue-800">
+            <div className="mt-4 sm:mt-6 p-3 sm:p-4 theme-bg-gray rounded-lg shadow-sm border theme-border">
+                <h5 className="font-semibold theme-text-primary mb-1 sm:mb-2 text-xs sm:text-sm tracking-wide">Quick Actions Available:</h5>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-1 sm:gap-2 text-xs sm:text-sm theme-text-secondary">
                     <span className="tracking-wide">• User Search & Filter</span>
                     <span className="tracking-wide">• Role Management</span>
                     <span className="tracking-wide">• Status Control</span>

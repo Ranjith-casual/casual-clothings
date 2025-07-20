@@ -18,7 +18,7 @@ function AdminDashboard() {
             title: "Categories",
             description: "Manage product categories",
             path: "/dashboard/category",
-            icon: <FaTags className="text-blue-600" />
+            icon: <FaTags className="theme-text-primary" />
         },
         {
             title: "Products",
@@ -30,7 +30,7 @@ function AdminDashboard() {
             title: "Upload Product",
             description: "Add new products",
             path: "/dashboard/upload-product",
-            icon: <FaPlus className="text-purple-600" />
+            icon: <FaPlus className="theme-text-secondary" />
         },
         {
             title: "Orders Management",
@@ -42,7 +42,7 @@ function AdminDashboard() {
             title: "Bundle Management",
             description: "Manage product bundles",
             path: "/dashboard/bundle-admin",
-            icon: <FaLayerGroup className="text-indigo-600" />
+            icon: <FaLayerGroup className="theme-text-primary" />
         },
         {
             title: "User Management",
@@ -66,7 +66,7 @@ function AdminDashboard() {
             title: "Bundle Details Management",
             description: "View and manage existing bundle details and configurations",
             path: "/dashboard/bundle-management",
-            icon: <FaLayerGroup className="text-purple-600" />
+            icon: <FaLayerGroup className="theme-text-secondary" />
         },
         {
             title: "Refund Management",

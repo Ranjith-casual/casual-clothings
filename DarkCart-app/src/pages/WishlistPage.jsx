@@ -48,7 +48,7 @@ const WishlistPage = () => {
         {/* Header */}
         <div className="bg-black text-white p-6 rounded-lg shadow-md mb-6">
           <h1 className="text-2xl font-bold font-serif mb-2">My Wishlist</h1>
-          <p className="text-teal-300 text-sm">
+          <p className="theme-text-secondary text-sm">
             {wishlistItems.length} {wishlistItems.length === 1 ? 'item' : 'items'} saved
           </p>
         </div>

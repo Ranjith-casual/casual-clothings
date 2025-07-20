@@ -284,13 +284,13 @@ function SearchPage() {
                   Showing results for:{" "}
                   <span className="font-semibold bg-yellow-100 px-2 py-1 rounded-md">"{searchText}"</span>
                   {initialGender && (
-                    <span className="font-semibold bg-blue-100 px-2 py-1 rounded-md ml-2">
+                    <span className="font-semibold theme-bg-secondary-light theme-text-primary px-2 py-1 rounded-md ml-2">
                       in {initialGender} category
                     </span>
                   )}
                   
                   {searchText.length === 1 && (
-                    <span className="text-gray-500 text-xs ml-2 bg-blue-50 px-2 py-1 rounded-md">
+                    <span className="text-gray-500 text-xs ml-2 theme-bg-gray px-2 py-1 rounded-md">
                       Single character search
                     </span>
                   )}
@@ -338,11 +338,11 @@ function SearchPage() {
               <div className="flex flex-wrap gap-2">
                 {/* Only show gender badge if it's different from initial or there was no initial gender */}
                 {filters.gender && (!initialGender || filters.gender !== initialGender) && (
-                  <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 border border-blue-200">
+                  <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium theme-bg-secondary-light theme-text-primary border theme-border">
                     Gender: {filters.gender}
                     <button
                       onClick={() => handleFilterChange('gender', initialGender || '')}
-                      className="ml-2 text-blue-600 hover:text-blue-800"
+                      className="ml-2 theme-text-primary hover:theme-text-secondary"
                     >
                       <FaTimes className="w-3 h-3" />
                     </button>
@@ -368,10 +368,10 @@ function SearchPage() {
 
           {/* Pre-applied Gender Filter Display */}
           {/* {initialGender && (
-            <div className="mt-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
+            <div className="mt-4 p-3 theme-bg-gray rounded-lg border theme-border">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <span className="text-sm font-medium text-blue-800">
+                  <span className="text-sm font-medium theme-text-primary">
                     📂 Fashion Category: {initialGender}
                   </span>
                 </div>
@@ -390,7 +390,7 @@ function SearchPage() {
                     setInitialGender('');
                     setShowGenderFilter(true);
                   }}
-                  className="text-xs text-blue-600 hover:text-blue-800 font-medium underline"
+                  className="text-xs theme-text-primary hover:theme-text-secondary font-medium underline"
                 >
                   View All Categories
                 </button>
@@ -512,7 +512,7 @@ function SearchPage() {
                         setInitialGender('');
                         setShowGenderFilter(true);
                       }}
-                      className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                      className="px-6 py-3 theme-bg-primary text-white rounded-lg hover:theme-bg-secondary transition-colors"
                     >
                       View All Categories
                     </button>

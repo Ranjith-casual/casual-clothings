@@ -97,7 +97,7 @@ function OtpVerify() {
       <div className="bg-white w-full max-w-lg mx-auto p-8 md:p-10 rounded-xl shadow-2xl border border-gray-100 transform transition-all duration-300">
         
         <div className="text-center mb-8">
-          <div className="inline-block mb-4 bg-indigo-50 p-3 rounded-full">
+          <div className="inline-block mb-4 theme-bg-gray p-3 rounded-full">
 
           </div>
           <h2 className="text-3xl font-bold text-gray-900 font-['Playfair_Display'] mb-2">Verify OTP</h2>

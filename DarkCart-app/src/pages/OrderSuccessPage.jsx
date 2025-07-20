@@ -86,7 +86,7 @@ const OrderSuccessPage = () => {
                 />
               </div>
               
-              <h2 className="text-3xl font-bold mb-4 bg-clip-text bg-gradient-to-r from-green-600 to-blue-600 text-transparent">Thank You{user?.name ? `, ${user.name.split(' ')[0]}` : ''}!</h2>
+              <h2 className="text-3xl font-bold mb-4 bg-clip-text bg-gradient-to-r from-green-600 to-gray-600 text-transparent">Thank You{user?.name ? `, ${user.name.split(' ')[0]}` : ''}!</h2>
               <p className="text-xl text-gray-600 mb-2">Your {orderType} has been placed successfully</p>
               <p className="text-sm text-gray-500 mb-6">We'll send you a confirmation email with order details shortly.</p>
               
@@ -96,8 +96,8 @@ const OrderSuccessPage = () => {
                 <div className="font-medium text-gray-800 flex items-center justify-center gap-2">
                   <div className="flex items-center justify-center">
                     <div className="h-5 w-5 relative">
-                      <div className="animate-ping absolute h-full w-full rounded-full bg-green-200 opacity-75"></div>
-                      <div className="relative rounded-full h-4 w-4 bg-green-500 flex items-center justify-center">
+                      <div className="animate-ping absolute h-full w-full rounded-full theme-bg-success-light opacity-75"></div>
+                      <div className="relative rounded-full h-4 w-4 theme-bg-success flex items-center justify-center">
                         <svg className="h-2 w-2 text-white" fill="currentColor" viewBox="0 0 20 20">
                           <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd"></path>
                         </svg>
@@ -110,16 +110,16 @@ const OrderSuccessPage = () => {
               
               {/* Estimated Delivery Date Section */}
               {orderDetails?.estimatedDeliveryDate && (
-                <div className={`bg-blue-50 rounded-lg p-4 mb-6 border border-blue-100 transition-all duration-700 ${fadeIn ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`} style={{ transitionDelay: '700ms' }}>
-                  <p className="text-sm text-blue-600 mb-1">Estimated Delivery</p>
-                  <div className="font-medium text-blue-800 flex items-center justify-center gap-2">
-                    <svg className="h-5 w-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <div className={`theme-bg-info-light rounded-lg p-4 mb-6 border border-gray-200 transition-all duration-700 ${fadeIn ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`} style={{ transitionDelay: '700ms' }}>
+                  <p className="text-sm theme-text-info mb-1">Estimated Delivery</p>
+                  <div className="font-medium theme-info flex items-center justify-center gap-2">
+                    <svg className="h-5 w-5 theme-info" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                     </svg>
                     <span>{orderDetails.estimatedDeliveryDate}</span>
                   </div>
                   {orderDetails?.deliveryDays && (
-                    <p className="text-xs text-blue-600 mt-1 text-center">
+                    <p className="text-xs theme-text-primary mt-1 text-center">
                       ({orderDetails.deliveryDays} {orderDetails.deliveryDays === 1 ? 'day' : 'days'} delivery)
                       {orderDetails?.deliveryDistance && orderDetails.deliveryDistance !== '0' && (
                         <span className="ml-1">• {orderDetails.deliveryDistance} km</span>
