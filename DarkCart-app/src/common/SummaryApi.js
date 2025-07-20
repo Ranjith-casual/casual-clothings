@@ -230,10 +230,6 @@ const SummaryApi = {
         url: '/api/payment/invoice/download',
         method: 'post'
     },
-    downloadUserInvoice: {
-        url: '/api/payment/invoice/download-user',
-        method: 'post'
-    },
     initiateRefund: {
         url: '/api/payment/refund/initiate',
         method: 'post'

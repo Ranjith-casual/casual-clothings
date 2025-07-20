@@ -77,8 +77,7 @@ app.get('/api/test-cors', (req, res) => {
 
 app.get('/',(req,res)=>{
     res.json({
-        message: "API server is running",
-        status: "online"
+        message:"You are on live now on arun port "+PORT
     })
 })
 

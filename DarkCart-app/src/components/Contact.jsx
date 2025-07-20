@@ -96,7 +96,7 @@ function Contact() {
       
       const response = await axios({
         method: 'post',
-        url: `${baseURL}/api/contact/send`,
+        url: `${baseURL}api/contact/send`,
         data: formData,
         timeout: 30000,
         headers: { 
