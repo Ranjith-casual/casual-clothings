@@ -5,7 +5,7 @@
   <title>Casual Clothings – Premium T-Shirts for Men, Women, and Kids</title>
   <meta name="title" content="Casual Clothings – Premium T-Shirts for Men, Women, and Kids">
   <meta name="description" content="Shop stylish and comfortable t-shirts for men, women, and kids at Casual Clothings. 100% cotton, affordable pricing, and latest trends.">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <meta charset="UTF-8">
 
   <!-- Google Site Verification -->
@@ -21,14 +21,17 @@
   <meta property="og:url" content="https://casualclothings.shop/">
   <meta property="og:title" content="Casual Clothings – Premium T-Shirts for Men, Women, and Kids">
   <meta property="og:description" content="Shop stylish and comfortable t-shirts for men, women, and kids at Casual Clothings. 100% cotton, affordable pricing, and latest trends.">
-  <meta property="og:image" content="https://casualclothings.shop/banner-image.jpg">
+  <meta property="og:image" content="https://casualclothings.shop/logo.png">
+  <meta property="og:image:type" content="image/png">
+  <meta property="og:image:width" content="500">
+  <meta property="og:image:height" content="500">
 
   <!-- Twitter Card -->
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:url" content="https://casualclothings.shop/">
   <meta name="twitter:title" content="Casual Clothings – Premium T-Shirts for Men, Women, and Kids">
   <meta name="twitter:description" content="Shop stylish and comfortable t-shirts for men, women, and kids at Casual Clothings. 100% cotton, affordable pricing, and latest trends.">
-  <meta name="twitter:image" content="https://casualclothings.shop/banner-image.jpg">
+  <meta name="twitter:image" content="https://casualclothings.shop/logo.png">
 
   <!-- Google Analytics (GA4) -->
   <script async src="https://www.googletagmanager.com/gtag/js?id=G-MXLRQ3ED1R"></script>
@@ -44,7 +47,7 @@
       html, body {
         margin: 0;
         padding: 0;
-        background-color: #000;
+     
         color: #fff;
         font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
       }
@@ -54,6 +57,7 @@
         position: fixed;
         top: 0;
         left: 0;
+        right: 0;
         width: 100%;
         height: 100%;
         background-color: #000;
@@ -63,6 +67,9 @@
         justify-content: center;
         align-items: center;
         overflow: hidden;
+        text-align: center;
+        box-sizing: border-box;
+        padding: 0 20px; /* Add padding for small screens */
       }
 
       /* Brand logo/image container */
@@ -72,36 +79,26 @@
         overflow: hidden;
         width: 150px;
         height: 150px;
+        margin-left: auto;
+        margin-right: auto;
       }
 
-      /* Logo SVG styles */
+      /* Logo image styles */
       .logo-svg {
         width: 100%;
         height: 100%;
+        animation: fadeInLogo 2s ease-in-out forwards;
+        opacity: 0;
       }
       
-      /* Logo animation */
-      .logo-circle {
-        stroke-dasharray: 500;
-        stroke-dashoffset: 500;
-        animation: drawCircle 3s ease-in-out forwards;
-      }
-      
-      .logo-letter {
-        stroke-dasharray: 600;
-        stroke-dashoffset: 600;
-        animation: drawLetter 3s ease-in-out forwards 0.5s;
-      }
-      
-      @keyframes drawCircle {
-        to {
-          stroke-dashoffset: 0;
+      @keyframes fadeInLogo {
+        0% {
+          opacity: 0;
+          transform: scale(0.8);
         }
-      }
-      
-      @keyframes drawLetter {
-        to {
-          stroke-dashoffset: 0;
+        100% {
+          opacity: 1;
+          transform: scale(1);
         }
       }
 
@@ -110,6 +107,9 @@
         display: flex;
         flex-direction: column;
         align-items: center;
+        width: 100%;
+        max-width: 100%;
+        text-align: center;
         opacity: 0;
         animation: fadeIn 1s ease-out forwards 0.3s;
       }
@@ -125,6 +125,8 @@
         letter-spacing: 8px;
         text-transform: uppercase;
         margin-bottom: 10px;
+        width: 100%;
+        text-align: center;
       }
 
       .loader-subtitle {
@@ -132,6 +134,21 @@
         letter-spacing: 3px;
         text-transform: uppercase;
         opacity: 0.7;
+        width: 100%;
+        text-align: center;
+      }
+      
+      /* Responsive styles for small devices */
+      @media (max-width: 480px) {
+        .loader-title {
+          font-size: 20px;
+          letter-spacing: 4px;
+        }
+        
+        .loader-subtitle {
+          font-size: 10px;
+          letter-spacing: 2px;
+        }
       }
 
       /* Loading progress indicator */
@@ -140,6 +157,8 @@
         height: 1px;
         background-color: rgba(255, 255, 255, 0.08);
         margin-top: 30px;
+        margin-left: auto;
+        margin-right: auto;
         position: relative;
         overflow: hidden;
         opacity: 0;
@@ -199,6 +218,8 @@
       .pulse-container {
         position: absolute;
         bottom: 40px;
+        left: 0;
+        right: 0;
         display: flex;
         justify-content: center;
         width: 100%;
@@ -228,16 +249,9 @@
       <div class="bg-element bg-circle top-right"></div>
       <div class="bg-element bg-circle bottom-left"></div>
       
-      <!-- Animated logo SVG -->
+      <!-- Logo Image -->
       <div class="loader-logo">
-        <svg class="logo-svg" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
-          <!-- Outer circle -->
-          <circle class="logo-circle" cx="100" cy="100" r="90" fill="none" stroke="white" stroke-width="2" />
-          
-          <!-- M letter for MONOCHROME -->
-         <path class="logo-letter" d="M150 80 C150 60, 130 40, 100 40 C70 40, 50 60, 50 100 C50 140, 70 160, 100 160 C130 160, 150 140, 150 120 L130 120 C130 130, 120 140, 100 140 C80 140, 70 125, 70 100 C70 75, 80 60, 100 60 C120 60, 130 70, 130 80 Z" 
-      fill="none" stroke="white" stroke-width="2" />
-        </svg>
+        <img src="src/assets/Logo/Black_White_Minimalist_Initials_Monogram_Jewelry_Logo-removebg-preview.png" alt="Casual Clothings Logo" class="logo-svg" style="width: 100%; height: 100%; object-fit: contain; filter: brightness(0) invert(1);" />
       </div>
       
       <!-- Loading text with different sizes -->

@@ -47,24 +47,40 @@ const BundleOffers = () => {
     fetchBundles();
   }, []);
 
-  // Auto-rotate images for better showcase
+  // Set up infinite carousel rotation on hover
   useEffect(() => {
+    // Initialize all bundles to show the first image
+    const initialIndexes = {};
+    bundles.forEach(bundle => {
+      initialIndexes[bundle._id] = 0;
+    });
+    setImageIndexes(prev => ({...prev, ...initialIndexes}));
+    
+    // Set up interval for hovering bundles
     const interval = setInterval(() => {
       setImageIndexes(prev => {
-        const newIndexes = { ...prev };
-        bundles.forEach(bundle => {
-          // Skip if paused (on hover)
-          if (prev[`${bundle._id}_paused`]) return;
-          
-          const allImages = getAllBundleImages(bundle);
-          if (allImages.length > 1) {
-            newIndexes[bundle._id] = ((newIndexes[bundle._id] || 0) + 1) % allImages.length;
+        const newIndexes = {...prev};
+        
+        // Only rotate images for bundles that are being hovered
+        Object.keys(prev).forEach(key => {
+          // If it's a bundle ID that's being hovered (has _hover suffix)
+          if (key.endsWith('_hover')) {
+            const bundleId = key.replace('_hover', '');
+            const bundle = bundles.find(b => b._id === bundleId);
+            if (bundle) {
+              const allImages = getAllBundleImages(bundle);
+              if (allImages.length > 1) {
+                // Move to next image in carousel
+                newIndexes[bundleId] = ((newIndexes[bundleId] || 0) + 1) % allImages.length;
+              }
+            }
           }
         });
+        
         return newIndexes;
       });
-    }, 4000); // Rotate every 4 seconds
-
+    }, 2000); // Change image every 2 seconds when hovering
+    
     return () => clearInterval(interval);
   }, [bundles]);
 
@@ -321,63 +337,34 @@ const BundleOffers = () => {
     <NoHeaderLayout>
       <div className="min-h-screen bg-white">
         {/* Hero Section */}
-        <div className="relative bg-black text-white">
-          <div className="absolute inset-0 bg-gradient-to-br from-black via-gray-900 to-black opacity-90"></div>
-          <div className="relative container mx-auto px-4 py-16 md:py-24">
-            <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8 }}
-            className="text-center"
-          >
-            <div className="flex justify-center mb-6">
-              <FaGift className="text-6xl md:text-8xl animate-bounce text-white" />
-            </div>
-            <h1 className="text-4xl md:text-6xl lg:text-7xl font-bold mb-6 text-white">
-              Complete Bundle Collection
-            </h1>
-            <p className="text-xl md:text-2xl mb-8 max-w-3xl mx-auto text-gray-200">
-              Explore our entire collection of curated bundle offers with amazing savings
-            </p>
-            
-            {/* Countdown Timer */}
-            <div className="bg-white/10 backdrop-blur-md rounded-2xl p-6 max-w-md mx-auto border border-gray-700">
-              <p className="text-sm mb-4 font-medium text-gray-200">⚡ Limited Time Offer:</p>
-              <CountdownTimer 
-                endDate={new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()}
-                startDate={new Date().toISOString()}
-              />
-            </div>
-          </motion.div>
-        </div>
-        </div>
+      
 
       {/* Filters and Search Section */}
-      <div className="bg-gray-50 border-b border-gray-200 py-6">
+      <div className="bg-gradient-to-r from-gray-50 to-gray-100 border-b border-gray-200 py-8">
         <div className="container mx-auto px-4">
           {/* Search Bar */}
           <div className="mb-6">
-            <div className="relative max-w-md mx-auto">
+            <div className="relative max-w-md mx-auto shadow-sm hover:shadow-md transition-shadow duration-300">
               <input
                 type="text"
                 placeholder="Search bundles..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full px-4 py-3 pl-12 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-black"
+                className="w-full px-4 py-3 pl-12 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-black font-light"
               />
               <FaSearch className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400" />
             </div>
           </div>
 
           {/* Additional Filters */}
-          <div className="flex flex-wrap justify-center gap-4">
+          <div className="flex flex-wrap justify-center gap-4 md:gap-6">
             {/* Sort By */}
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 bg-white px-3 py-1 rounded-lg shadow-sm border border-gray-200 hover:border-gray-300 transition-all duration-300">
               <FaFilter className="text-gray-600" />
               <select
                 value={sortBy}
                 onChange={(e) => setSortBy(e.target.value)}
-                className="px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-black focus:border-black"
+                className="px-3 py-2 bg-transparent appearance-none focus:outline-none font-medium text-gray-700"
               >
                 <option value="newest">Newest First</option>
                 <option value="price-low">Price: Low to High</option>
@@ -388,12 +375,12 @@ const BundleOffers = () => {
             </div>
 
             {/* Price Range */}
-            <div className="flex items-center gap-2">
-              <span className="text-gray-600 text-sm">Price:</span>
+            <div className="flex items-center gap-2 bg-white px-3 py-1 rounded-lg shadow-sm border border-gray-200 hover:border-gray-300 transition-all duration-300">
+              <span className="text-gray-700 font-medium">Price:</span>
               <select
                 value={priceRange}
                 onChange={(e) => setPriceRange(e.target.value)}
-                className="px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-black focus:border-black"
+                className="px-3 py-2 bg-transparent appearance-none focus:outline-none font-medium text-gray-700"
               >
                 <option value="all">All Prices</option>
                 <option value="under-1000">Under ₹1,000</option>
@@ -407,53 +394,42 @@ const BundleOffers = () => {
       </div>
 
       {/* Container for Bundle Section */}
-      <div className="container mx-auto px-4 py-8 bg-white">
+      <div className="container mx-auto px-4 py-10 bg-white">
         {/* Results Count */}
-        <div className="mb-6">
-          <p className="text-gray-600">
-            Showing {filteredBundles.length} of {bundles.length} bundles
-            {searchTerm && ` for "${searchTerm}"`}
+        <div className="mb-8">
+          <p className="text-gray-600 font-light tracking-wide flex items-center gap-2">
+            <span className="inline-block w-2 h-2 bg-black rounded-full"></span>
+            Showing <span className="font-semibold text-black">{filteredBundles.length}</span> of <span className="font-semibold text-black">{bundles.length}</span> bundles
+            {searchTerm && <span className="font-medium"> for "<span className="text-black italic">{searchTerm}</span>"</span>}
           </p>
         </div>
 
         {/* Bundle Collection Section */}
         <div className="mb-12">
-          <div className="mb-8">
-            <h2 className="text-2xl md:text-3xl font-bold text-black mb-2">Bundle Collection</h2>
-            <p className="text-gray-600">Discover amazing bundle deals with great savings</p>
+          <div className="mb-8 text-center">
+            <h2 className="text-2xl md:text-3xl font-bold text-black mb-2 tracking-tight">Bundle Collection</h2>
+            <p className="text-gray-600 font-light tracking-wider">Discover amazing bundle deals with great savings</p>
           </div>
         </div>
         <motion.div
           variants={containerVariants}
           initial="hidden"
           animate="visible"
-          className="space-y-8"
+          className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5"
         >
           <AnimatePresence>
             {loading ? (
-              // Loading skeletons
-              [...Array(6)].map((_, index) => (
-                <div key={index} className="bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden animate-pulse">
-                  {/* Mobile/Tablet Layout */}
-                  <div className="block lg:hidden">
-                    <div className="h-64 bg-gray-300"></div>
-                    <div className="p-6">
-                      <div className="h-6 bg-gray-300 rounded mb-2"></div>
-                      <div className="h-4 bg-gray-300 rounded mb-4"></div>
-                      <div className="h-4 bg-gray-300 rounded w-1/2 mb-4"></div>
-                      <div className="h-8 bg-gray-300 rounded"></div>
-                    </div>
-                  </div>
-                  {/* Large Screen Layout */}
-                  <div className="hidden lg:flex">
-                    <div className="w-1/2 h-80 bg-gray-300"></div>
-                    <div className="w-1/2 p-6 flex flex-col justify-between">
-                      <div>
-                        <div className="h-6 bg-gray-300 rounded mb-2"></div>
-                        <div className="h-4 bg-gray-300 rounded mb-4"></div>
-                        <div className="h-4 bg-gray-300 rounded w-3/4 mb-4"></div>
-                      </div>
-                      <div className="h-8 bg-gray-300 rounded"></div>
+              // Loading skeletons for grid layout
+              [...Array(9)].map((_, index) => (
+                <div key={index} className="bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden animate-pulse h-full">
+                  {/* Vertical Layout */}
+                  <div className="block h-full flex flex-col">
+                    <div className="h-48 bg-gray-300"></div>
+                    <div className="p-4 flex-1">
+                      <div className="h-5 bg-gray-300 rounded mb-2"></div>
+                      <div className="h-3 bg-gray-300 rounded mb-3"></div>
+                      <div className="h-3 bg-gray-300 rounded w-1/2 mb-3"></div>
+                      <div className="h-12 bg-gray-300 rounded mt-auto"></div>
                     </div>
                   </div>
                 </div>
@@ -467,24 +443,28 @@ const BundleOffers = () => {
                   initial="hidden"
                   animate="visible"
                   exit="hidden"
-                  className="bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden hover:shadow-2xl hover:border-gray-400 transition-all duration-500 relative group transform hover:-translate-y-1"
+                  className="bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden hover:shadow-2xl hover:border-gray-400 transition-all duration-500 relative group transform hover:-translate-y-1 hover:scale-[1.02] h-full flex flex-col"
                   onMouseEnter={() => {
-                    // Pause auto-rotation on hover
+                    // Start auto-rotation when hovering the card
                     const allImages = getAllBundleImages(bundle);
                     if (allImages.length > 1) {
-                      setImageIndexes(prev => ({ ...prev, [`${bundle._id}_paused`]: true }));
+                      setImageIndexes(prev => ({ 
+                        ...prev, 
+                        [`${bundle._id}_hover`]: true 
+                      }));
                     }
                   }}
                   onMouseLeave={() => {
-                    // Resume auto-rotation on mouse leave
+                    // Stop carousel and reset to first image when leaving the card
                     setImageIndexes(prev => {
-                      const { [`${bundle._id}_paused`]: removed, ...rest } = prev;
-                      return rest;
+                      const { [`${bundle._id}_hover`]: removed, ...rest } = prev;
+                      // Reset to first image
+                      return {...rest, [bundle._id]: 0};
                     });
                   }}
                 >
-                  {/* Mobile/Tablet Layout (Vertical) */}
-                  <div className="block lg:hidden">
+                  {/* Vertical Layout for All Devices */}
+                  <div className="flex flex-col h-full">
                     {/* Tag */}
                     {bundle.tag && (
                       <div className="absolute top-4 left-4 z-10">
@@ -507,24 +487,15 @@ const BundleOffers = () => {
                       <FaHeart className={`w-4 h-4 ${wishlistItems.includes(bundle._id) ? 'fill-current' : ''}`} />
                     </button>
 
-                    {/* Quick View Overlay */}
-                    <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-all duration-300 z-20 flex items-center justify-center">
-                      <Link
-                        to={`/bundle/${bundle._id}`}
-                        className="bg-white text-black px-6 py-3 rounded-lg font-semibold hover:bg-gray-100 transition-colors flex items-center gap-2 transform translate-y-4 group-hover:translate-y-0"
-                      >
-                        <FaEye className="w-4 h-4" />
-                        Quick View
-                      </Link>
-                    </div>
+                    {/* No Quick View Overlay - Image directly links to bundle page */}
 
                     {/* Clickable Content */}
                     <Link 
                       to={`/bundle/${bundle._id}`}
-                      className="block"
+                      className="flex flex-col flex-1"
                     >
                       {/* Enhanced Product Images Carousel */}
-                      <div className="relative h-72 bg-gray-100 overflow-hidden rounded-t-2xl">
+                      <div className="relative h-48 bg-gray-100 overflow-hidden rounded-t-2xl">
                         {(() => {
                           const allImages = getAllBundleImages(bundle);
                           const currentIndex = imageIndexes[bundle._id] || 0;
@@ -543,18 +514,18 @@ const BundleOffers = () => {
                                 transition={{ duration: 0.3 }}
                               />
                               
-                              {/* Navigation Arrows - Only show if multiple images */}
+                              {/* Navigation Arrows - Only show if multiple images and only on image hover */}
                               {allImages.length > 1 && (
-                                <>
+                                <div className="image-controls opacity-0 group-hover:opacity-100 transition-opacity duration-300">
                                   <button
                                     onClick={(e) => prevImage(e, bundle._id, allImages.length)}
-                                    className="absolute left-2 top-1/2 transform -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white p-2 rounded-full transition-all duration-200 opacity-0 group-hover:opacity-100"
+                                    className="absolute left-2 top-1/2 transform -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white p-2 rounded-full transition-all duration-200"
                                   >
                                     <FaChevronLeft className="w-3 h-3" />
                                   </button>
                                   <button
                                     onClick={(e) => nextImage(e, bundle._id, allImages.length)}
-                                    className="absolute right-2 top-1/2 transform -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white p-2 rounded-full transition-all duration-200 opacity-0 group-hover:opacity-100"
+                                    className="absolute right-2 top-1/2 transform -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white p-2 rounded-full transition-all duration-200"
                                   >
                                     <FaChevronRight className="w-3 h-3" />
                                   </button>
@@ -578,66 +549,59 @@ const BundleOffers = () => {
                                       />
                                     ))}
                                   </div>
-                                </>
+                                </div>
                               )}
                               
                               {/* Bundle composition overlay for item-based bundles */}
-                              {bundle.items && bundle.items.length > 0 && allImages.length > bundle.images?.length && (
-                                <div className="absolute top-2 left-2 bg-black/70 text-white px-2 py-1 rounded-md text-xs font-medium">
-                                  {bundle.items.length} Items
-                                </div>
-                              )}
+
                             </>
                           );
                         })()}
                         
                         {/* Discount Badge */}
-                        <div className="absolute bottom-4 right-4 bg-black text-white px-3 py-1 rounded-full font-bold text-sm">
-                          {bundle.discount || Math.round(((bundle.originalPrice - bundle.bundlePrice) / bundle.originalPrice) * 100)}% OFF
-                        </div>
+                       
                       </div>
 
                       {/* Content */}
-                      <div className="p-6">
-                        <h3 className="text-xl font-bold text-black mb-2">{bundle.title}</h3>
+                      <div className="p-4 flex-1 flex flex-col">
+                        <h3 className="text-base font-bold text-black mb-1 tracking-tight leading-tight line-clamp-1">{bundle.title}</h3>
                         
                         {/* Enhanced Description */}
-                        <div className="mb-4">
-                          <p className="text-gray-600 text-sm leading-relaxed">
+                        <div className="mb-2">
+                          <p className="text-gray-600 text-xs leading-relaxed line-clamp-1">
                             {getEnhancedDescription(bundle)}
                           </p>
                         </div>
 
                         {/* Enhanced Price Section */}
-                        <div className="bg-gradient-to-r from-green-50 to-blue-50 p-3 rounded-lg mb-4 border border-green-200">
-                          <div className="flex items-center justify-between mb-2">
+                        <div className="p-2 rounded-lg mb-2">
+                          <div className="flex items-center justify-between">
                             <div>
-                              <span className="text-2xl font-bold text-black">
+                              <span className="text-base font-bold text-black tracking-tight">
                                 ₹{bundle.bundlePrice?.toLocaleString()}
                               </span>
-                              <span className="text-lg text-gray-500 line-through ml-2">
+                              <span className="text-xs text-gray-500 line-through ml-1 font-light">
                                 ₹{bundle.originalPrice?.toLocaleString()}
                               </span>
                             </div>
-                            <div className="text-right">
-                              <div className="text-green-600 font-bold text-lg">
-                                Save ₹{((bundle.originalPrice || 0) - (bundle.bundlePrice || 0)).toLocaleString()}
-                              </div>
-                              <div className="text-xs text-gray-600">
-                                {bundle.discount || Math.round(((bundle.originalPrice - bundle.bundlePrice) / bundle.originalPrice) * 100)}% OFF
-                              </div>
+                            <div className="text-xs font-medium px-2 py-0.5 rounded-full bg-green-100 text-green-700">
+                              {bundle.discount || Math.round(((bundle.originalPrice - bundle.bundlePrice) / bundle.originalPrice) * 100)}% OFF
                             </div>
                           </div>
                         </div>
                         
                         {/* Stock Status */}
-                        <div className="flex items-center gap-2 mb-3 text-sm">
+                        <div className="flex items-center gap-1 mb-2 text-xs">
                           {bundle.stock > 0 ? (
-                            <span className={`font-medium ${bundle.stock < 10 ? 'text-amber-600' : 'text-green-600'}`}>
-                              {bundle.stock < 10 ? `Only ${bundle.stock} left in stock!` : 'In Stock'}
+                            <span className={`font-medium flex items-center gap-1 ${bundle.stock < 10 ? 'text-amber-600' : 'text-green-600'}`}>
+                              <span className={`inline-block w-1.5 h-1.5 rounded-full ${bundle.stock < 10 ? 'bg-amber-600' : 'bg-green-600'}`}></span>
+                              {bundle.stock < 10 ? `Only ${bundle.stock} left!` : 'In Stock'}
                             </span>
                           ) : (
-                            <span className="text-red-500 font-medium">Out of Stock</span>
+                            <span className="text-red-500 font-medium flex items-center gap-1">
+                              <span className="inline-block w-1.5 h-1.5 bg-red-500 rounded-full"></span>
+                              Out of Stock
+                            </span>
                           )}
                         </div>
                         
@@ -652,298 +616,19 @@ const BundleOffers = () => {
                           </div>
                         )}
 
-                        {/* Enhanced Items List with Descriptions */}
+                        {/* Condensed Items List - Simpler for grid layout */}
                         {bundle.items && bundle.items.length > 0 && (
-                          <motion.div
-                            initial={{ opacity: 1, height: "auto" }}
-                            className="mb-4"
-                          >
-                            <h4 className="font-semibold text-black mb-3 flex items-center gap-2">
-                              <FaGift className="w-4 h-4" />
-                              What's Included ({bundle.items.length} items):
-                            </h4>
-                            <div className="space-y-2">
-                              {bundle.items.slice(0, 3).map((item, index) => (
-                                <div key={index} className="flex items-start gap-2 p-2 bg-gray-50 rounded-lg">
-                                  <div className="w-2 h-2 bg-black rounded-full mt-2 flex-shrink-0"></div>
-                                  <div className="flex-1 min-w-0">
-                                    <p className="text-sm font-medium text-black truncate">{item.name}</p>
-                                    {item.description && (
-                                      <p className="text-xs text-gray-500 line-clamp-1">{item.description}</p>
-                                    )}
-                                    {item.price && (
-                                      <p className="text-xs text-gray-600 font-medium">₹{item.price.toLocaleString()}</p>
-                                    )}
-                                  </div>
-                                </div>
-                              ))}
-                              {bundle.items.length > 3 && (
-                                <div className="text-center">
-                                  <span className="text-xs text-gray-500 font-medium bg-gray-100 px-3 py-1 rounded-full">
-                                    +{bundle.items.length - 3} more premium items included
-                                  </span>
-                                </div>
-                              )}
-                            </div>
-                          </motion.div>
+                          <div className="flex items-center gap-1.5 mb-2 mt-auto">
+                            <FaGift className="w-3 h-3 text-gray-500" />
+                            <span className="text-xs text-gray-600 font-medium">
+                              {bundle.items.length} items included
+                            </span>
+                          </div>
                         )}
                       </div>
                     </Link>
 
-                    {/* Action Button - Outside Link */}
-                    <div className="px-6 pb-6">
-                      <button 
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleAddToCart(bundle._id);
-                        }}
-                        disabled={cartLoading || (bundle.stock && bundle.stock <= 0)}
-                        className="w-full bg-black text-white py-3 rounded-lg font-semibold hover:bg-gray-800 transition-all duration-300 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed border-2 border-black"
-                      >
-                        <FaShoppingCart className={`w-4 h-4 ${cartLoading ? 'animate-spin' : ''}`} />
-                        {cartLoading ? 'Adding...' : bundle.stock && bundle.stock <= 0 ? 'Out of Stock' : 'Add Bundle to Cart'}
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Large Screen Layout (Horizontal) */}
-                  <div className="hidden lg:flex h-80">
-                    {/* Left Side - Images */}
-                    <div className="w-1/2 relative">
-                      {/* Tag */}
-                      {bundle.tag && (
-                        <div className="absolute top-4 left-4 z-10">
-                          <span className="px-3 py-1 rounded-full text-xs font-bold text-white bg-black">
-                            {bundle.tag}
-                          </span>
-                        </div>
-                      )}
-
-                      {/* Enhanced Product Images Carousel */}
-                      <div className="relative h-full bg-gray-100 overflow-hidden rounded-l-2xl">
-                        {(() => {
-                          const allImages = getAllBundleImages(bundle);
-                          const currentIndex = imageIndexes[bundle._id] || 0;
-                          const currentImage = allImages[currentIndex];
-                          
-                          return (
-                            <>
-                              {/* Main Image */}
-                              <motion.img
-                                key={currentIndex}
-                                src={currentImage}
-                                alt={bundle.title}
-                                className="w-full h-full object-cover"
-                                initial={{ opacity: 0 }}
-                                animate={{ opacity: 1 }}
-                                transition={{ duration: 0.3 }}
-                              />
-                              
-                              {/* Navigation Arrows - Only show if multiple images */}
-                              {allImages.length > 1 && (
-                                <>
-                                  <button
-                                    onClick={(e) => prevImage(e, bundle._id, allImages.length)}
-                                    className="absolute left-2 top-1/2 transform -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white p-2 rounded-full transition-all duration-200 opacity-0 group-hover:opacity-100"
-                                  >
-                                    <FaChevronLeft className="w-3 h-3" />
-                                  </button>
-                                  <button
-                                    onClick={(e) => nextImage(e, bundle._id, allImages.length)}
-                                    className="absolute right-2 top-1/2 transform -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white p-2 rounded-full transition-all duration-200 opacity-0 group-hover:opacity-100"
-                                  >
-                                    <FaChevronRight className="w-3 h-3" />
-                                  </button>
-                                  
-                                  {/* Image Indicators */}
-                                  <div className="absolute bottom-2 left-1/2 transform -translate-x-1/2 flex gap-1">
-                                    {allImages.map((_, index) => (
-                                      <button
-                                        key={index}
-                                        onClick={(e) => {
-                                          e.preventDefault();
-                                          e.stopPropagation();
-                                          setImageIndexes(prev => ({
-                                            ...prev,
-                                            [bundle._id]: index
-                                          }));
-                                        }}
-                                        className={`w-2 h-2 rounded-full transition-all duration-200 ${
-                                          index === currentIndex ? 'bg-white' : 'bg-white/50'
-                                        }`}
-                                      />
-                                    ))}
-                                  </div>
-                                </>
-                              )}
-                              
-                              {/* Bundle composition overlay for item-based bundles */}
-                              {bundle.items && bundle.items.length > 0 && allImages.length > bundle.images?.length && (
-                                <div className="absolute top-2 left-2 bg-black/70 text-white px-2 py-1 rounded-md text-xs font-medium">
-                                  {bundle.items.length} Items
-                                </div>
-                              )}
-                            </>
-                          );
-                        })()}
-                        
-                        {/* Discount Badge */}
-                        <div className="absolute bottom-4 right-4 bg-black text-white px-3 py-1 rounded-full font-bold text-sm">
-                          {bundle.discount || Math.round(((bundle.originalPrice - bundle.bundlePrice) / bundle.originalPrice) * 100)}% OFF
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Right Side - Description */}
-                    <div className="w-1/2 flex flex-col">
-                      {/* Wishlist Button */}
-                      <button 
-                        onClick={(e) => handleWishlistToggle(e, bundle._id)}
-                        disabled={wishlistLoading[bundle._id]}
-                        className={`absolute top-4 right-4 z-10 p-2 rounded-full border transition-all duration-200 ${
-                          wishlistItems.includes(bundle._id)
-                            ? 'bg-red-50 border-red-500 text-red-600 hover:bg-red-100'
-                            : 'bg-white border-gray-300 text-gray-400 hover:border-black hover:text-black'
-                        } ${wishlistLoading[bundle._id] ? 'animate-pulse' : ''}`}
-                      >
-                        <FaHeart className={`w-4 h-4 ${wishlistItems.includes(bundle._id) ? 'fill-current' : ''}`} />
-                      </button>
-
-                      {/* Quick View Overlay */}
-                      <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-all duration-300 z-20 flex items-center justify-center">
-                        <Link
-                          to={`/bundle/${bundle._id}`}
-                          className="bg-white text-black px-6 py-3 rounded-lg font-semibold hover:bg-gray-100 transition-colors flex items-center gap-2 transform translate-y-4 group-hover:translate-y-0"
-                        >
-                          <FaEye className="w-4 h-4" />
-                          Quick View
-                        </Link>
-                      </div>
-
-                      {/* Clickable Content */}
-                      <Link 
-                        to={`/bundle/${bundle._id}`}
-                        className="flex-1 flex flex-col"
-                      >
-                        {/* Content */}
-                        <div className="p-6 flex-1 flex flex-col justify-between">
-                          <div>
-                            <h3 className="text-xl font-bold text-black mb-2">{bundle.title}</h3>
-                            
-                            {/* Enhanced Description */}
-                            <div className="mb-4">
-                              <p className="text-gray-600 text-sm leading-relaxed line-clamp-2">
-                                {getEnhancedDescription(bundle)}
-                              </p>
-                            </div>
-                            
-                            {/* Rating */}
-                            <div className="flex items-center gap-2 mb-4">
-                              <div className="flex items-center">
-                                {[...Array(5)].map((_, i) => (
-                                  <FaStar
-                                    key={i}
-                                    className={`w-4 h-4 ${
-                                      i < Math.floor(bundle.rating || 0)
-                                        ? "text-black"
-                                        : "text-gray-300"
-                                    }`}
-                                  />
-                                ))}
-                              </div>
-                              <span className="text-sm text-gray-600">
-                                {(bundle.rating || 0).toFixed(1)} ({bundle.reviews || 0})
-                              </span>
-                            </div>
-
-                            {/* Enhanced Items List - Condensed for side layout */}
-                            {bundle.items && bundle.items.length > 0 && (
-                              <div className="mb-4">
-                                <h4 className="font-semibold text-black mb-2 flex items-center gap-2 text-sm">
-                                  <FaGift className="w-3 h-3" />
-                                  Includes {bundle.items.length} items:
-                                </h4>
-                                <div className="text-xs text-gray-600 space-y-1">
-                                  {bundle.items.slice(0, 2).map((item, index) => (
-                                    <div key={index} className="flex items-center gap-1">
-                                      <div className="w-1 h-1 bg-black rounded-full"></div>
-                                      <span className="truncate">{item.name}</span>
-                                    </div>
-                                  ))}
-                                  {bundle.items.length > 2 && (
-                                    <div className="flex items-center gap-1">
-                                      <div className="w-1 h-1 bg-gray-400 rounded-full"></div>
-                                      <span className="text-gray-500">+{bundle.items.length - 2} more items</span>
-                                    </div>
-                                  )}
-                                </div>
-                              </div>
-                            )}
-                          </div>
-
-                          <div>
-                            {/* Enhanced Price Section */}
-                            <div className="bg-gradient-to-r from-green-50 to-blue-50 p-3 rounded-lg mb-4 border border-green-200">
-                              <div className="flex items-center justify-between">
-                                <div>
-                                  <span className="text-xl font-bold text-black">
-                                    ₹{bundle.bundlePrice?.toLocaleString()}
-                                  </span>
-                                  <span className="text-sm text-gray-500 line-through ml-2">
-                                    ₹{bundle.originalPrice?.toLocaleString()}
-                                  </span>
-                                </div>
-                                <div className="text-right">
-                                  <div className="text-green-600 font-bold text-sm">
-                                    Save ₹{((bundle.originalPrice || 0) - (bundle.bundlePrice || 0)).toLocaleString()}
-                                  </div>
-                                  <div className="text-xs text-gray-600">
-                                    {bundle.discount || Math.round(((bundle.originalPrice - bundle.bundlePrice) / bundle.originalPrice) * 100)}% OFF
-                                  </div>
-                                </div>
-                              </div>
-                            </div>
-                            
-                            {/* Stock Status */}
-                            <div className="flex items-center gap-2 mb-3 text-sm">
-                              {bundle.stock > 0 ? (
-                                <span className={`font-medium ${bundle.stock < 10 ? 'text-amber-600' : 'text-green-600'}`}>
-                                  {bundle.stock < 10 ? `Only ${bundle.stock} left!` : 'In Stock'}
-                                </span>
-                              ) : (
-                                <span className="text-red-500 font-medium">Out of Stock</span>
-                              )}
-                            </div>
-                            
-                            {/* Time-Limited Offer Countdown */}
-                            {bundle.isTimeLimited && (
-                              <div className="mb-4">
-                                <CountdownTimer 
-                                  endDate={bundle.endDate}
-                                  startDate={bundle.startDate}
-                                  onExpire={() => fetchBundles()} // Refresh when expired
-                                />
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      </Link>
-
-                      {/* Action Button - Outside Link */}
-                      <div className="px-6 pb-6">
-                        <button 
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleAddToCart(bundle._id);
-                          }}
-                          disabled={cartLoading || (bundle.stock && bundle.stock <= 0)}
-                          className="w-full bg-black text-white py-3 rounded-lg font-semibold hover:bg-gray-800 transition-all duration-300 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed border-2 border-black"
-                        >
-                          <FaShoppingCart className={`w-4 h-4 ${cartLoading ? 'animate-spin' : ''}`} />
-                          {cartLoading ? 'Adding...' : bundle.stock && bundle.stock <= 0 ? 'Out of Stock' : 'Add to Cart'}
-                        </button>
-                      </div>
-                    </div>
+                  
                   </div>
                 </motion.div>
               ))
@@ -954,48 +639,54 @@ const BundleOffers = () => {
         {/* Empty State */}
         {!loading && filteredBundles.length === 0 && (
           <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="text-center py-16"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5 }}
+            className="text-center py-20 px-4 max-w-lg mx-auto"
           >
-            <FaGift className="text-6xl text-gray-400 mx-auto mb-4" />
-            <h3 className="text-2xl font-bold text-black mb-2">No bundles found</h3>
-            <p className="text-gray-500 mb-4">
-              {searchTerm 
-                ? `No bundles match your search "${searchTerm}"`
-                : "Try adjusting your filters or check back later for new offers!"
-              }
-            </p>
-            {(searchTerm || priceRange !== "all") && (
-              <button
-                onClick={() => {
-                  setSearchTerm("");
-                  setPriceRange("all");
-                  setSortBy("newest");
-                }}
-                className="bg-black text-white px-6 py-2 rounded-lg font-semibold"
-              >
-                Clear All Filters
-              </button>
-            )}
+            <div className="bg-gray-50 p-8 rounded-2xl shadow-sm border border-gray-200">
+              <FaGift className="text-6xl text-gray-400 mx-auto mb-6 opacity-60" />
+              <h3 className="text-2xl font-bold text-black mb-3 tracking-tight">No bundles found</h3>
+              <p className="text-gray-600 mb-6 font-light tracking-wide">
+                {searchTerm 
+                  ? `No bundles match your search "${searchTerm}"`
+                  : "Try adjusting your filters or check back later for new offers!"
+                }
+              </p>
+              {(searchTerm || priceRange !== "all") && (
+                <button
+                  onClick={() => {
+                    setSearchTerm("");
+                    setPriceRange("all");
+                    setSortBy("newest");
+                  }}
+                  className="bg-black text-white px-6 py-2.5 rounded-lg font-semibold shadow-md hover:bg-gray-800 transition-all duration-300 flex items-center gap-2 mx-auto"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                  </svg>
+                  Clear All Filters
+                </button>
+              )}
+            </div>
           </motion.div>
         )}
       </div>
 
       {/* Bottom CTA Section */}
-      <div className="bg-black text-white py-12 border-t border-gray-800">
+      <div className="bg-gradient-to-r from-gray-50 to-gray-100 text-white py-16 border-t border-gray-200">
         <div className="container mx-auto px-4 text-center">
-          <h2 className="text-2xl md:text-3xl font-bold mb-4">
+          <h2 className="text-2xl md:text-4xl font-bold mb-4 text-gray-900 tracking-tight">
             Found the Perfect Bundle?
           </h2>
-          <p className="text-lg mb-6 max-w-xl mx-auto text-gray-200">
+          <p className="text-lg mb-8 mx-auto text-gray-700 font-light tracking-wide">
             Continue shopping for individual items or explore more collections
           </p>
           <Link
             to="/"
-            className="inline-flex items-center gap-2 bg-white text-black px-6 py-3 rounded-full font-bold hover:bg-gray-100 transition-colors border-2 border-white"
+            className="inline-flex items-center gap-3 bg-black text-white px-8 py-3.5 rounded-full font-bold hover:bg-gray-800 border-2 border-black shadow-md hover:shadow-lg transform hover:scale-105 transition-all duration-300"
           >
-            <FaShoppingCart />
+            <FaShoppingCart className="text-lg" />
             Continue Shopping
           </Link>
         </div>
