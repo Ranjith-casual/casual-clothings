@@ -3,7 +3,7 @@ import { FaTimes, FaBox, FaStar, FaTag, FaInfoCircle, FaChevronLeft, FaChevronRi
 import { DisplayPriceInRupees } from '../utils/DisplayPriceInRupees';
 import Axios from '../utils/Axios';
 import SummaryApi from '../common/SummaryApi';
-import noCart from '../assets/empty-cuate.png';
+import noCart from '../assets/Empty-cuate.png';
 
 const BundleItemsModal = ({ bundle, bundleData, isOpen, onClose, orderContext = null }) => {
   const [selectedItemIndex, setSelectedItemIndex] = useState(0);

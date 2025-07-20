@@ -7,7 +7,7 @@ import AddAddress from "../components/AddAddress";
 import AxiosTostError from "../utils/AxiosTostError";
 import Axios from "../utils/Axios";
 import SummaryApi from "../common/SummaryApi";
-import noCart from "../assets/empty-cuate.png"; // Import fallback image
+import noCart from "../assets/Empty-cuate.png"; // Import fallback image
 import toast from "react-hot-toast";
 import EditAddressData from "../components/EditAddressData";
 import Logo from "../assets/logo.png";

@@ -7,7 +7,7 @@ import { FaCaretRight } from "react-icons/fa";
 import { useSelector } from 'react-redux'
 import AddToCartButton from './AddToCartButton'
 import { pricewithDiscount } from '../utils/PriceWithDiscount'
-import imageEmpty from '../assets/empty-cuate.png'
+import imageEmpty from '../assets/Empty-cuate.png'
 import toast from 'react-hot-toast'
 import Axios from '../utils/Axios'
 import SummaryApi from '../common/SummaryApi'

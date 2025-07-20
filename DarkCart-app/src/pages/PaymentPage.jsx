@@ -8,7 +8,7 @@ import SummaryApi from "../common/SummaryApi";
 import toast from "react-hot-toast";
 import AxiosTostError from "../utils/AxiosTostError";
 import Logo from "../assets/logo.png";
-import noCart from "../assets/empty-cuate.png"; // Import fallback image
+import noCart from "../assets/Empty-cuate.png"; // Import fallback image
 import ErrorBoundary from "../components/ErrorBoundary";
 
 // Import payment icons

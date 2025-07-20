@@ -5,7 +5,7 @@ import toast from 'react-hot-toast';
 import Axios from '../utils/Axios';
 import SummaryApi, { baseURL } from '../common/SummaryApi';
 import { DisplayPriceInRupees } from '../utils/DisplayPriceInRupees';
-import noCart from '../assets/empty-cuate.png'; // Import fallback image
+import noCart from '../assets/Empty-cuate.png'; // Import fallback image
 
 const RefundManagement = () => {
     const [refunds, setRefunds] = useState([]);

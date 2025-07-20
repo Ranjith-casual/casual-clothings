@@ -6,7 +6,7 @@ import AddAddress from "../components/AddAddress";
 import AxiosTostError from "../utils/AxiosTostError";
 import Axios from "../utils/Axios";
 import SummaryApi from "../common/SummaryApi";
-import noCart from "../assets/empty-cuate.png";
+import noCart from "../assets/Empty-cuate.png";
 import toast from "react-hot-toast";
 import { useNavigate } from "react-router-dom";
 import EditAddressData from "../components/EditAddressData";
