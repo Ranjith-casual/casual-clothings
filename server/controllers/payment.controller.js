@@ -369,6 +369,19 @@ export const downloadInvoice = async (req, res) => {
                     message: "Access denied. You can only download your own invoices."
                 });
             }
+            console.log(order);
+            // If user data is not populated in orderData, fetch it from database
+            if (!order.userId?.name || !order.userId?.email) {
+                const userPopulatedOrder = await orderModel.findOne(query)
+                    .populate('userId', 'name email')
+                    .populate('deliveryAddress');
+                
+                if (userPopulatedOrder) {
+                    // Merge the populated user data with the provided order data
+                    order.userId = userPopulatedOrder.userId;
+                    order.deliveryAddress = userPopulatedOrder.deliveryAddress || order.deliveryAddress;
+                }
+            }
         } else {
             // Fetch from database
             order = await orderModel.findOne(query)
@@ -579,12 +592,23 @@ const generateInvoicePDF = async (order, type = 'order') => {
             
             drawLine(leftMargin, invoiceDetailsY + 15, leftMargin + 80, invoiceDetailsY + 15, accentColor, 2);
             
-            addStyledText(order.userId?.name || 'N/A', leftMargin, invoiceDetailsY + 25, {
+            // Get customer details with multiple fallback options
+            const customerName = order.userId?.name || 
+                                 order.user?.name || 
+                                 order.deliveryAddress?.name || 
+                                 'Customer Name Not Available';
+            
+            const customerEmail = order.userId?.email || 
+                                  order.user?.email || 
+                                  order.customerEmail || 
+                                  'Email Not Available';
+            
+            addStyledText(customerName, leftMargin, invoiceDetailsY + 25, {
                 fontSize: 11,
                 font: 'Helvetica-Bold'
             });
             
-            addStyledText(order.userId?.email || 'N/A', leftMargin, invoiceDetailsY + 40, {
+            addStyledText(customerEmail, leftMargin, invoiceDetailsY + 40, {
                 fontSize: 10,
                 color: grayColor
             });
@@ -1018,7 +1042,7 @@ export const sendRefundInvoiceEmail = async (order, refundDetails) => {
                     </div>
                     
                     <div class="content">
-                        <h2>Dear ${order.userId?.name || 'Customer'},</h2>
+                        <h2>Dear ${order.userId?.name || order.user?.name || order.deliveryAddress?.name || 'Customer'},</h2>
                         
                         <p>Your refund has been processed successfully. Please find the refund invoice attached to this email.</p>
                         
@@ -1043,7 +1067,7 @@ export const sendRefundInvoiceEmail = async (order, refundDetails) => {
         
         // Send email with attachment
         await sendEmail({
-            sendTo: order.userId?.email,
+            sendTo: order.userId?.email || order.user?.email || order.customerEmail,
             subject: `Refund Invoice - Order #${order.orderId}`,
             html: emailTemplate,
             attachments: [{
@@ -1097,7 +1121,7 @@ export const sendDeliveryInvoiceEmail = async (order) => {
                     </div>
                     
                     <div class="content">
-                        <h2>Dear ${order.userId?.name || 'Customer'},</h2>
+                        <h2>Dear ${order.userId?.name || order.user?.name || order.deliveryAddress?.name || 'Customer'},</h2>
                         
                         <p>Your order has been delivered successfully! Please find the delivery invoice attached to this email for your records.</p>
                         
@@ -1122,7 +1146,7 @@ export const sendDeliveryInvoiceEmail = async (order) => {
         
         // Send email with attachment
         await sendEmail({
-            sendTo: order.userId?.email,
+            sendTo: order.userId?.email || order.user?.email || order.customerEmail,
             subject: `Delivery Confirmation & Invoice - Order #${order.orderId}`,
             html: emailTemplate,
             attachments: [{

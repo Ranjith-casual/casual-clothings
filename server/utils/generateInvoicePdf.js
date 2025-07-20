@@ -69,8 +69,8 @@ export const generateInvoicePdf = async (data, type = 'delivery') => {
             // Customer Information
             doc.fontSize(14).font('Helvetica-Bold').text('Customer Information');
             doc.fontSize(10).font('Helvetica')
-               .text(`Name: ${data.customer?.name || data.user?.name || data.userName || 'N/A'}`)
-               .text(`Email: ${data.customer?.email || data.user?.email || data.email || 'N/A'}`);
+               .text(`Name: ${data.userId?.name || data.customer?.name || data.user?.name || data.userName || 'N/A'}`)
+               .text(`Email: ${data.userId?.email || data.customer?.email || data.user?.email || data.email || 'N/A'}`);
             
             if (type === 'delivery' && data.deliveryAddress) {
                 doc.moveDown(0.5);

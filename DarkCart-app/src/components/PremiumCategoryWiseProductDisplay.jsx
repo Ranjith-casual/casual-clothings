@@ -266,7 +266,7 @@ function PremiumCategoryWiseProductDisplay({ id, name }) {
           </div>
 
           {/* Simplified Scroll Indicator */}
-          <div className="flex justify-center mt-2">
+          {/* <div className="flex justify-center mt-2">
             <div className="flex gap-1 items-center">
               <div className={`h-0.5 ${
                 scrollPosition <= 0 ? 'w-6 bg-black' : 'w-3 bg-gray-300'
@@ -278,7 +278,7 @@ function PremiumCategoryWiseProductDisplay({ id, name }) {
                 scrollPosition >= maxScroll ? 'w-6 bg-black' : 'w-3 bg-gray-300'
               } rounded-full`} />
             </div>
-          </div>
+          </div> */}
         </div>
       </div>
     </motion.section>
