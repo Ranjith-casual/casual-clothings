@@ -78,6 +78,9 @@ const PaymentPage = () => {
   // Get selected address and delivery charge from location state
   const [selectedAddressId, setSelectedAddressId] = useState(null);
   const [deliveryCharge, setDeliveryCharge] = useState(0);
+  const [deliveryDistance, setDeliveryDistance] = useState(0);
+  const [estimatedDeliveryDate, setEstimatedDeliveryDate] = useState('');
+  const [deliveryDays, setDeliveryDays] = useState(0);
   const [selectedAddress, setSelectedAddress] = useState(null);
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('online'); // Default to online payment
   const [isProcessing, setIsProcessing] = useState(false);
@@ -170,6 +173,9 @@ const PaymentPage = () => {
     if (location.state?.selectedAddressId && location.state?.deliveryCharge !== undefined) {
       setSelectedAddressId(location.state.selectedAddressId);
       setDeliveryCharge(location.state.deliveryCharge);
+      setDeliveryDistance(location.state.deliveryDistance || 0);
+      setEstimatedDeliveryDate(location.state.estimatedDeliveryDate || '');
+      setDeliveryDays(location.state.deliveryDays || 0);
     } else {
       // If no address is selected, redirect to address page
       navigate('/checkout/address');
@@ -186,37 +192,55 @@ const PaymentPage = () => {
     }
   }, [selectedAddressId, addressList]);
 
-  // Calculate estimated delivery dates for products
+  // Set delivery dates for products using the estimated delivery date from AddressPage
   useEffect(() => {
     try {
       if (checkoutItems && checkoutItems.length > 0) {
-        // Calculate delivery dates (current date + 3-5 days)
-        const today = new Date();
-        const deliveryEstimates = checkoutItems.map((item, idx) => {
-          // Random delivery estimate between 3-7 days
-          const deliveryDays = Math.floor(Math.random() * 5) + 3;
-          const deliveryDate = new Date(today);
-          deliveryDate.setDate(today.getDate() + deliveryDays);
+        if (estimatedDeliveryDate) {
+          // Use the estimated delivery date from AddressPage for all items
+          const deliveryEstimates = checkoutItems.map((item, idx) => {
+            // Get a unique ID for each item
+            const itemId = item?._id || 
+                          item?.productId?._id || 
+                          `temp-${idx}-${Math.random().toString(36).substr(2, 9)}`;
+            
+            return {
+              productId: itemId,
+              deliveryDate: estimatedDeliveryDate, // Use the date from AddressPage
+              formattedDate: estimatedDeliveryDate // Already formatted in AddressPage
+            };
+          });
           
-          // Get a unique ID for each item
-          const itemId = item?._id || 
-                        item?.productId?._id || 
-                        `temp-${idx}-${Math.random().toString(36).substr(2, 9)}`;
+          setDeliveryDates(deliveryEstimates);
+        } else {
+          // Fallback: Calculate delivery dates if estimatedDeliveryDate is not available
+          const today = new Date();
+          const deliveryEstimates = checkoutItems.map((item, idx) => {
+            // Default delivery estimate: 3-5 days
+            const deliveryDays = Math.floor(Math.random() * 3) + 3;
+            const deliveryDate = new Date(today);
+            deliveryDate.setDate(today.getDate() + deliveryDays);
+            
+            // Get a unique ID for each item
+            const itemId = item?._id || 
+                          item?.productId?._id || 
+                          `temp-${idx}-${Math.random().toString(36).substr(2, 9)}`;
+            
+            return {
+              productId: itemId,
+              deliveryDate: deliveryDate,
+              formattedDate: `${deliveryDate.getDate()} ${deliveryDate.toLocaleString('default', { month: 'short' })} ${deliveryDate.getFullYear()}`
+            };
+          });
           
-          return {
-            productId: itemId,
-            deliveryDate: deliveryDate,
-            formattedDate: `${deliveryDate.getDate()} ${deliveryDate.toLocaleString('default', { month: 'short' })} ${deliveryDate.getFullYear()}`
-          };
-        });
-        
-        setDeliveryDates(deliveryEstimates);
+          setDeliveryDates(deliveryEstimates);
+        }
       } else {
         // Reset delivery dates if no items
         setDeliveryDates([]);
       }
     } catch (error) {
-      console.error("Error calculating delivery dates:", error);
+      console.error("Error setting delivery dates:", error);
       
       // Set fallback dates in case of error
       const fallbackDate = new Date();
@@ -230,7 +254,7 @@ const PaymentPage = () => {
       
       setDeliveryDates(fallbackEstimates);
     }
-  }, [checkoutItems]);
+  }, [checkoutItems, estimatedDeliveryDate]);
 
   const handlePlaceOrder = async () => {
     // Validate selection
@@ -295,6 +319,9 @@ const PaymentPage = () => {
           addressId: selectedAddressId,
           subTotalAmt: totalPrice,
           deliveryCharge: deliveryCharge,
+          deliveryDistance: deliveryDistance,
+          estimatedDeliveryDate: estimatedDeliveryDate,
+          deliveryDays: deliveryDays,
           quantity: totalQty,
           paymentMethod: getPaymentMethodName(selectedPaymentMethod), // Add payment method
         },
@@ -321,6 +348,13 @@ const PaymentPage = () => {
         navigate("/order-success", {
           state: {
             text: "Order",
+            orderDetails: {
+              estimatedDeliveryDate: estimatedDeliveryDate,
+              deliveryDays: deliveryDays,
+              deliveryDistance: deliveryDistance,
+              totalAmount: totalPrice + deliveryCharge,
+              itemCount: totalQty
+            }
           },
         });
       } else {
@@ -560,11 +594,11 @@ const PaymentPage = () => {
                             )}
                           </div>
                           
-                          <div className="mt-1">
+                          {/* <div className="mt-1">
                             <span className="text-xs text-red-700 font-medium">
                               Delivery by {deliveryInfo?.formattedDate || 'Next Week'}
                             </span>
-                          </div>
+                          </div> */}
                         </div>
                       </div>
                     );
@@ -603,6 +637,20 @@ const PaymentPage = () => {
                     <span className="text-gray-700">Delivery Charge</span>
                     <span>{deliveryCharge > 0 ? `₹${deliveryCharge}` : 'FREE'}</span>
                   </div>
+                  
+                  {estimatedDeliveryDate && (
+                    <div className="flex justify-between items-center py-2 bg-blue-50 px-3 rounded-md mt-2">
+                      <span className="text-blue-700 font-medium">Estimated Delivery</span>
+                      <div className="text-right">
+                        <div className="text-blue-800 font-semibold">{estimatedDeliveryDate}</div>
+                        {deliveryDays && (
+                          <div className="text-xs text-blue-600">
+                            ({deliveryDays} {deliveryDays === 1 ? 'day' : 'days'})
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
                   
                   <div className="border-t pt-3 mt-3">
                     <div className="flex justify-between font-semibold">

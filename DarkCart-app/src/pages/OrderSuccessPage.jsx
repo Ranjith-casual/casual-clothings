@@ -10,6 +10,7 @@ const OrderSuccessPage = () => {
   const [imageLoaded, setImageLoaded] = useState(false);
   const [fadeIn, setFadeIn] = useState(false);
   const orderType = location.state?.text || "Order";
+  const orderDetails = location.state?.orderDetails || null;
   const user = useSelector((state) => state.user.user);
   
   // Path to the confetti GIF file in the public directory
@@ -106,6 +107,27 @@ const OrderSuccessPage = () => {
                   <span>Confirmed</span>
                 </div>
               </div>
+              
+              {/* Estimated Delivery Date Section */}
+              {orderDetails?.estimatedDeliveryDate && (
+                <div className={`bg-blue-50 rounded-lg p-4 mb-6 border border-blue-100 transition-all duration-700 ${fadeIn ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`} style={{ transitionDelay: '700ms' }}>
+                  <p className="text-sm text-blue-600 mb-1">Estimated Delivery</p>
+                  <div className="font-medium text-blue-800 flex items-center justify-center gap-2">
+                    <svg className="h-5 w-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                    <span>{orderDetails.estimatedDeliveryDate}</span>
+                  </div>
+                  {orderDetails?.deliveryDays && (
+                    <p className="text-xs text-blue-600 mt-1 text-center">
+                      ({orderDetails.deliveryDays} {orderDetails.deliveryDays === 1 ? 'day' : 'days'} delivery)
+                      {orderDetails?.deliveryDistance && orderDetails.deliveryDistance !== '0' && (
+                        <span className="ml-1">• {orderDetails.deliveryDistance} km</span>
+                      )}
+                    </p>
+                  )}
+                </div>
+              )}
               
               <div className="flex flex-col gap-3 mt-6">
                 <Link 

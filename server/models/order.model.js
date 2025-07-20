@@ -86,6 +86,14 @@ const orderSchema = mongoose.Schema({
     actualDeliveryDate: {
         type: Date
     },
+    deliveryDistance: {
+        type: Number,
+        default: 0
+    },
+    deliveryDays: {
+        type: Number,
+        default: 0
+    },
     deliveryNotes: {
         type: String,
         default: ""

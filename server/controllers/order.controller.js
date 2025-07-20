@@ -72,7 +72,7 @@ export const checkOrderModificationPermissionController = async (req, res) => {
 export const onlinePaymentOrderController = async (req, res) => {
   try {
     const userId = req.userId;
-    const { list_items, totalAmount, addressId, subTotalAmt, quantity, paymentMethod } = req.body;
+    const { list_items, totalAmount, addressId, subTotalAmt, quantity, paymentMethod, deliveryCharge, deliveryDistance, estimatedDeliveryDate, deliveryDays } = req.body;
 
     // Get user details for email
     const user = await UserModel.findById(userId);
@@ -329,7 +329,9 @@ export const onlinePaymentOrderController = async (req, res) => {
       paymentId: "",
       totalQuantity: quantity, // Total quantity of all items
       orderDate: new Date(),
-      estimatedDeliveryDate: calculateEstimatedDeliveryDate(),
+      estimatedDeliveryDate: estimatedDeliveryDate ? new Date(estimatedDeliveryDate) : calculateEstimatedDeliveryDate(),
+      deliveryDistance: deliveryDistance || 0,
+      deliveryDays: deliveryDays || 0,
       paymentStatus: "PAID", // Always PAID for online payments
       paymentMethod: paymentMethod || "Online Payment",
       deliveryAddress: addressId,

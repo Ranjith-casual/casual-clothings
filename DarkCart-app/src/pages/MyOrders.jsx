@@ -796,6 +796,47 @@ function MyOrders() {
                         </span>
                       </div>
                       
+                      {/* Savings Summary - Right after Items */}
+                      {(() => {
+                        let totalSavings = 0;
+                        let hasAnyDiscount = false;
+                        order?.items?.forEach(item => {
+                          const isBundle = item?.itemType === 'bundle';
+                          
+                          if (isBundle) {
+                            const originalPrice = item?.bundleId?.originalPrice || item?.bundleDetails?.originalPrice || 0;
+                            const bundlePrice = item?.bundleId?.bundlePrice || item?.bundleDetails?.bundlePrice || 0;
+                            if (originalPrice > bundlePrice) {
+                              totalSavings += (originalPrice - bundlePrice) * item?.quantity;
+                              hasAnyDiscount = true;
+                            }
+                          } else {
+                            const productPrice = item?.productId?.price || item?.productDetails?.price || 0;
+                            const discount = item?.productId?.discount || item?.productDetails?.discount || 0;
+                            if (discount > 0) {
+                              const discountAmount = productPrice * (discount / 100);
+                              totalSavings += discountAmount * item?.quantity;
+                              hasAnyDiscount = true;
+                            }
+                          }
+                        });
+                        
+                        return hasAnyDiscount && totalSavings > 0 ? (
+                          <div className="flex justify-between items-center mb-2">
+                            <span className={`text-xs sm:text-sm font-medium ${
+                              isCancelled ? 'text-red-700' : 'text-green-700'
+                            }`}>
+                              Total Savings
+                            </span>
+                            <span className={`font-bold text-sm ${
+                              isCancelled ? 'text-red-600' : 'text-green-600'
+                            }`}>
+                              -₹{totalSavings.toFixed(2)}
+                            </span>
+                          </div>
+                        ) : null;
+                      })()}
+                      
                       {/* Delivery Charge */}
                       <div className="flex justify-between items-center mb-2">
                         <span className={`text-xs sm:text-sm ${
@@ -832,51 +873,6 @@ function MyOrders() {
                           ₹{order?.totalAmt?.toFixed(2)}
                         </span>
                       </div>
-                      
-                      {/* Savings Summary */}
-                      {(() => {
-                        let totalSavings = 0;
-                        let hasAnyDiscount = false;
-                        const deliveryCharge = (order?.totalAmt || 0) - (order?.subTotalAmt || order?.totalAmt - 50 || 0);
-                        order?.items?.forEach(item => {
-                          const isBundle = item?.itemType === 'bundle';
-                          
-                          if (isBundle) {
-                            const originalPrice = item?.bundleId?.originalPrice || item?.bundleDetails?.originalPrice || 0;
-                            const bundlePrice = item?.bundleId?.bundlePrice || item?.bundleDetails?.bundlePrice || 0;
-                            if (originalPrice > bundlePrice) {
-                              totalSavings += (originalPrice - bundlePrice) * item?.quantity;
-                              hasAnyDiscount = true;
-                            }
-                          } else {
-                            const productPrice = item?.productId?.price || item?.productDetails?.price || 0;
-                            const discount = item?.productId?.discount || item?.productDetails?.discount || 0;
-                            if (discount > 0) {
-                              const discountAmount = productPrice * (discount / 100);
-                              totalSavings += discountAmount * item?.quantity;
-                              hasAnyDiscount = true;
-                            }
-                            
-                          }
-                        });
-                        
-                        return hasAnyDiscount && totalSavings > 0 ? (
-                          <div className={`mt-2 pt-2 border-t flex justify-between items-center ${
-                            isCancelled ? 'border-red-300' : 'border-gray-300'
-                          }`}>
-                            <span className={`text-xs sm:text-sm font-medium ${
-                              isCancelled ? 'text-red-700' : 'text-green-700'
-                            }`}>
-                              Total Savings
-                            </span>
-                            <span className={`font-bold text-sm ${
-                              isCancelled ? 'text-red-600' : 'text-green-600'
-                            }`}>
-                              ₹{totalSavings.toFixed(2)-deliveryCharge.toFixed(2)}
-                            </span>
-                          </div>
-                        ) : null;
-                      })()}
                     </div>
                     
                     <div className={`h-0.5 w-12 sm:w-16 md:w-20 rounded-full mt-2 ${

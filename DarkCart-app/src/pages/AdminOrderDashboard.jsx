@@ -856,6 +856,9 @@ const AdminOrderDashboard = () => {
                     Date
                   </th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                    Est. Delivery
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
                     Status
                   </th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
@@ -1105,6 +1108,22 @@ const AdminOrderDashboard = () => {
                         </td>
                         <td className="px-4 py-4">
                           <span className="text-gray-500">{formatDate(order.orderDate)}</span>
+                        </td>
+                        <td className="px-4 py-4">
+                          {order.estimatedDeliveryDate ? (
+                            <div className="flex flex-col">
+                              <span className="text-blue-600 font-medium text-sm">
+                                {formatDate(order.estimatedDeliveryDate)}
+                              </span>
+                              {order.deliveryDays && (
+                                <span className="text-xs text-gray-500">
+                                  ({order.deliveryDays} {order.deliveryDays === 1 ? 'day' : 'days'})
+                                </span>
+                              )}
+                            </div>
+                          ) : (
+                            <span className="text-gray-400 text-sm">Not set</span>
+                          )}
                         </td>
                         <td className="px-4 py-4">
                           <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium ${statusDisplay.color} border`}>
