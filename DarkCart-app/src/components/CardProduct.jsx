@@ -34,7 +34,7 @@ function CardProduct({ data, hideProductInfo = false }) {
   // Early return if data is not available
   if (!data || !data._id) {
     return (
-      <div className="bg-white shadow-sm border border-gray-200 rounded-xl overflow-hidden animate-pulse h-[450px] w-full mx-auto">
+      <div className="bg-white rounded-xl overflow-hidden animate-pulse h-[450px] w-full mx-auto">
         <div className="h-[280px] bg-gray-200"></div>
         <div className="p-4 space-y-3">
           <div className="h-4 bg-gray-200 rounded"></div>
@@ -144,11 +144,9 @@ function CardProduct({ data, hideProductInfo = false }) {
     <div className="w-full h-full">
       <Link
         to={url}
-        className={`bg-white rounded-lg overflow-hidden group flex flex-col w-full relative ${
-          hideProductInfo ? 'h-full' : 'h-[420px]'
+        className={`bg-white rounded-lg overflow-hidden flex flex-col w-full relative ${
+          hideProductInfo ? 'h-full' : 'h-[440px]'
         }`}
-        onMouseEnter={() => setShowQuickActions(true)}
-        onMouseLeave={() => setShowQuickActions(false)}
       >
         {/* Product Image Container - Flexible Height */}
         <div className={`relative bg-gray-50 overflow-hidden ${
@@ -174,7 +172,7 @@ function CardProduct({ data, hideProductInfo = false }) {
                 <img
                   src={productImage}
                   alt={productName}
-                  className={`w-full h-full object-contain group-hover:scale-105 transition-transform duration-300 ${
+                  className={`w-full h-full object-contain ${
                     data.stock <= 0 ? 'grayscale opacity-60' : ''
                   } ${imageLoaded ? 'opacity-100' : 'opacity-0'}`}
                   onLoad={handleImageLoad}
@@ -207,15 +205,20 @@ function CardProduct({ data, hideProductInfo = false }) {
 
         {/* Product Info - Show only if not hidden */}
         {!hideProductInfo && (
-          <div className="p-5 flex flex-col h-[180px] justify-center">{/* Increased height to accommodate button */}
+          <div className="p-5 flex flex-col h-[200px] justify-center">{/* Increased height to accommodate description */}
             {/* Category */}
             <div className="text-xs text-gray-400 uppercase tracking-wider font-medium mb-3 text-center">
               {categoryName}
             </div>
 
             {/* Product Name */}
-            <div className="font-medium text-gray-900 text-sm leading-tight text-center mb-4 h-10 flex items-center justify-center">
+            <div className="font-medium text-gray-900 text-sm leading-tight text-center mb-2 h-10 flex items-center justify-center font-serif">
               <ProductNameWithHighlight name={productName} searchTerm={searchTerm} />
+            </div>
+            
+            {/* Product Description */}
+            <div className="text-xs text-gray-500 text-center mb-2 line-clamp-2 h-10 italic font-serif">
+              {description ? description.substring(0, 60) + (description.length > 60 ? '...' : '') : 'No description available'}
             </div>
 
             {/* Price Section */}
@@ -229,14 +232,14 @@ function CardProduct({ data, hideProductInfo = false }) {
                 {DisplayPriceInRupees(discountedPrice)}
               </div>
               {discount > 0 && (
-                <span className="text-xs text-red-500  px-2 py-1 rounded font-medium">
+                <span className="text-xs text-red-500 font-medium">
                   {discount}% OFF
                 </span>
               )}
             </div>
 
             {/* Add to Cart Button */}
-            <div className="mt-auto" onClick={(e) => e.preventDefault()}>
+            <div className="mt-auto flex justify-center w-full" onClick={(e) => e.preventDefault()}>
               <AddToCartButton 
                 data={data} 
                 isBundle={false}

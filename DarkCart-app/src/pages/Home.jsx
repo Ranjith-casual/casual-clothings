@@ -26,59 +26,59 @@ function Home() {
       {/* Premium Hero Section */}
       <PremiumHeroCarousel />
 
-      {/* Collection Showcase - Premium Typography */}
-      <div className="container mx-auto pt-16 pb-12 px-4 lg:px-10">
+      {/* Collection Showcase - Ultra Compact Layout */}
+      <div className="container mx-auto pt-8 pb-4 px-2 lg:px-4">
         <motion.div 
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6 }}
-          className="text-center mb-12"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.4 }}
+          className="text-center mb-4"
         >
-          <h2 className="font-light text-sm uppercase tracking-[0.2em] text-gray-500 mb-2">DISCOVER</h2>
-          <h1 className="text-3xl md:text-4xl font-medium text-gray-900 mb-4">Curated Collections</h1>
-          <p className="max-w-2xl mx-auto text-gray-600 text-sm md:text-base font-light leading-relaxed">
-            Browse through our handpicked categories featuring the finest selection of premium products designed for the modern lifestyle.
+          <h2 className="font-light text-xs uppercase tracking-[0.15em] text-gray-500 mb-1">DISCOVER</h2>
+          <h1 className="text-2xl md:text-3xl font-medium text-gray-900 mb-2">Curated Collections</h1>
+          <p className="max-w-xl mx-auto text-gray-600 text-xs md:text-sm font-light leading-relaxed">
+            Browse our selection of premium products for the modern lifestyle
           </p>
         </motion.div>
 
-        {/* Category Section - Enhanced Grid Layout */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-4 md:gap-6 mb-8">
+        {/* Category Section - Ultra Compact Grid Layout */}
+        <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 xl:grid-cols-10 gap-1">
           {loadingCategory
             ? new Array(12).fill(null).map((c, index) => {
                 return (
                   <motion.div
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
-                    transition={{ duration: 0.5, delay: index * 0.05 }}
+                    transition={{ duration: 0.3, delay: index * 0.03 }}
                     key={index + "loadingcategory"}
-                    className="bg-white rounded-lg p-3 md:p-4 min-h-40 md:min-h-36 grid gap-2 shadow-sm animate-pulse border border-gray-100"
+                    className="bg-white rounded p-1 min-h-24 grid gap-1 animate-pulse"
                   >
-                    <div className="bg-gray-100 min-h-28 md:min-h-24 rounded-md"></div>
-                    <div className="bg-gray-100 h-6 md:h-8 rounded-md"></div>
+                    <div className="bg-gray-100 min-h-16 rounded"></div>
+                    <div className="bg-gray-100 h-4 rounded"></div>
                   </motion.div>
                 );
               })
             : categoryData.map((category, index) => {
                 return (
                   <motion.div
-                    initial={{ opacity: 0, y: 15 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.4, delay: index * 0.05 }}
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ duration: 0.3, delay: index * 0.03 }}
                     key={category._id + "displayCategory"}
-                    className="w-full h-full bg-white rounded-lg shadow-sm hover:shadow-xl transition-all duration-500 border border-gray-100 overflow-hidden cursor-pointer group"
+                    className="w-full bg-white rounded overflow-hidden cursor-pointer"
                     onClick={() =>
                       handleRedirectProductListPage(category._id, category.name)
                     }
                   >
-                    <div className="p-3 md:p-4 h-40 md:h-36 flex items-center justify-center bg-gray-50">
+                    <div className="p-1 h-20 flex items-center justify-center bg-gray-50">
                       <img
                         src={category.image}
                         alt={category.name}
-                        className="w-full h-full object-scale-down group-hover:scale-110 transition-transform duration-700"
+                        className="w-full h-full object-scale-down"
                       />
                     </div>
-                    <div className="p-3 md:p-4 border-t border-gray-100 bg-white">
-                      <h3 className="text-xs md:text-sm font-medium text-gray-800 text-center truncate group-hover:text-black">
+                    <div className="p-1 border-t border-gray-50 bg-white">
+                      <h3 className="text-xs font-medium text-gray-800 text-center truncate">
                         {category.name}
                       </h3>
                     </div>
@@ -88,17 +88,17 @@ function Home() {
         </div>
       </div>
 
-      {/* Display category products with refined spacing */}
-      <div className="py-12 md:py-16">
+      {/* Display category products with ultra compact spacing */}
+      <div className="py-4 md:py-6">
         {categoryData?.map((c, index) => {
           return (
             <motion.div
               initial={{ opacity: 0 }}
               whileInView={{ opacity: 1 }}
               viewport={{ once: true }}
-              transition={{ duration: 0.8 }}
+              transition={{ duration: 0.5 }}
               key={c._id + "CategorywiseProductDisplay"}
-              className="mb-12 md:mb-16 last:mb-0"
+              className="mb-4 md:mb-6 last:mb-0"
             >
               <PremiumCategoryWiseProductDisplay
                 id={c._id}

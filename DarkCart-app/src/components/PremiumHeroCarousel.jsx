@@ -1,20 +1,31 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { TypeAnimation } from 'react-type-animation';
 import useEmblaCarousel from 'embla-carousel-react';
 import Autoplay from 'embla-carousel-autoplay';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { useLayoutEffect } from 'react';
 
 const PremiumHeroCarousel = () => {
   const [selectedIndex, setSelectedIndex] = useState(0);
+  const [imagesLoaded, setImagesLoaded] = useState(false);
   const [emblaRef, emblaApi] = useEmblaCarousel({ 
     loop: true,
-    duration: 40,
-    dragFree: false 
-  }, [Autoplay({ delay: 5000, stopOnInteraction: false })]);
+    duration: 20, // Faster transitions for smoothness
+    dragFree: true, // Smoother dragging
+    skipSnaps: false,
+    inViewThreshold: 0.8,
+    align: 'center',
+  }, [Autoplay({ 
+    delay: 5000, 
+    stopOnInteraction: false,
+    stopOnMouseEnter: true,
+    playOnInit: true
+  })]);
 
   // Premium monochrome fashion content
-  const heroSlides = [
+  // Memoize slides to prevent re-renders
+  const heroSlides = useMemo(() => [
     {
       id: 1,
       type: 'image',
@@ -43,18 +54,56 @@ const PremiumHeroCarousel = () => {
       title: 'Monochrome Mastery',
       subtitle: 'Elegance distilled to its purest form'
     }
-  ];
+  ], []);
 
+  // Optimized selection handling
   const onSelect = useCallback(() => {
     if (!emblaApi) return;
     setSelectedIndex(emblaApi.selectedScrollSnap());
   }, [emblaApi]);
 
+  // Preload all images for smooth transitions
+  useLayoutEffect(() => {
+    const preloadImages = async () => {
+      try {
+        const imagePromises = heroSlides.map((slide) => {
+          return new Promise((resolve, reject) => {
+            const img = new Image();
+            img.src = slide.src;
+            img.onload = () => resolve();
+            img.onerror = () => reject();
+          });
+        });
+        
+        await Promise.all(imagePromises);
+        setImagesLoaded(true);
+      } catch (error) {
+        // Fallback in case of error
+        setImagesLoaded(true);
+      }
+    };
+    
+    preloadImages();
+  }, [heroSlides]);
+
   useEffect(() => {
     if (!emblaApi) return;
+    
+    // Add event listeners
     onSelect();
     emblaApi.on('select', onSelect);
     emblaApi.on('reInit', onSelect);
+    
+    // Performance optimizations
+    emblaApi.reInit({
+      watchDrag: navigator.maxTouchPoints > 0
+    });
+    
+    return () => {
+      // Cleanup
+      emblaApi.off('select', onSelect);
+      emblaApi.off('reInit', onSelect);
+    };
   }, [emblaApi, onSelect]);
 
   const scrollPrev = useCallback(() => {
@@ -71,69 +120,102 @@ const PremiumHeroCarousel = () => {
 
   return (
     <>
-      {/* Desktop Carousel - Original Design */}
+      {/* Desktop Carousel - Optimized Design */}
       <section className="relative h-[90vh] max-h-screen bg-black overflow-hidden select-none hidden md:block">
-        {/* Embla Carousel */}
-        <div className="h-full touch-pan-x" ref={emblaRef}>
+        {/* Loading state */}
+        {!imagesLoaded && (
+          <div className="absolute inset-0 flex items-center justify-center z-50 bg-black">
+            <div className="w-8 h-8 border-t-2 border-white rounded-full animate-spin" />
+          </div>
+        )}
+        
+        {/* Embla Carousel - Optimized */}
+        <div className="h-full touch-pan-x will-change-transform" ref={emblaRef}>
           <div className="flex h-full">
             {heroSlides.map((slide, index) => (
-              <div key={slide.id} className="flex-none w-full h-full relative">
-                {/* Background Media */}
+              <div 
+                key={slide.id} 
+                className="flex-none w-full h-full relative"
+                style={{
+                  transform: `translateZ(0)`, // Force GPU acceleration
+                  backfaceVisibility: 'hidden', // Reduce rendering artifacts
+                  willChange: 'transform', // Signal browser for optimization
+                  contain: 'paint', // Optimize rendering
+                }}
+              >
+                {/* Background Media - Optimized */}
                 <div className="absolute inset-0">
                   <img
                     src={slide.src}
                     alt={slide.title}
-                    className="w-full h-full object-cover transition-transform duration-1000 hover:scale-105"
+                    className="w-full h-full object-cover"
                     style={{
                       filter: 'grayscale(100%) contrast(1.2) brightness(0.6)',
+                      transform: selectedIndex === index ? 'scale(1.02)' : 'scale(1)',
+                      transition: 'transform 1.2s cubic-bezier(0.23, 1, 0.32, 1)',
+                      willChange: 'transform',
                     }}
+                    loading="eager"
+                    decoding="async"
                     draggable={false}
                   />
-                  {/* Enhanced glassmorphism overlay */}
-                  <div className="absolute inset-0 bg-gradient-to-b from-black/50 via-transparent to-black/70 transition-all duration-700 hover:from-black/40 hover:to-black/60" />
-                  {/* Subtle texture overlay */}
-                  <div className="absolute inset-0 bg-black/10 backdrop-blur-[0.5px]" />
+                  {/* Enhanced glassmorphism overlay - Simplified */}
+                  <div className="absolute inset-0 bg-gradient-to-b from-black/50 via-transparent to-black/70" />
+                  {/* Removed subtle texture overlay for performance */}
                 </div>
 
-                {/* Hero Content */}
+                {/* Hero Content - Performance Optimized */}
                 <div className="absolute inset-0 flex items-center justify-center z-10 px-4">
                   <div className="text-center text-white max-w-5xl">
-                    <AnimatePresence mode="wait">
+                    <AnimatePresence mode="wait" initial={false}>
                       {selectedIndex === index && (
                         <motion.div
                           key={slide.id}
-                          initial={{ opacity: 0, y: 40 }}
+                          initial={{ opacity: 0, y: 20 }}
                           animate={{ opacity: 1, y: 0 }}
-                          exit={{ opacity: 0, y: -40 }}
-                          transition={{ duration: 1, ease: "easeOut" }}
+                          exit={{ opacity: 0 }}
+                          transition={{ 
+                            duration: 0.6, 
+                            ease: [0.23, 1, 0.32, 1] 
+                          }}
+                          style={{
+                            willChange: 'transform, opacity'
+                          }}
                         >
-                          {/* Premium Title with Enhanced Typography */}
+                          {/* Premium Title - Optimized */}
                           <h1 className="text-4xl sm:text-6xl md:text-7xl lg:text-8xl xl:text-9xl font-extralight tracking-wider mb-8">
-                            <TypeAnimation
-                              sequence={[
-                                slide.title,
-                                4000,
-                                '',
-                                800,
-                              ]}
-                              wrapper="span"
-                              speed={40}
-                              style={{ 
+                            {index === selectedIndex ? (
+                              <TypeAnimation
+                                sequence={[
+                                  slide.title,
+                                  4000,
+                                ]}
+                                wrapper="span"
+                                speed={50}
+                                style={{ 
+                                  fontFamily: "'Inter', sans-serif",
+                                  fontWeight: '200',
+                                  letterSpacing: '0.08em',
+                                }}
+                                repeat={1}
+                                cursor={false}
+                              />
+                            ) : (
+                              <span style={{ 
                                 fontFamily: "'Inter', sans-serif",
                                 fontWeight: '200',
                                 letterSpacing: '0.08em',
-                                textShadow: '0 0 40px rgba(0,0,0,0.5)'
-                              }}
-                              repeat={Infinity}
-                              cursor={false}
-                            />
+                              }}>
+                                {slide.title}
+                              </span>
+                            )}
                           </h1>
 
-                          {/* Enhanced Subtitle */}
+                          {/* Enhanced Subtitle - Optimized */}
                           <motion.div
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}
-                            transition={{ delay: 1.2, duration: 1.2 }}
+                            transition={{ delay: 0.6, duration: 0.8 }}
                             className="mb-12"
                           >
                             <div className="w-32 h-px bg-white/60 mx-auto mb-8" />
@@ -142,22 +224,22 @@ const PremiumHeroCarousel = () => {
                             </p>
                           </motion.div>
 
-                          {/* Premium CTA Button */}
+                          {/* Premium CTA Button - Optimized */}
                           <motion.button
-                            initial={{ opacity: 0, y: 30 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ delay: 2, duration: 0.8 }}
-                            whileHover={{ scale: 1.05 }}
-                            whileTap={{ scale: 0.95 }}
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            transition={{ delay: 0.8, duration: 0.6 }}
+                            whileHover={{ scale: 1.03 }}
+                            whileTap={{ scale: 0.98 }}
                             className="group relative border border-white/20 px-12 py-4 text-sm tracking-widest uppercase 
-                                     hover:bg-white hover:text-black transition-all duration-500 
-                                     glassmorphism-dark overflow-hidden"
+                                     hover:bg-white hover:text-black transition-colors duration-300 
+                                     overflow-hidden"
                           >
-                            <span className="relative z-10 group-hover:tracking-wider transition-all duration-500">
+                            <span className="relative z-10 group-hover:tracking-wider transition-all duration-300">
                               Discover Excellence
                             </span>
-                            {/* Hover background effect */}
-                            <div className="absolute inset-0 bg-white transform scale-x-0 group-hover:scale-x-100 transition-transform duration-500 origin-left" />
+                            {/* Hover background effect - Simplified */}
+                            <div className="absolute inset-0 bg-white transform scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-left" />
                           </motion.button>
                         </motion.div>
                       )}
@@ -228,79 +310,101 @@ const PremiumHeroCarousel = () => {
        
       </section>
 
-      {/* Mobile Premium Design - Innovative Vertical Stack */}
+      {/* Mobile Premium Design - Performance Optimized */}
       <section className="md:hidden bg-white">
-        {/* Mobile Hero Header */}
-     <div className="relative h-[60vh] max-h-[75vh] bg-black overflow-hidden">
+        {/* Loading state - Mobile */}
+        {!imagesLoaded && (
+          <div className="absolute inset-0 flex items-center justify-center z-50 bg-black h-[45vh]">
+            <div className="w-6 h-6 border-t-2 border-white rounded-full animate-spin" />
+          </div>
+        )}
+      
+        {/* Mobile Hero Header - Optimized */}
+        <div className="relative h-[45vh] max-h-[60vh] bg-black overflow-hidden">
           <motion.div
-            initial={{ opacity: 0 }}
+            initial={{ opacity: 1 }} // Changed to avoid unnecessary animation on initial load
             animate={{ opacity: 1 }}
-            transition={{ duration: 1 }}
             className="absolute inset-0"
+            style={{
+              willChange: 'transform', // Signal browser for optimization
+              backfaceVisibility: 'hidden', // Reduce rendering artifacts
+            }}
           >
             <img
               src={heroSlides[selectedIndex]?.src}
               alt={heroSlides[selectedIndex]?.title}
-              className="w-full h-full object-cover transition-all duration-1000"
+              className="w-full h-full object-cover"
               style={{
                 filter: 'grayscale(100%) contrast(1.1) brightness(0.7)',
+                transition: 'opacity 0.6s ease-out',
+                willChange: 'opacity',
               }}
+              loading="eager"
+              decoding="async"
             />
             <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-transparent to-black/80" />
           </motion.div>
 
-          {/* Mobile Hero Content */}
+          {/* Mobile Hero Content - Performance Optimized */}
           <div className="absolute inset-0 flex flex-col justify-between p-6 z-10">
-            {/* Top Brand */}
+            {/* Top Brand - Simplified */}
             <motion.div
-              initial={{ opacity: 0, y: -20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.5 }}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.5 }}
               className="text-white/60 text-xs tracking-widest uppercase text-center"
             >
               Premium Collection
             </motion.div>
 
-            {/* Center Title */}
+            {/* Center Title - Optimized */}
             <div className="text-center text-white">
-              <motion.h1
-                key={selectedIndex}
-                initial={{ opacity: 0, y: 30 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.8 }}
-                className="text-3xl font-light tracking-wider mb-4"
-                style={{ fontFamily: "'Inter', sans-serif" }}
-              >
-                {heroSlides[selectedIndex]?.title}
-              </motion.h1>
-              <motion.div
-                initial={{ width: 0 }}
-                animate={{ width: '3rem' }}
-                transition={{ delay: 0.8, duration: 0.6 }}
-                className="h-px bg-white/60 mx-auto mb-4"
-              />
-              <motion.p
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ delay: 1 }}
-                className="text-sm text-gray-200 tracking-wide leading-relaxed px-4"
-              >
-                {heroSlides[selectedIndex]?.subtitle}
-              </motion.p>
+              <AnimatePresence mode="wait" initial={false}>
+                <motion.h1
+                  key={`title-${selectedIndex}`}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.4 }}
+                  className="text-3xl font-light tracking-wider mb-4"
+                  style={{ 
+                    fontFamily: "'Inter', sans-serif",
+                    willChange: 'opacity'
+                  }}
+                >
+                  {heroSlides[selectedIndex]?.title}
+                </motion.h1>
+              </AnimatePresence>
+              <div className="h-px bg-white/60 w-12 mx-auto mb-4" />
+              <AnimatePresence mode="wait" initial={false}>
+                <motion.p
+                  key={`subtitle-${selectedIndex}`}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.4 }}
+                  className="text-sm text-gray-200 tracking-wide leading-relaxed px-4"
+                >
+                  {heroSlides[selectedIndex]?.subtitle}
+                </motion.p>
+              </AnimatePresence>
             </div>
 
-            {/* Bottom Navigation */}
+            {/* Bottom Navigation - Optimized */}
             <div className="flex justify-center gap-2">
               {heroSlides.map((_, index) => (
                 <button
                   key={index}
                   onClick={() => goToSlide(index)}
-                  className="group"
+                  className="touch-manipulation" // Improved touch response
+                  style={{ 
+                    WebkitTapHighlightColor: 'transparent' // Remove tap highlight on mobile
+                  }}
                 >
-                  <div className={`h-1 rounded-full transition-all duration-300 ${
+                  <div className={`h-1 rounded-full ${
                     selectedIndex === index 
-                      ? 'w-8 bg-white' 
-                      : 'w-2 bg-white/40'
+                      ? 'w-8 bg-white transition-all duration-200 ease-out' 
+                      : 'w-2 bg-white/40 transition-all duration-150 ease-out'
                   }`} />
                 </button>
               ))}
@@ -308,108 +412,26 @@ const PremiumHeroCarousel = () => {
           </div>
         </div>
 
-        {/* Mobile Content Cards - Scrollable */}
+        {/* Mobile Content Cards - Optimized */}
         <div className="bg-white py-8">
-          {/* Featured Home Images Grid */}
-          <div className="px-4 mb-6">
-            <h3 className="text-sm uppercase tracking-widest text-gray-500 mb-4 text-center">Featured Collections</h3>
-            
-            {/* Image Grid */}
-            <div className="grid grid-cols-2 gap-3">
-              <motion.div 
-                initial={{ opacity: 0, y: 10 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ duration: 0.5 }}
-                className="aspect-square overflow-hidden bg-gray-100 relative group"
-              >
-                <img 
-                  src="/HomeBanner/banner1.jpg" 
-                  alt="Collection 1" 
-                  className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
-                  style={{ filter: 'grayscale(60%) contrast(1.1)' }}
-                />
-                <div className="absolute inset-0 bg-black/20 group-hover:bg-black/10 transition-colors duration-300"></div>
-                <div className="absolute bottom-0 left-0 right-0 p-3 text-white text-xs font-medium bg-gradient-to-t from-black/70 to-transparent">
-                  Premium Collection
-                </div>
-              </motion.div>
-              
-              <motion.div 
-                initial={{ opacity: 0, y: 10 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ duration: 0.5, delay: 0.1 }}
-                className="aspect-square overflow-hidden bg-gray-100 relative group"
-              >
-                <img 
-                  src="/HomeBanner/banner2.jpg" 
-                  alt="Collection 2" 
-                  className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
-                  style={{ filter: 'grayscale(60%) contrast(1.1)' }}
-                />
-                <div className="absolute inset-0 bg-black/20 group-hover:bg-black/10 transition-colors duration-300"></div>
-                <div className="absolute bottom-0 left-0 right-0 p-3 text-white text-xs font-medium bg-gradient-to-t from-black/70 to-transparent">
-                  Street Style
-                </div>
-              </motion.div>
-              
-              <motion.div 
-                initial={{ opacity: 0, y: 10 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ duration: 0.5, delay: 0.2 }}
-                className="aspect-square overflow-hidden bg-gray-100 relative group"
-              >
-                <img 
-                  src="/HomeBanner/banner3.jpg" 
-                  alt="Collection 3" 
-                  className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
-                  style={{ filter: 'grayscale(60%) contrast(1.1)' }}
-                />
-                <div className="absolute inset-0 bg-black/20 group-hover:bg-black/10 transition-colors duration-300"></div>
-                <div className="absolute bottom-0 left-0 right-0 p-3 text-white text-xs font-medium bg-gradient-to-t from-black/70 to-transparent">
-                  Minimalist
-                </div>
-              </motion.div>
-              
-              <motion.div 
-                initial={{ opacity: 0, y: 10 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ duration: 0.5, delay: 0.3 }}
-                className="aspect-square overflow-hidden bg-gray-100 relative group"
-              >
-                <img 
-                  src="/HomeBanner/banner4.jpg" 
-                  alt="Collection 4" 
-                  className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
-                  style={{ filter: 'grayscale(60%) contrast(1.1)' }}
-                />
-                <div className="absolute inset-0 bg-black/20 group-hover:bg-black/10 transition-colors duration-300"></div>
-                <div className="absolute bottom-0 left-0 right-0 p-3 text-white text-xs font-medium bg-gradient-to-t from-black/70 to-transparent">
-                  Urban Style
-                </div>
-              </motion.div>
-            </div>
-          </div>
 
-          {/* Mobile CTA */}
-          <div className="px-4 mt-6">
+          {/* Mobile CTA - Optimized */}
+          <div className="px-4 mt-8">
             <motion.button
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
+              initial={{ opacity: 0 }}
+              whileInView={{ opacity: 1 }}
               viewport={{ once: true }}
-              transition={{ duration: 0.6 }}
+              transition={{ duration: 0.4 }}
               whileTap={{ scale: 0.98 }}
               className="w-full border border-black/20 py-4 text-sm tracking-widest uppercase 
-                       hover:bg-black hover:text-white transition-all duration-500 
+                       hover:bg-black hover:text-white transition-colors duration-300
                        bg-transparent text-black relative overflow-hidden group"
+              style={{ touchAction: 'manipulation' }}
             >
-              <span className="relative z-10 group-hover:tracking-wider transition-all duration-500">
+              <span className="relative z-10 group-hover:tracking-wider transition-all duration-300">
                 Explore Collection
               </span>
-              <div className="absolute inset-0 bg-black transform scale-x-0 group-hover:scale-x-100 transition-transform duration-500 origin-left" />
+              <div className="absolute inset-0 bg-black transform scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-left" />
             </motion.button>
           </div>
         </div>

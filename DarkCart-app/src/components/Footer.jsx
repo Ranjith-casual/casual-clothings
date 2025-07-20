@@ -48,7 +48,7 @@ function Footer() {
               {[
                 { to: "/search", label: "Shop Now" },
                 { to: "/size-guide", label: "Size Guide" },
-                { to: "/new-arrivals", label: "New Arrivals" },
+                { to: "/search", label: "New Arrivals" },
               ].map(({ to, label }, idx) => (
                 <li key={idx}>
                   <Link to={to} className="text-gray-600 hover:text-black flex items-center transition-all duration-300 group font-['Poppins']">
@@ -70,8 +70,8 @@ function Footer() {
               {[
                 { to: "/faq", label: "FAQ" },
                 { to: "/shipping-returns", label: "Shipping & Returns" },
-                { to: user ? "/dashboard/myorders" : "/login", label: "My Orders" },
-                { to: user ? "/dashboard/profile" : "/login", label: "My Account" },
+                { to: "/privacy-policy", label: "Privacy Policy" },
+                { to: "/terms-conditions", label: "Terms & Conditions" },
               ].map(({ to, label }, idx) => (
                 <li key={idx}>
                   <Link to={to} className="text-gray-600 hover:text-black flex items-center transition-all duration-300 group font-['Poppins']">

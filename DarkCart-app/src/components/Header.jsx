@@ -468,22 +468,7 @@ function Header() {
                   </div>
                 )}
               </div>
-              
-              <Link
-                to="/about"
-                className="nav-link py-2 px-1 border-b border-transparent hover:border-black text-gray-800 hover:text-black text-sm xl:text-base whitespace-nowrap transition-all duration-300 group"
-                style={{ 
-                  fontFamily: "'Inter', sans-serif",
-                  fontWeight: '300',
-                  letterSpacing: '0.08em',
-                }}
-                onMouseEnter={() => {
-                  setShowPrimeDealsDropdown(false);
-                  setShowFashionDropdown(false);
-                }}
-              >
-                <span className="group-hover:translate-y-[-1px] transition-transform duration-300">ABOUT</span>
-              </Link>
+      
             </div>
             
             {/* Desktop Search - Innovative Glass Effect with Animation - Only on xl screens */}
