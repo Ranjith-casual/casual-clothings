@@ -157,9 +157,7 @@ function CardProduct({ data, hideProductInfo = false }) {
           {/* Top Badges */}
           <div className="absolute top-3 left-3 right-3 z-20 flex justify-between items-start">
             {/* Stock Status Badge */}
-            <span className={`px-3 py-1.5 text-xs font-medium rounded-full ${stockStatus.color}`}>
-              {stockStatus.text}
-            </span>
+          
 
             {/* Wishlist Button */}
           </div>
