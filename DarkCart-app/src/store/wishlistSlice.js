@@ -26,10 +26,7 @@ const wishlistSlice = createSlice({
             }
         },
         removeWishlistItem: (state, action) => {
-            state.wishlistItems = state.wishlistItems.filter(item => {
-                const itemId = item.productId?._id || item.bundleId?._id;
-                return itemId !== action.payload;
-            });
+            state.wishlistItems = state.wishlistItems.filter(item => item._id !== action.payload);
         },
         clearWishlist: (state) => {
             state.wishlistItems = [];
