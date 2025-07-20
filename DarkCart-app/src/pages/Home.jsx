@@ -27,12 +27,12 @@ function Home() {
       <PremiumHeroCarousel />
 
       {/* Collection Showcase - Premium Typography */}
-      <div className="container mx-auto pt-16 pb-8 px-4 lg:px-10">
+      <div className="container mx-auto pt-16 pb-12 px-4 lg:px-10">
         <motion.div 
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6 }}
-          className="text-center mb-10"
+          className="text-center mb-12"
         >
           <h2 className="font-light text-sm uppercase tracking-[0.2em] text-gray-500 mb-2">DISCOVER</h2>
           <h1 className="text-3xl md:text-4xl font-medium text-gray-900 mb-4">Curated Collections</h1>
@@ -42,7 +42,7 @@ function Home() {
         </motion.div>
 
         {/* Category Section - Enhanced Grid Layout */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-4 md:gap-6">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-4 md:gap-6 mb-8">
           {loadingCategory
             ? new Array(12).fill(null).map((c, index) => {
                 return (
@@ -51,9 +51,9 @@ function Home() {
                     animate={{ opacity: 1 }}
                     transition={{ duration: 0.5, delay: index * 0.05 }}
                     key={index + "loadingcategory"}
-                    className="bg-white rounded-lg p-3 md:p-4 min-h-32 md:min-h-36 grid gap-2 shadow-sm animate-pulse border border-gray-100"
+                    className="bg-white rounded-lg p-3 md:p-4 min-h-40 md:min-h-36 grid gap-2 shadow-sm animate-pulse border border-gray-100"
                   >
-                    <div className="bg-gray-100 min-h-20 md:min-h-24 rounded-md"></div>
+                    <div className="bg-gray-100 min-h-28 md:min-h-24 rounded-md"></div>
                     <div className="bg-gray-100 h-6 md:h-8 rounded-md"></div>
                   </motion.div>
                 );
@@ -70,7 +70,7 @@ function Home() {
                       handleRedirectProductListPage(category._id, category.name)
                     }
                   >
-                    <div className="p-3 md:p-4 h-28 md:h-32 flex items-center justify-center bg-gray-50">
+                    <div className="p-3 md:p-4 h-40 md:h-36 flex items-center justify-center bg-gray-50">
                       <img
                         src={category.image}
                         alt={category.name}
@@ -89,7 +89,7 @@ function Home() {
       </div>
 
       {/* Display category products with refined spacing */}
-      <div className="py-8 md:py-12">
+      <div className="py-12 md:py-16">
         {categoryData?.map((c, index) => {
           return (
             <motion.div

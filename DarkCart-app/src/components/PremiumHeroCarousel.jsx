@@ -231,7 +231,7 @@ const PremiumHeroCarousel = () => {
       {/* Mobile Premium Design - Innovative Vertical Stack */}
       <section className="md:hidden bg-white">
         {/* Mobile Hero Header */}
-     <div className="relative h-[45vh] max-h-[60vh] bg-black overflow-hidden">
+     <div className="relative h-[60vh] max-h-[75vh] bg-black overflow-hidden">
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -310,10 +310,92 @@ const PremiumHeroCarousel = () => {
 
         {/* Mobile Content Cards - Scrollable */}
         <div className="bg-white py-8">
-         
+          {/* Featured Home Images Grid */}
+          <div className="px-4 mb-6">
+            <h3 className="text-sm uppercase tracking-widest text-gray-500 mb-4 text-center">Featured Collections</h3>
+            
+            {/* Image Grid */}
+            <div className="grid grid-cols-2 gap-3">
+              <motion.div 
+                initial={{ opacity: 0, y: 10 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.5 }}
+                className="aspect-square overflow-hidden bg-gray-100 relative group"
+              >
+                <img 
+                  src="/HomeBanner/banner1.jpg" 
+                  alt="Collection 1" 
+                  className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
+                  style={{ filter: 'grayscale(60%) contrast(1.1)' }}
+                />
+                <div className="absolute inset-0 bg-black/20 group-hover:bg-black/10 transition-colors duration-300"></div>
+                <div className="absolute bottom-0 left-0 right-0 p-3 text-white text-xs font-medium bg-gradient-to-t from-black/70 to-transparent">
+                  Premium Collection
+                </div>
+              </motion.div>
+              
+              <motion.div 
+                initial={{ opacity: 0, y: 10 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.5, delay: 0.1 }}
+                className="aspect-square overflow-hidden bg-gray-100 relative group"
+              >
+                <img 
+                  src="/HomeBanner/banner2.jpg" 
+                  alt="Collection 2" 
+                  className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
+                  style={{ filter: 'grayscale(60%) contrast(1.1)' }}
+                />
+                <div className="absolute inset-0 bg-black/20 group-hover:bg-black/10 transition-colors duration-300"></div>
+                <div className="absolute bottom-0 left-0 right-0 p-3 text-white text-xs font-medium bg-gradient-to-t from-black/70 to-transparent">
+                  Street Style
+                </div>
+              </motion.div>
+              
+              <motion.div 
+                initial={{ opacity: 0, y: 10 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.5, delay: 0.2 }}
+                className="aspect-square overflow-hidden bg-gray-100 relative group"
+              >
+                <img 
+                  src="/HomeBanner/banner3.jpg" 
+                  alt="Collection 3" 
+                  className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
+                  style={{ filter: 'grayscale(60%) contrast(1.1)' }}
+                />
+                <div className="absolute inset-0 bg-black/20 group-hover:bg-black/10 transition-colors duration-300"></div>
+                <div className="absolute bottom-0 left-0 right-0 p-3 text-white text-xs font-medium bg-gradient-to-t from-black/70 to-transparent">
+                  Minimalist
+                </div>
+              </motion.div>
+              
+              <motion.div 
+                initial={{ opacity: 0, y: 10 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.5, delay: 0.3 }}
+                className="aspect-square overflow-hidden bg-gray-100 relative group"
+              >
+                <img 
+                  src="/HomeBanner/banner4.jpg" 
+                  alt="Collection 4" 
+                  className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
+                  style={{ filter: 'grayscale(60%) contrast(1.1)' }}
+                />
+                <div className="absolute inset-0 bg-black/20 group-hover:bg-black/10 transition-colors duration-300"></div>
+                <div className="absolute bottom-0 left-0 right-0 p-3 text-white text-xs font-medium bg-gradient-to-t from-black/70 to-transparent">
+                  Urban Style
+                </div>
+              </motion.div>
+            </div>
+          </div>
 
           {/* Mobile CTA */}
-          <div className="px-4 mt-8">
+          <div className="px-4 mt-6">
             <motion.button
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
