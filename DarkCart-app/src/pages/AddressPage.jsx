@@ -607,53 +607,53 @@ const AddressPage = () => {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header Section with stepper */}
-      <div className="bg-black shadow-sm border-b text-white">
-        <div className="container mx-auto px-4 py-3">
+      <div className="bg-black shadow-md border-b text-white">
+        <div className="container mx-auto px-4 sm:px-6 py-3 sm:py-4">
           <div className="flex items-center justify-between">
-            <div className="w-24">
+            <div className="w-20 sm:w-24">
               <Link to="/">
-                <img src={Logo} alt="casualclothings Logo" className="h-10" />
+                <img src={Logo} alt="casualclothings Logo" className="h-8 sm:h-10" />
               </Link>
             </div>
-            <div className="flex items-center space-x-2">
-              <div className="text-xs uppercase tracking-wide text-gray-300">
-                <Link to="/checkout/bag" className="hover:text-white">BAG</Link>
+            <div className="flex items-center space-x-1 sm:space-x-3">
+              <div className="text-3xs sm:text-xs uppercase tracking-wider md:tracking-widest font-medium text-gray-300">
+                <Link to="/checkout/bag" className="hover:text-white transition-colors">BAG</Link>
               </div>
-              <div className="w-8 h-px bg-gray-600"></div>
-              <div className="text-xs uppercase tracking-wide text-teal-400 font-medium">ADDRESS</div>
-              <div className="w-8 h-px bg-gray-600"></div>
-              <div className="text-xs uppercase tracking-wide text-gray-300">
+              <div className="w-3 sm:w-8 h-px bg-gray-600"></div>
+              <div className="text-3xs sm:text-xs uppercase tracking-wider md:tracking-widest font-medium text-white">ADDRESS</div>
+              <div className="w-3 sm:w-8 h-px bg-gray-600"></div>
+              <div className="text-3xs sm:text-xs uppercase tracking-wider md:tracking-widest font-medium text-gray-300">
                 <span className="cursor-not-allowed">PAYMENT</span>
               </div>
             </div>
-            <div className="w-24">
+            <div className="w-20 sm:w-24">
               {/* Placeholder for balance */}
             </div>
           </div>
         </div>
       </div>
 
-      <div className="container mx-auto px-4 py-6">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="container mx-auto px-4 sm:px-6 py-6 sm:py-8">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8">
           {/* Left Column - Address Section */}
           <div className="lg:col-span-2">
             {/* Address Selection Section */}
-            <div className="bg-white rounded shadow mb-6">
-              <div className="p-4 border-b">
-                <h2 className="text-lg font-medium">Select Delivery Address</h2>
+            <div className="bg-white rounded-lg shadow-md mb-6">
+              <div className="p-4 sm:p-5 border-b">
+                <h2 className="text-base sm:text-lg font-medium tracking-tight uppercase">Select Delivery Address</h2>
               </div>
               
-              <div className="p-4">
-                <div className="mb-4">
-                  <p className="text-sm text-gray-700 font-medium">DEFAULT ADDRESS</p>
+              <div className="p-3 sm:p-4 md:p-5">
+                <div className="mb-3 sm:mb-4">
+                  <p className="text-xs sm:text-sm text-gray-700 font-medium tracking-wide">DEFAULT ADDRESS</p>
                 </div>
                 
-                <div className="space-y-4">
+                <div className="space-y-3 sm:space-y-4">
                   {addressList.filter(address => address.status).map((address, index) => (
                     <div 
                       key={address._id}
-                      className={`relative border rounded p-4 ${
-                        selectedAddressIndex === index ? 'border-teal-500 bg-teal-50' : 'border-gray-200'
+                      className={`relative border rounded-md p-3 sm:p-4 transition-all duration-200 ${
+                        selectedAddressIndex === index ? 'border-black bg-gray-50' : 'border-gray-200 hover:border-gray-400'
                       }`}
                     >
                       <div className="flex items-start">
@@ -669,35 +669,35 @@ const AddressPage = () => {
                               // Reset calculation status when new address is selected
                               setIsDeliveryCalculated(false);
                             }}
-                            className="w-4 h-4 text-teal-500 border-gray-300 focus:ring-teal-500"
+                            className="w-4 h-4 text-black border-gray-300 focus:ring-black"
                           />
                         </div>
                         
                         <div className="flex-1">
-                          <div className="flex items-center space-x-2">
-                            <span className="font-medium">{address.address_line}</span>
+                          <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+                            <span className="font-medium tracking-tight text-sm sm:text-base">{address.address_line}</span>
                             {address.addressType === 'HOME' && (
-                              <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-teal-50 text-teal-700 border border-teal-100">
+                              <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-3xs sm:text-xs font-medium bg-gray-100 text-gray-800 border border-gray-200">
                                 HOME
                               </span>
                             )}
                           </div>
                           
-                          <div className="text-sm text-gray-600 mt-1">
+                          <div className="text-xs sm:text-sm text-gray-600 mt-1.5 sm:mt-2">
                             {address.city}, {address.state} - {address.pincode}
                           </div>
                           
-                          <div className="text-sm text-gray-600 mt-1">
+                          <div className="text-xs sm:text-sm text-gray-600 mt-1">
                             Mobile: {address.mobile}
                           </div>
                           
-                          <div className="mt-3 space-x-4">
+                          <div className="mt-3 flex flex-wrap gap-2 sm:gap-3">
                             <button
                               onClick={() => {
                                 console.log("Edit button clicked for address:", address);
                                 handleEditAddress({...address});  // Pass a deep copy of the address
                               }}
-                              className="text-sm text-teal-600 font-medium border border-teal-300 rounded-md px-4 py-1 hover:bg-teal-50"
+                              className="text-3xs sm:text-xs text-black font-medium border border-gray-300 rounded-md px-3 sm:px-4 py-1 sm:py-1.5 hover:bg-gray-50 transition-colors"
                             >
                               EDIT
                             </button>
@@ -705,7 +705,7 @@ const AddressPage = () => {
                             <button
                               onClick={() => handleDeleteAddress(address._id)}
                               type="button"
-                              className="text-sm text-gray-700 font-medium border rounded-md px-4 py-1 hover:bg-red-50 hover:text-red-600 hover:border-red-200 transition-colors"
+                              className="text-3xs sm:text-xs text-gray-700 font-medium border border-gray-300 rounded-md px-3 sm:px-4 py-1 sm:py-1.5 hover:bg-gray-100 hover:text-black transition-colors"
                             >
                               REMOVE
                             </button>
@@ -714,8 +714,8 @@ const AddressPage = () => {
                       </div>
                       
                       {selectedAddressIndex === index && (
-                        <div className="mt-3 pt-3 border-t">
-                          <p className="text-sm text-gray-600">
+                        <div className="mt-2 sm:mt-3 pt-2 sm:pt-3 border-t border-gray-200">
+                          <p className="text-xs sm:text-sm text-gray-600">
                             • Pay on Delivery available
                           </p>
                         </div>
@@ -726,11 +726,11 @@ const AddressPage = () => {
                   {/* Add New Address Button */}
                   <div 
                     onClick={() => setOpenAddAddress(true)}
-                    className="flex items-center justify-center p-4 border border-dashed border-teal-300 rounded cursor-pointer hover:border-teal-500 hover:bg-teal-50 transition-colors"
+                    className="flex items-center justify-center p-3 sm:p-4 border border-dashed border-gray-300 rounded-md cursor-pointer hover:border-black hover:bg-gray-50 transition-colors duration-200"
                   >
                     <div className="text-center">
-                      <div className="text-teal-500 mb-1 text-xl">+</div>
-                      <div className="text-sm font-medium text-teal-700">Add New Address</div>
+                      <div className="text-black mb-1 text-lg sm:text-xl">+</div>
+                      <div className="text-xs sm:text-sm font-medium tracking-tight">Add New Address</div>
                     </div>
                   </div>
                 </div>
@@ -741,12 +741,12 @@ const AddressPage = () => {
           {/* Right Column */}
           <div className="lg:col-span-1">
             {/* Product Images with Details */}
-            <div className="bg-white rounded shadow mb-4">
-              <div className="p-4 border-b">
-                <h2 className="text-lg font-medium">Your Items ({totalQty})</h2>
+            <div className="bg-white rounded-lg shadow-md mb-4">
+              <div className="p-4 sm:p-5 border-b">
+                <h2 className="text-base sm:text-lg font-medium tracking-tight uppercase">Your Items ({totalQty})</h2>
               </div>
-              <div className="p-4">
-                <div className="space-y-3">
+              <div className="p-4 sm:p-5">
+                <div className="space-y-4">
                   {checkoutItems.map((item, index) => {
                     // Use our safe access helper to get all needed properties
                     const itemId = getProductProperty(item, '_id', `item-${index}`);
@@ -767,10 +767,10 @@ const AddressPage = () => {
                     return (
                       <div 
                         key={`preview-item-${index}`} 
-                        className="flex items-start border-b pb-3 last:border-b-0 last:pb-0"
+                        className="flex items-start border-b pb-4 last:border-b-0 last:pb-0"
                       >
                         {/* Product Image */}
-                        <div className="w-16 h-16 flex-shrink-0 bg-gray-50 border border-gray-200 rounded overflow-hidden">
+                        <div className="w-16 h-16 sm:w-20 sm:h-20 flex-shrink-0 bg-gray-50 border border-gray-200 rounded-md overflow-hidden">
                           <img 
                             src={imageSrc}
                             alt={pricing.productTitle}
@@ -783,32 +783,32 @@ const AddressPage = () => {
                         </div>
                         
                         {/* Product Details */}
-                        <div className="ml-3 flex-1">
-                          <h3 className="text-sm font-medium line-clamp-1" title={pricing.productTitle}>
+                        <div className="ml-3 sm:ml-4 flex-1">
+                          <h3 className="text-sm sm:text-base font-medium line-clamp-1 tracking-tight" title={pricing.productTitle}>
                             {pricing.productTitle}
                             {pricing.isBundle && (
-                              <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                              <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
                                 Bundle
                               </span>
                             )}
                           </h3>
                           
-                          <div className="flex flex-wrap text-xs text-gray-500 mt-1">
-                            <span className="mr-2">Size: {size}</span>
+                          <div className="flex flex-wrap text-xs sm:text-sm text-gray-600 mt-1 sm:mt-2">
+                            <span className="mr-3">Size: {size}</span>
                             <span>Qty: {pricing.quantity}</span>
                           </div>
                           
-                          <div className="mt-1 flex items-center">
-                            <span className="font-medium text-sm">
+                          <div className="mt-1 sm:mt-2 flex items-center">
+                            <span className="font-medium text-sm sm:text-base">
                               {DisplayPriceInRupees(pricing.totalPrice)}
                             </span>
                             {/* Only show discount for products, not bundles */}
                             {!pricing.isBundle && pricing.discount > 0 && (
                               <>
-                                <span className="mx-1 text-xs line-through text-gray-400">
+                                <span className="mx-2 text-xs sm:text-sm line-through text-gray-400">
                                   {DisplayPriceInRupees(pricing.totalOriginalPrice)}
                                 </span>
-                                <span className="text-xs text-green-600">
+                                <span className="text-xs sm:text-sm text-gray-900">
                                   {pricing.discount}% OFF
                                 </span>
                               </>
@@ -817,11 +817,11 @@ const AddressPage = () => {
                           
                           {/* Delivery Date Display */}
                           {estimatedDeliveryDate && (
-                            <div className="mt-1">
-                              <span className="text-xs text-teal-600 font-medium">
+                            <div className="mt-1 sm:mt-2">
+                              <span className="text-xs sm:text-sm text-gray-900 font-medium">
                                 Delivery by {estimatedDeliveryDate}
                                 {deliveryDays && (
-                                  <span className="text-gray-500 ml-1">
+                                  <span className="text-gray-600 ml-1">
                                     ({deliveryDays} {deliveryDays === 1 ? 'day' : 'days'})
                                   </span>
                                 )}
@@ -837,39 +837,39 @@ const AddressPage = () => {
             </div>
             
             {/* Price Details */}
-            <div className="bg-white rounded shadow sticky top-4">
-              <div className="p-4 border-b">
-                <h2 className="text-lg font-medium">PRICE DETAILS ({totalQty} {totalQty === 1 ? 'Item' : 'Items'})</h2>
+            <div className="bg-white rounded-lg shadow-md sticky top-4">
+              <div className="p-4 sm:p-5 border-b">
+                <h2 className="text-base sm:text-lg font-medium tracking-tight uppercase">Price Details ({totalQty} {totalQty === 1 ? 'Item' : 'Items'})</h2>
               </div>
               
-              <div className="p-4">
-                <div className="space-y-3">
-                  <div className="flex justify-between">
-                    <span className="text-gray-700">Total MRP</span>
-                    <span>₹{notDiscountTotalPrice.toFixed(2)}</span>
+              <div className="p-4 sm:p-5">
+                <div className="space-y-4">
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-700 text-sm sm:text-base">Total MRP</span>
+                    <span className="font-medium text-sm sm:text-base">₹{notDiscountTotalPrice.toFixed(2)}</span>
                   </div>
                   
-                  <div className="flex justify-between">
-                    <span className="text-gray-700">Discount on MRP</span>
-                    <span className="text-green-600">-₹{(notDiscountTotalPrice - totalPrice).toFixed(2)}</span>
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-700 text-sm sm:text-base">Discount on MRP</span>
+                    <span className="text-gray-900 font-medium text-sm sm:text-base">-₹{(notDiscountTotalPrice - totalPrice).toFixed(2)}</span>
                   </div>
                   
-                  <div className="flex justify-between">
-                    <span className="text-gray-700">Platform Fee</span>
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-700 text-sm sm:text-base">Platform Fee</span>
                     <div className="flex items-center">
-                      <span className="line-through text-gray-500 mr-1">₹99</span>
-                      <span className="text-green-600">FREE</span>
+                      <span className="line-through text-gray-500 mr-1 text-sm">₹99</span>
+                      <span className="text-gray-900 font-medium text-sm sm:text-base">FREE</span>
                     </div>
                   </div>
                   
-                  <div className="flex justify-between">
-                    <span className="text-gray-700">Delivery Charge</span>
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-700 text-sm sm:text-base">Delivery Charge</span>
                     {isCalculatingDelivery ? (
-                      <span className="text-blue-500 animate-pulse">Calculating...</span>
+                      <span className="text-gray-900 text-sm sm:text-base">Calculating...</span>
                     ) : !isDeliveryCalculated && selectedAddressIndex !== null ? (
-                      <span className="text-orange-500">Pending calculation</span>
+                      <span className="text-gray-900 text-sm sm:text-base">Pending</span>
                     ) : (
-                      <span className={deliveryCharge > 0 ? "text-gray-900" : "text-green-600"}>
+                      <span className={`${deliveryCharge > 0 ? "text-gray-900" : "text-gray-900"} font-medium text-sm sm:text-base`}>
                         {deliveryCharge > 0 ? `₹${deliveryCharge}` : 'FREE'}
                       </span>
                     )}
@@ -877,12 +877,12 @@ const AddressPage = () => {
                   
                   {/* Delivery Date Information */}
                   {estimatedDeliveryDate && isDeliveryCalculated && (
-                    <div className="flex justify-between text-sm">
+                    <div className="flex justify-between text-sm items-center">
                       <span className="text-gray-700">Estimated Delivery</span>
-                      <span className="text-teal-600 font-medium">
+                      <span className="text-gray-900 font-medium">
                         {estimatedDeliveryDate}
                         {deliveryDistance && deliveryDistance !== '0' && (
-                          <div className="text-xs text-gray-500">
+                          <div className="text-xs text-gray-500 text-right">
                             ({deliveryDistance} km • {deliveryDays} {deliveryDays === 1 ? 'day' : 'days'})
                           </div>
                         )}
@@ -890,10 +890,10 @@ const AddressPage = () => {
                     </div>
                   )}
                   
-                  <div className="border-t pt-3 mt-3">
+                  <div className="border-t pt-4 mt-4">
                     <div className="flex justify-between font-semibold">
-                      <span>Total Amount</span>
-                      <span>₹{(totalPrice + deliveryCharge).toFixed(2)}</span>
+                      <span className="text-base sm:text-lg tracking-tight">Total Amount</span>
+                      <span className="text-base sm:text-lg">₹{(totalPrice + deliveryCharge).toFixed(2)}</span>
                     </div>
                   </div>
                 </div>
@@ -901,31 +901,31 @@ const AddressPage = () => {
                 <button
                   onClick={handleContinueToPayment}
                   disabled={selectedAddressIndex === null || isCalculatingDelivery || !isDeliveryCalculated}
-                  className="w-full bg-black hover:bg-gray-800 text-white py-3 mt-6 font-medium disabled:bg-gray-300 disabled:cursor-not-allowed border-b-4 border-teal-500"
+                  className="w-full bg-black hover:bg-gray-800 text-white py-3 sm:py-4 mt-6 font-medium text-sm sm:text-base disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors duration-200 tracking-wide uppercase"
                 >
-                  {isCalculatingDelivery ? "CALCULATING DELIVERY..." : "CONTINUE"}
+                  {isCalculatingDelivery ? "Calculating Delivery..." : "Continue to Payment"}
                 </button>
                 
                 {/* Helper text for disabled button */}
                 {selectedAddressIndex === null && (
-                  <p className="text-xs text-red-500 text-center mt-2">
+                  <p className="text-xs text-gray-600 text-center mt-2 font-medium">
                     Please select an address to continue
                   </p>
                 )}
                 {selectedAddressIndex !== null && isCalculatingDelivery && (
-                  <p className="text-xs text-blue-500 text-center mt-2">
+                  <p className="text-xs text-gray-600 text-center mt-2 font-medium">
                     Calculating delivery charges...
                   </p>
                 )}
                 {selectedAddressIndex !== null && !isCalculatingDelivery && !isDeliveryCalculated && (
-                  <p className="text-xs text-orange-500 text-center mt-2">
+                  <p className="text-xs text-gray-600 text-center mt-2 font-medium">
                     Delivery charge calculation pending
                   </p>
                 )}
                 
-                <div className="mt-6 text-xs text-center text-gray-600">
-                  <p>Safe and Secure Payments. Easy returns.</p>
-                  <p>100% Authentic products.</p>
+                <div className="mt-6 text-xs sm:text-sm text-center text-gray-600 space-y-1">
+                  <p className="font-medium tracking-tight">Safe and Secure Payments. Easy returns.</p>
+                  <p className="tracking-tight">100% Authentic products.</p>
                 </div>
               </div>
             </div>
