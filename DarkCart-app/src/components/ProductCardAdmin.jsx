@@ -2,10 +2,12 @@ import React, { useState } from 'react'
 import EditProductAdmin from './EditProductAdmin'
 import ConfirmBox from "../components/ConfirmBox";
 import { IoClose } from 'react-icons/io5'
+import { FaBoxes } from 'react-icons/fa'
 import SummaryApi from '../common/SummaryApi.js'
 import Axios from '../utils/Axios'
 import AxiosTostError from '../utils/AxiosTostError'
 import toast from 'react-hot-toast'
+import { useNavigate } from 'react-router-dom'
 
 const ProductCardAdmin = ({ data, fetchProductData }) => {
   // Add animation styles
@@ -27,6 +29,7 @@ const ProductCardAdmin = ({ data, fetchProductData }) => {
     };
   }, []);
   
+  const navigate = useNavigate();
   const [editOpen,setEditOpen]= useState(false)
   const [openDelete,setOpenDelete] = useState(false)
 
@@ -81,6 +84,16 @@ const ProductCardAdmin = ({ data, fetchProductData }) => {
             Delete
           </button>
         </div>
+        
+        <button 
+          onClick={() => {
+            console.log("Navigating to inventory management for product ID:", data._id);
+            navigate(`/dashboard/inventory-management/${data._id}`);
+          }}
+          className='mt-2 w-full flex items-center justify-center gap-1 border px-1.5 sm:px-2 py-1.5 sm:py-2 text-[10px] sm:text-xs border-blue-300 bg-blue-50 text-blue-600 hover:bg-blue-100 hover:text-blue-700 rounded-md transition-all font-medium tracking-wide shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-300 focus:ring-opacity-50'
+        >
+          <FaBoxes className="inline-block" /> Manage Inventory
+        </button>
 
         {
           editOpen && (

@@ -246,7 +246,18 @@ const RefundDetailsModal = ({ refund, onClose, onShowBundleItems }) => {
                         
                         {/* Products Details */}
                         <div className="bg-gray-50 p-4 rounded-lg md:col-span-2">
-                            <h3 className="font-semibold text-lg mb-3">Product Details</h3>
+                            <div className="flex justify-between items-center mb-3">
+                                <h3 className="font-semibold text-lg">Product Details</h3>
+                                <div className="text-sm">
+                                    <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded-md">
+                                        {order.items?.length || 0} item{order.items?.length !== 1 ? 's' : ''}
+                                    </span>
+                                    <span className="mx-2">•</span>
+                                    <span className="bg-green-100 text-green-800 px-2 py-1 rounded-md font-medium">
+                                        Total: {DisplayPriceInRupees(order.totalAmt)}
+                                    </span>
+                                </div>
+                            </div>
                             {order.items && order.items.length > 0 ? (
                                 <div className="grid grid-cols-1 gap-4 mt-2">
                                     {order.items.map((item, index) => (
@@ -311,17 +322,41 @@ const RefundDetailsModal = ({ refund, onClose, onShowBundleItems }) => {
                                                         </button>
                                                     )}
                                                 </div>
-                                                <div className="text-sm text-gray-600 mt-1">
-                                                    <span>Quantity: {item.quantity}</span>
-                                                    <span className="mx-2">•</span>
-                                                    <span>Price: {DisplayPriceInRupees(
-                                                        item.itemType === 'product' 
-                                                            ? item.productDetails?.price || 0 
-                                                            : item.bundleDetails?.bundlePrice || 0
-                                                    )}</span>
+                                                <div className="text-sm text-gray-600 mt-1 flex flex-wrap gap-2 items-center">
+                                                    <span className="px-2 py-0.5 bg-blue-100 text-blue-800 rounded-md font-medium">
+                                                        Quantity: {item.quantity}
+                                                    </span>
+                                                    
+                                                    {item.itemType === 'product' && (item.size || item.productDetails?.size) && (
+                                                        <span className="px-2 py-0.5 bg-purple-100 text-purple-800 rounded-md font-medium">
+                                                            Size: {item.size || item.productDetails?.size}
+                                                        </span>
+                                                    )}
+                                                    
+                                                    <span className="px-2 py-0.5 bg-green-100 text-green-800 rounded-md font-medium">
+                                                        Price: {DisplayPriceInRupees(
+                                                            item.itemType === 'product' 
+                                                                ? item.productDetails?.price || 0 
+                                                                : item.bundleDetails?.bundlePrice || 0
+                                                        )}
+                                                    </span>
                                                 </div>
-                                                <div className="text-sm font-medium mt-1">
-                                                    Subtotal: {DisplayPriceInRupees(item.itemTotal)}
+                                                <div className="text-sm font-medium mt-2">
+                                                    <span className="px-2 py-1 bg-gray-100 text-gray-800 rounded-md inline-flex items-center">
+                                                        <span className="mr-1">Item Total:</span>
+                                                        <span className="text-green-700 font-bold">
+                                                            {DisplayPriceInRupees(item.itemTotal)}
+                                                        </span>
+                                                        {item.quantity > 1 && (
+                                                            <span className="ml-1 text-xs text-gray-600">
+                                                                ({item.quantity} × {DisplayPriceInRupees(
+                                                                    (item.itemType === 'product' 
+                                                                        ? item.productDetails?.price || 0 
+                                                                        : item.bundleDetails?.bundlePrice || 0)
+                                                                )})
+                                                            </span>
+                                                        )}
+                                                    </span>
                                                 </div>
                                             </div>
                                         </div>

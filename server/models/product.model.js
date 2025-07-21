@@ -18,9 +18,24 @@ const productSchema = mongoose.Schema({
         ref: 'category',
         required: true
     }],
+    // Legacy stock field for backward compatibility
     stock: {
         type: Number,
         default: 0
+    },
+    // New sizes inventory with stock per size
+    sizes: {
+        XS: { type: Number, default: 0 },
+        S: { type: Number, default: 0 },
+        M: { type: Number, default: 0 },
+        L: { type: Number, default: 0 },
+        XL: { type: Number, default: 0 }
+    },
+    // Available sizes array for quick filtering
+    availableSizes: {
+        type: [String],
+        enum: ['XS', 'S', 'M', 'L', 'XL'],
+        default: []
     },
     price: {
         type: Number,

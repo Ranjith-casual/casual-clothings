@@ -115,7 +115,15 @@ const PaymentPage = () => {
     
     if (item.productId && item.productId._id) {
       productTitle = item.productId.name || 'Product';
-      originalPrice = item.productId.price || 0;
+      
+      // Check if there's a size-adjusted price first
+      if (item.sizeAdjustedPrice) {
+        originalPrice = Number(item.sizeAdjustedPrice) || 0;
+        console.log(`Using size-adjusted price for ${item.productId.name}: ₹${originalPrice} (Size: ${item.size})`);
+      } else {
+        originalPrice = Number(item.productId.price) || 0;
+      }
+      
       discount = item.productId.discount || 0;
       finalPrice = discount > 0 ? originalPrice * (1 - discount/100) : originalPrice;
       isBundle = false;
@@ -305,6 +313,7 @@ const PaymentPage = () => {
               image: item.productId.image,
               price: item.productId.price
             } : undefined,
+            size: item.size, // Include size information for product items
             itemType: 'product',
             quantity: item.quantity || 1
           };
@@ -591,6 +600,12 @@ const PaymentPage = () => {
                                   {pricing.discount}% OFF
                                 </span>
                               </>
+                            )}
+                            {/* Show size adjustment indicator if available */}
+                            {item.sizeAdjustedPrice && item.size && (
+                              <span className="ml-2 inline-flex items-center px-1.5 py-0.5 rounded text-3xs font-medium bg-gray-100 text-gray-700">
+                                Price adjusted for size
+                              </span>
                             )}
                           </div>
                           

@@ -591,21 +591,21 @@ export const getAllRefunds = async (req, res) => {
             .limit(limit * 1)
             .skip((page - 1) * limit);
             
-        // Enhance refunds with delivery insights
+        // Enhance refunds with delivery insights - safely handle null or undefined values
         const enhancedRefunds = refunds.map(refund => {
             const refundObj = refund.toObject();
             
-            // Add delivery context
+            // Add delivery context - with null checks
             if (refund.orderId) {
                 const deliveryContext = {
-                    hasEstimatedDate: !!refund.orderId.estimatedDeliveryDate,
-                    hasActualDeliveryDate: !!refund.orderId.actualDeliveryDate,
+                    hasEstimatedDate: refund.orderId.estimatedDeliveryDate ? true : false,
+                    hasActualDeliveryDate: refund.orderId.actualDeliveryDate ? true : false,
                     isOverdue: refund.orderId.estimatedDeliveryDate && 
                         new Date() > new Date(refund.orderId.estimatedDeliveryDate) && 
                         !refund.orderId.actualDeliveryDate,
-                    daysBetweenOrderAndCancellation: Math.floor(
+                    daysBetweenOrderAndCancellation: refund.orderId.orderDate ? Math.floor(
                         (new Date(refund.requestDate) - new Date(refund.orderId.orderDate)) / (1000 * 60 * 60 * 24)
-                    )
+                    ) : 0
                 };
                 
                 if (refund.orderId.actualDeliveryDate) {
@@ -620,17 +620,22 @@ export const getAllRefunds = async (req, res) => {
             return refundObj;
         });
         
-        // Log the first refund's order details to debug
-        if (enhancedRefunds.length > 0 && enhancedRefunds[0].orderId) {
-            console.log("First refund order items:", 
-                JSON.stringify(enhancedRefunds[0].orderId.items.map(item => ({
-                    itemType: item.itemType,
-                    productId: typeof item.productId === 'object' ? item.productId._id : item.productId,
-                    bundleId: typeof item.bundleId === 'object' ? item.bundleId._id : item.bundleId,
-                    productDetails: item.productDetails,
-                    bundleDetails: item.bundleDetails
-                })))
-            );
+        // Safely log the first refund's order details to debug
+        if (enhancedRefunds.length > 0 && enhancedRefunds[0].orderId && enhancedRefunds[0].orderId.items) {
+            try {
+                console.log("First refund order items:", 
+                    JSON.stringify(enhancedRefunds[0].orderId.items.map(item => ({
+                        itemType: item.itemType,
+                        productId: item.productId && typeof item.productId === 'object' ? item.productId._id : item.productId,
+                        bundleId: item.bundleId && typeof item.bundleId === 'object' ? item.bundleId._id : item.bundleId,
+                        productDetails: item.productDetails,
+                        bundleDetails: item.bundleDetails
+                    })))
+                );
+            } catch (logError) {
+                console.error("Error logging refund items:", logError);
+                // Continue execution even if logging fails
+            }
         }
 
         const total = await orderCancellationModel.countDocuments(filter);
@@ -862,10 +867,17 @@ export const getUserRefunds = async (req, res) => {
         })
         .populate({
             path: 'orderId',
-            populate: {
-                path: 'items.productId items.bundleId',
-                select: 'name title images image'
-            }
+            select: 'orderId totalAmt orderDate orderStatus paymentMethod paymentStatus items subTotalAmt totalQuantity',
+            populate: [
+                {
+                    path: 'items.productId',
+                    select: 'name title images image price discount'
+                },
+                {
+                    path: 'items.bundleId',
+                    select: 'title name images image bundlePrice price'
+                }
+            ]
         })
         .populate('userId', 'name email')
         .sort({ 
@@ -911,7 +923,25 @@ export const getRefundInvoice = async (req, res) => {
             'refundDetails.refundId': refundId,
             status: 'APPROVED',
             'refundDetails.refundStatus': 'COMPLETED'
-        }).populate('orderId').populate('userId');
+        })
+        .populate({
+            path: 'orderId',
+            populate: [
+                {
+                    path: 'items.productId',
+                    select: 'name image price discount description brand category'
+                },
+                {
+                    path: 'items.bundleId',
+                    select: 'title image bundlePrice originalPrice description items'
+                },
+                {
+                    path: 'deliveryAddress',
+                    select: 'address_line city state pincode country landmark addressType mobile'
+                }
+            ]
+        })
+        .populate('userId', 'name email phone');
         
         if (!refund) {
             return res.status(404).json({
@@ -1009,6 +1039,99 @@ export const getCancellationByOrderId = async (req, res) => {
             success: false,
             error: true,
             message: "Internal server error while getting cancellation details"
+        });
+    }
+};
+
+// Get comprehensive order details with all related information
+export const getComprehensiveOrderDetails = async (req, res) => {
+    try {
+        const { orderId } = req.params;
+        const userId = req.userId;
+        
+        // Find the order with populated references
+        const order = await orderModel.findOne({ 
+            $or: [
+                { orderId: orderId, userId: userId },
+                { _id: orderId, userId: userId }
+            ]
+        })
+        .populate({
+            path: "items.productId",
+            select: "name image price stock discount description brand category sizes"
+        })
+        .populate({
+            path: "items.bundleId",
+            select: "title description image images bundlePrice originalPrice stock items discount",
+            populate: {
+                path: "items.productId",
+                select: "name image price stock discount description brand"
+            }
+        })
+        .populate("deliveryAddress", "address_line city state pincode country landmark addressType mobile")
+        .populate("userId", "name email phone");
+        
+        if (!order) {
+            return res.status(404).json({
+                success: false,
+                error: true,
+                message: "Order not found"
+            });
+        }
+        
+        // Get cancellation request information if any
+        const { default: orderCancellationModel } = await import('../models/orderCancellation.model.js');
+        const cancellationRequest = await orderCancellationModel.findOne({
+            orderId: order._id
+        }).sort({ createdAt: -1 });
+        
+        // Format the response with all available information
+        const comprehensiveOrderDetails = {
+            ...order.toObject(),
+            // Add cancellation details if available
+            cancellation: cancellationRequest ? {
+                status: cancellationRequest.status,
+                requestDate: cancellationRequest.requestDate,
+                reason: cancellationRequest.reason,
+                additionalReason: cancellationRequest.additionalReason,
+                refundDetails: cancellationRequest.refundDetails || {},
+                adminResponse: cancellationRequest.adminResponse || {},
+                deliveryInfo: cancellationRequest.deliveryInfo || {}
+            } : null,
+            // Add delivery timeline with dates
+            deliveryTimeline: {
+                orderPlaced: order.createdAt,
+                estimatedDelivery: order.estimatedDeliveryDate,
+                actualDelivery: order.actualDeliveryDate,
+                deliveryDays: order.deliveryDays,
+                deliveryDistance: order.deliveryDistance,
+                deliveryNotes: order.deliveryNotes
+            },
+            // Add payment details
+            paymentDetails: {
+                method: order.paymentMethod,
+                status: order.paymentStatus,
+                paymentId: order.paymentId,
+                refundId: order.refundDetails?.refundId,
+                refundAmount: order.refundDetails?.refundAmount,
+                refundPercentage: order.refundDetails?.refundPercentage,
+                refundDate: order.refundDetails?.refundDate
+            }
+        };
+        
+        return res.status(200).json({
+            success: true,
+            error: false,
+            message: "Comprehensive order details retrieved successfully",
+            data: comprehensiveOrderDetails
+        });
+        
+    } catch (error) {
+        console.error("Error getting comprehensive order details:", error);
+        return res.status(500).json({
+            success: false,
+            error: true,
+            message: "Internal server error while retrieving order details"
         });
     }
 };

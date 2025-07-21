@@ -156,15 +156,40 @@ const DisplayCartItem = ({close}) => {
                                                             <p className='text-xs sm:text-sm text-ellipsis line-clamp-2 text-black font-medium'>
                                                                 {item?.itemType === 'bundle' ? item?.bundleId?.title : item?.productId?.name}
                                                             </p>
-                                                            <p className='text-gray-500 text-xs mt-0.5'>
-                                                                {item?.itemType === 'bundle' ? 'Bundle Offer' : item?.productId?.unit}
-                                                            </p>
+                                                            <div className="flex items-center gap-2 mt-0.5">
+                                                                <p className='text-gray-500 text-xs'>
+                                                                    {item?.itemType === 'bundle' ? 'Bundle Offer' : item?.productId?.unit}
+                                                                </p>
+                                                                {item?.itemType !== 'bundle' && item?.size && (
+                                                                    <span className='bg-gray-100 text-gray-700 px-1.5 py-0.5 rounded text-xs font-medium'>
+                                                                        Size: {item?.size}
+                                                                    </span>
+                                                                )}
+                                                            </div>
                                                             <p className='font-semibold text-black mt-1.5'>
                                                                 {item?.itemType === 'bundle' 
                                                                     ? DisplayPriceInRupees(item?.bundleId?.bundlePrice)
-                                                                    : DisplayPriceInRupees(pricewithDiscount(item?.productId?.price,item?.productId?.discount))
+                                                                    : DisplayPriceInRupees(pricewithDiscount(
+                                                                        item?.sizeAdjustedPrice || item?.productId?.price,
+                                                                        item?.productId?.discount))
                                                                 }
                                                             </p>
+                                                            {item?.itemType !== 'bundle' && item?.size && (
+                                                                <div className='flex flex-col gap-0.5'>
+                                                                    <p className='text-xs text-green-600'>
+                                                                        Size: <span className="font-semibold">{item?.size}</span>
+                                                                        {item?.sizeAdjustedPrice && " (Price adjusted)"}
+                                                                    </p>
+                                                                    
+                                                                    {/* Display stock information */}
+                                                                    {item?.productId?.sizes && item?.productId?.sizes[item.size] !== undefined && (
+                                                                        <p className='text-xs text-gray-500'>
+                                                                            Size stock: {item.productId.sizes[item.size]} | 
+                                                                            Total stock: {item.productId.stock || 'N/A'}
+                                                                        </p>
+                                                                    )}
+                                                                </div>
+                                                            )}
                                                             {/* Quantity Controls with Stock Validation */}
                                                             <div className='mt-2 w-full max-w-[120px]'>
                                                                 {item?.itemType === 'bundle' ? (
@@ -176,10 +201,19 @@ const DisplayCartItem = ({close}) => {
                                                                     />
                                                                 ) : (
                                                                     <AddToCartButton 
-                                                                        data={item?.productId}
+                                                                        data={{
+                                                                            ...item?.productId,
+                                                                            // Ensure both size-specific and overall stock data are available
+                                                                            sizes: item?.productId?.sizes || {},
+                                                                            stock: item?.productId?.stock,
+                                                                            // Add any other necessary fields
+                                                                            _id: item?.productId?._id,
+                                                                            name: item?.productId?.name
+                                                                        }}
                                                                         isBundle={false}
                                                                         cartItemId={item?._id}
                                                                         currentQty={item?.quantity}
+                                                                        selectedSize={item?.size} // Pass the size information
                                                                     />
                                                                 )}
                                                             </div>

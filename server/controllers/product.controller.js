@@ -13,7 +13,10 @@ export const createProductController = async (req, res) => {
             discount,
             description,
             more_details,
-            publish 
+            publish,
+            // New size-related fields
+            sizes,
+            availableSizes 
         } = req.body;
 
         // Required field validation
@@ -34,13 +37,37 @@ export const createProductController = async (req, res) => {
                 message: "Invalid gender. Must be one of: Men, Women, Kids"
             });
         }
+        
+        // Process sizes data
+        const sizeData = sizes || {};
+        const validSizes = ['XS', 'S', 'M', 'L', 'XL'];
+        const processedSizes = {
+            XS: Number(sizeData.XS || 0),
+            S: Number(sizeData.S || 0),
+            M: Number(sizeData.M || 0),
+            L: Number(sizeData.L || 0),
+            XL: Number(sizeData.XL || 0)
+        };
+        
+        // Calculate available sizes based on inventory
+        const calculatedAvailableSizes = Object.entries(processedSizes)
+            .filter(([_, quantity]) => quantity > 0)
+            .map(([size, _]) => size);
+        
+        // Calculate total stock across all sizes
+        const totalStock = Object.values(processedSizes).reduce((sum, qty) => sum + qty, 0);
 
         const product = new ProductModel({
             name,
             image,
             gender,
             category,
-            stock: Number(stock),
+            // For backward compatibility, set stock to total of all sizes
+            stock: totalStock,
+            // Set individual size inventory
+            sizes: processedSizes,
+            // Set available sizes for filtering
+            availableSizes: availableSizes || calculatedAvailableSizes,
             price: Number(price),
             discount: Number(discount),
             description,

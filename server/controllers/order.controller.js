@@ -184,7 +184,19 @@ export const onlinePaymentOrderController = async (req, res) => {
           });
         }
         
-        if (product.stock < item.quantity) {
+        // Check size-specific inventory if size is provided
+        if (item.size) {
+          const sizeInventory = product.sizes?.[item.size] || 0;
+          if (sizeInventory < item.quantity) {
+            return res.status(400).json({
+              success: false,
+              error: true,
+              message: `Insufficient stock for ${product.name} in size ${item.size}. Available: ${sizeInventory}, Requested: ${item.quantity}`
+            });
+          }
+        } 
+        // Fallback to legacy stock check
+        else if (product.stock < item.quantity) {
           return res.status(400).json({
             success: false,
             error: true,
@@ -313,8 +325,11 @@ export const onlinePaymentOrderController = async (req, res) => {
           productDetails: productDetails || {
             name: 'Product',
             image: [],
-            price: 0
+            price: 0,
+            size: item.size // Include size in product details
           },
+          // Include size information in the order item
+          size: item.size,
           quantity: item.quantity,
           itemTotal: (productDetails?.price || 0) * item.quantity
         });
@@ -364,13 +379,39 @@ export const onlinePaymentOrderController = async (req, res) => {
         
         if (isProduct) {
           const productId = (typeof item.productId === 'object' && item.productId._id) ? item.productId._id : item.productId;
-          await ProductModel.findByIdAndUpdate(
-            productId,
-            { 
-              $inc: { stock: -item.quantity } // Decrease stock by ordered quantity
-            },
-            { session, new: true }
-          );
+          
+          // If size is provided, update size-specific inventory
+          if (item.size) {
+            const sizeField = `sizes.${item.size}`;
+            const updateQuery = {
+              $inc: { 
+                // Update both the legacy stock field and the size-specific inventory
+                stock: -item.quantity,
+                [sizeField]: -item.quantity 
+              }
+            };
+            
+            // If stock for this size becomes zero, remove it from availableSizes
+            const product = await ProductModel.findById(productId);
+            if (product && product.sizes && product.sizes[item.size] <= item.quantity) {
+              updateQuery.$pull = { availableSizes: item.size };
+            }
+            
+            await ProductModel.findByIdAndUpdate(
+              productId,
+              updateQuery,
+              { session, new: true }
+            );
+          } else {
+            // Fallback to legacy stock update
+            await ProductModel.findByIdAndUpdate(
+              productId,
+              { 
+                $inc: { stock: -item.quantity } // Decrease stock by ordered quantity
+              },
+              { session, new: true }
+            );
+          }
         } else if (isBundle) {
           // Update bundle stock
           const bundleId = (typeof item.bundleId === 'object' && item.bundleId._id) ? item.bundleId._id : item.bundleId;
@@ -536,14 +577,38 @@ export const cancelOrderController = async (req, res) => {
                         { session, new: true }
                     );
                 } else {
-                    // Restore product stock
-                    await ProductModel.findByIdAndUpdate(
-                        item.productId,
-                        { 
-                            $inc: { stock: item.quantity } // Add back the cancelled quantity
-                        },
-                        { session, new: true }
-                    );
+                    // Restore product stock based on size if available
+                    if (item.size) {
+                        // Update both overall stock and size-specific stock
+                        const sizeField = `sizes.${item.size}`;
+                        const updateQuery = {
+                            $inc: { 
+                                stock: item.quantity, // Add back to total stock
+                                [sizeField]: item.quantity // Add back to size-specific stock
+                            }
+                        };
+                        
+                        // If this size wasn't previously in availableSizes, add it back
+                        const product = await ProductModel.findById(item.productId);
+                        if (product && (!product.availableSizes || !product.availableSizes.includes(item.size))) {
+                            updateQuery.$addToSet = { availableSizes: item.size };
+                        }
+                        
+                        await ProductModel.findByIdAndUpdate(
+                            item.productId,
+                            updateQuery,
+                            { session, new: true }
+                        );
+                    } else {
+                        // Fallback to just updating total stock if no size info
+                        await ProductModel.findByIdAndUpdate(
+                            item.productId,
+                            { 
+                                $inc: { stock: item.quantity } // Add back the cancelled quantity
+                            },
+                            { session, new: true }
+                        );
+                    }
                 }
             }
 
@@ -770,14 +835,39 @@ export const getOrderController = async (req, res) => {
           .sort({createdAt: -1})
           .populate("items.productId", "name image price stock discount") // Updated populate path
           .populate("items.bundleId", "title description image images bundlePrice originalPrice stock items") // Include items array
-          .populate("deliveryAddress", "address_line city state pincode country")
-          .populate("userId", "name email");
+          .populate("deliveryAddress", "address_line city state pincode country landmark addressType mobile")
+          .populate("userId", "name email phone");
+          
+        // Enhanced order details with cancellation requests for each order
+        const ordersWithDetails = await Promise.all(orders.map(async (order) => {
+            // Check if there's an active cancellation request
+            const activeCancellationRequest = await checkActiveCancellationRequest(order._id);
+            
+            // Convert to plain object to add additional properties
+            const orderObj = order.toObject();
+            
+            // Add cancellation request information if it exists
+            if (activeCancellationRequest) {
+                orderObj.cancellationRequest = {
+                    _id: activeCancellationRequest._id,
+                    status: activeCancellationRequest.status,
+                    requestDate: activeCancellationRequest.requestDate,
+                    reason: activeCancellationRequest.reason,
+                    additionalReason: activeCancellationRequest.additionalReason,
+                    deliveryInfo: activeCancellationRequest.deliveryInfo,
+                    adminResponse: activeCancellationRequest.adminResponse,
+                    refundDetails: activeCancellationRequest.refundDetails
+                };
+            }
+            
+            return orderObj;
+        }));
           
         return res.json({
             success: true,
             error: false,
-            message: "Orders fetched successfully",
-            data: orders
+            message: "Orders fetched successfully with detailed information",
+            data: ordersWithDetails
         });
     } catch (error) {
         return res.status(500).json({
@@ -796,10 +886,10 @@ export const getOrderByIdController = async (req, res) => {
         const userId = req.userId;
         
         const order = await orderModel.findOne({ orderId: orderId, userId: userId })
-          .populate("items.productId", "name image price stock discount")
-          .populate("items.bundleId", "title description image images bundlePrice originalPrice stock items")
-          .populate("deliveryAddress", "address_line city state pincode country")
-          .populate("userId", "name email");
+          .populate("items.productId", "name image price stock discount description brand")
+          .populate("items.bundleId", "title description image images bundlePrice originalPrice stock items discount")
+          .populate("deliveryAddress", "address_line city state pincode country landmark addressType mobile")
+          .populate("userId", "name email phone");
           
         if (!order) {
             return res.status(404).json({
@@ -812,14 +902,18 @@ export const getOrderByIdController = async (req, res) => {
         // Check if there's an active cancellation request for this order
         const activeCancellationRequest = await checkActiveCancellationRequest(order._id);
         
-        // Add cancellation request info to response
+        // Add cancellation request info to response with complete details
         const orderWithCancellationInfo = {
             ...order.toObject(),
             cancellationRequest: activeCancellationRequest ? {
+                _id: activeCancellationRequest._id,
                 status: activeCancellationRequest.status,
                 requestDate: activeCancellationRequest.requestDate,
                 reason: activeCancellationRequest.reason,
-                additionalReason: activeCancellationRequest.additionalReason
+                additionalReason: activeCancellationRequest.additionalReason,
+                deliveryInfo: activeCancellationRequest.deliveryInfo,
+                adminResponse: activeCancellationRequest.adminResponse,
+                refundDetails: activeCancellationRequest.refundDetails
             } : null
         };
           

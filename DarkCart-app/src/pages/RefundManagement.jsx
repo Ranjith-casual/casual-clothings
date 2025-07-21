@@ -42,41 +42,56 @@ const RefundManagement = () => {
                 }
             });
 
-            if (response.data.success) {
+            if (response.data && response.data.success) {
                 console.log("Full response data:", response.data);
-                const refundsData = response.data.data.refunds;
+                const refundsData = response.data.data.refunds || [];
                 setRefunds(refundsData);
-                setCurrentPage(response.data.data.currentPage);
-                setTotalPages(response.data.data.totalPages);
+                setCurrentPage(response.data.data.currentPage || 1);
+                setTotalPages(response.data.data.totalPages || 1);
                 
-                // Auto-fetch bundle items for all bundles in the refunds
-                await fetchBundleItemsForRefunds(refundsData);
-                
-                // Log detailed information about the first refund for debugging
+                // Auto-fetch bundle items for all bundles in the refunds if there are any
                 if (refundsData && refundsData.length > 0) {
+                    await fetchBundleItemsForRefunds(refundsData);
+                    
+                    // Log detailed information about the first refund for debugging
                     const firstRefund = refundsData[0];
                     console.log("Sample refund data:", firstRefund);
-                    console.log("Order data:", firstRefund?.orderId);
                     
-                    // Log product/bundle data if available
-                    if (firstRefund?.orderId?.items && firstRefund.orderId.items.length > 0) {
-                        console.log("First order item:", firstRefund.orderId.items[0]);
-                        const firstItem = firstRefund.orderId.items[0];
-                        if (firstItem.itemType === 'product') {
-                            console.log("Product data:", firstItem.productId);
-                            console.log("Product details:", firstItem.productDetails);
-                        } else {
-                            console.log("Bundle data:", firstItem.bundleId);
-                            console.log("Bundle details:", firstItem.bundleDetails);
+                    if (firstRefund?.orderId) {
+                        console.log("Order data:", firstRefund.orderId);
+                        
+                        // Log product/bundle data if available
+                        if (firstRefund.orderId.items && firstRefund.orderId.items.length > 0) {
+                            console.log("First order item:", firstRefund.orderId.items[0]);
+                            const firstItem = firstRefund.orderId.items[0];
+                            if (firstItem.itemType === 'product') {
+                                console.log("Product data:", firstItem.productId);
+                                console.log("Product details:", firstItem.productDetails);
+                            } else if (firstItem.bundleId) {
+                                console.log("Bundle data:", firstItem.bundleId);
+                                console.log("Bundle details:", firstItem.bundleDetails);
+                            }
                         }
                     }
+                } else {
+                    console.log("No refunds data returned or empty array");
                 }
             } else {
-                toast.error("Failed to fetch refunds");
+                toast.error(response.data?.message || "Failed to fetch refunds");
             }
         } catch (error) {
             console.error("Error fetching refunds:", error);
-            toast.error(error.response?.data?.message || "Error fetching refunds");
+            // Show a more user-friendly error message
+            if (error.response?.status === 500) {
+                toast.error("Server error while fetching refunds. Please try again later.");
+            } else {
+                toast.error(error.response?.data?.message || "Error fetching refunds. Please refresh the page.");
+            }
+            
+            // Set empty refunds to avoid UI issues
+            setRefunds([]);
+            setCurrentPage(1);
+            setTotalPages(1);
         } finally {
             setLoading(false);
         }
@@ -153,67 +168,77 @@ const RefundManagement = () => {
     
     // Function to fetch bundle items for all bundles in refunds
     const fetchBundleItemsForRefunds = async (refundsData) => {
-        if (!refundsData || !Array.isArray(refundsData)) return;
+        if (!refundsData || !Array.isArray(refundsData)) {
+            console.log("No refund data to process for bundle items");
+            return;
+        }
 
-        const bundleIdsToFetch = new Set();
-        
-        // Collect all bundle IDs that need fetching
-        refundsData.forEach(refund => {
-            if (refund?.orderId?.items && Array.isArray(refund.orderId.items)) {
-                refund.orderId.items.forEach(item => {
-                    // Enhanced bundle detection
-                    const isBundle = item.itemType === 'bundle' || 
-                                   (item.bundleId && typeof item.bundleId === 'object') ||
-                                   (item.bundleDetails && typeof item.bundleDetails === 'object') ||
-                                   (item.bundle && typeof item.bundle === 'object') ||
-                                   (item.productId && typeof item.productId === 'object' && item.productId.type === 'bundle') ||
-                                   (item.type === 'bundle') ||
-                                   item.isBundle;
+        try {
+            const bundleIdsToFetch = new Set();
+            
+            // Collect all bundle IDs that need fetching
+            refundsData.forEach(refund => {
+                if (refund?.orderId?.items && Array.isArray(refund.orderId.items)) {
+                    refund.orderId.items.forEach(item => {
+                        // Enhanced bundle detection with null checks
+                        const isBundle = 
+                            (item.itemType === 'bundle') || 
+                            (item.bundleId && typeof item.bundleId === 'object') ||
+                            (item.bundleDetails && typeof item.bundleDetails === 'object') ||
+                            (item.bundle && typeof item.bundle === 'object') ||
+                            (item.productId && typeof item.productId === 'object' && item.productId?.type === 'bundle') ||
+                            (item.type === 'bundle') ||
+                            (item.isBundle === true);
 
-                    if (isBundle) {
-                        // Check if bundle items are already available
-                        const hasExistingItems = (item.bundleId?.items && Array.isArray(item.bundleId.items) && item.bundleId.items.length > 0) ||
-                                               (item.bundleDetails?.items && Array.isArray(item.bundleDetails.items) && item.bundleDetails.items.length > 0) ||
-                                               (item.bundle?.items && Array.isArray(item.bundle.items) && item.bundle.items.length > 0);
+                        if (isBundle) {
+                            // Check if bundle items are already available
+                            const hasExistingItems = 
+                                (item.bundleId?.items && Array.isArray(item.bundleId.items) && item.bundleId.items.length > 0) ||
+                                (item.bundleDetails?.items && Array.isArray(item.bundleDetails.items) && item.bundleDetails.items.length > 0) ||
+                                (item.bundle?.items && Array.isArray(item.bundle.items) && item.bundle.items.length > 0);
 
-                        if (!hasExistingItems) {
-                            // Extract bundle ID for API fetch
-                            let bundleId = null;
-                            if (item.bundleId) {
-                                bundleId = typeof item.bundleId === 'object' ? item.bundleId._id : item.bundleId;
-                            } else if (item.productId) {
-                                bundleId = typeof item.productId === 'object' ? item.productId._id : item.productId;
-                            }
+                            if (!hasExistingItems) {
+                                // Extract bundle ID for API fetch
+                                let bundleId = null;
+                                if (item.bundleId) {
+                                    bundleId = typeof item.bundleId === 'object' ? item.bundleId._id : item.bundleId;
+                                } else if (item.productId) {
+                                    bundleId = typeof item.productId === 'object' ? item.productId._id : item.productId;
+                                }
 
-                            if (bundleId && !bundleItemsCache[bundleId]) {
-                                bundleIdsToFetch.add(bundleId);
+                                if (bundleId && !bundleItemsCache[bundleId]) {
+                                    bundleIdsToFetch.add(bundleId);
+                                }
                             }
                         }
-                    }
-                });
-            }
-        });
+                    });
+                }
+            });
 
-        // Fetch bundle details for all collected IDs
-        if (bundleIdsToFetch.size > 0) {
-            console.log('Fetching bundle items for IDs:', Array.from(bundleIdsToFetch));
-            setFetchingBundles(true);
-            
-            const fetchPromises = Array.from(bundleIdsToFetch).map(bundleId => 
-                fetchBundleDetails(bundleId).catch(error => {
-                    console.error(`Error fetching bundle ${bundleId}:`, error);
-                    return [];
-                })
-            );
+            // Fetch bundle details for all collected IDs
+            if (bundleIdsToFetch.size > 0) {
+                console.log('Fetching bundle items for IDs:', Array.from(bundleIdsToFetch));
+                setFetchingBundles(true);
+                
+                const fetchPromises = Array.from(bundleIdsToFetch).map(bundleId => 
+                    fetchBundleDetails(bundleId).catch(error => {
+                        console.error(`Error fetching bundle ${bundleId}:`, error);
+                        return [];
+                    })
+                );
 
-            try {
-                await Promise.all(fetchPromises);
-                console.log('Finished fetching all bundle items');
-            } catch (error) {
-                console.error('Error fetching bundle items:', error);
-            } finally {
-                setFetchingBundles(false);
+                try {
+                    await Promise.all(fetchPromises);
+                    console.log('Finished fetching all bundle items');
+                } catch (error) {
+                    console.error('Error fetching bundle items:', error);
+                } finally {
+                    setFetchingBundles(false);
+                }
             }
+        } catch (error) {
+            console.error("Error in fetchBundleItemsForRefunds:", error);
+            setFetchingBundles(false);
         }
     };
     

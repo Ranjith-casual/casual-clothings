@@ -22,7 +22,13 @@ const orderSchema = mongoose.Schema({
         productDetails: {
             name: String,
             image: Array,
-            price: Number
+            price: Number,
+            size: String  // Add size to product details
+        },
+        size: {
+            type: String,
+            enum: ['XS', 'S', 'M', 'L', 'XL'],
+            required: function() { return this.itemType === 'product'; }
         },
         // For bundles
         bundleId: {

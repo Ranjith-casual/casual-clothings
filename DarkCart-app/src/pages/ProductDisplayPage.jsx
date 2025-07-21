@@ -9,78 +9,14 @@ import { DisplayPriceInRupees } from '../utils/DisplayPriceInRupees'
 import Divider from '../components/Divider'
 import { pricewithDiscount } from '../utils/PriceWithDiscount'
 import AddToCartButton from '../components/AddToCartButton.jsx'
+import SizeSelector from '../components/SizeSelector.jsx'
 import { useSelector } from 'react-redux'
 import { useGlobalContext } from '../provider/GlobalProvider'
 import toast from 'react-hot-toast'
 
-// Simple Product Card component for Similar Styles and Recently Viewed sections
-  const SimpleProductCard = ({ product }) => {
-  const navigate = useNavigate();
-  const [imageLoaded, setImageLoaded] = useState(false);
-  
-  
-  const handleImageLoad = () => {
-    setImageLoaded(true);
-  };
-  
-  // Extract product information
-  const price = product.price || 0;
-  const discount = product.discount || 0;
-  const discountedPrice = pricewithDiscount(price, discount);
-  const productImage = product.image?.[0] || '';
-  const productName = product.name || 'Product';
-  const categoryName = product.category?.[0]?.name || product.category?.name || 'Fashion';
-  const productId = product._id;  return (
-    <div className="relative">
-      <Link 
-        to={`/product/${productName?.toLowerCase().replace(/ /g, '-')}-${productId}`} 
-        className="block group"
-      >
-        {/* Product Image */}
-        <div className="aspect-square border border-gray-200 overflow-hidden bg-gray-50 rounded-md relative mb-4 transition-all duration-300 group-hover:shadow-lg group-hover:-translate-y-1">
-          {!imageLoaded && (
-            <div className="absolute inset-0 bg-gray-100 animate-pulse"></div>
-          )}
-          {productImage ? (
-            <img 
-              src={productImage} 
-              alt={productName} 
-              className={`w-full h-full object-contain p-3 transition-all duration-500 group-hover:scale-105 ${
-                imageLoaded ? 'opacity-100' : 'opacity-0'
-              }`}
-              onLoad={handleImageLoad}
-            />
-          ) : (
-            <div className="w-full h-full flex items-center justify-center">
-              <FaShoppingCart className="w-10 h-10 text-gray-300" />
-            </div>
-          )}
-        </div>
-        
-        {/* Product Info */}
-        <div className="text-center px-2">
-          <div className="uppercase text-xs tracking-wider font-medium text-gray-500 mb-2 font-['Poppins']">{categoryName}</div>
-          <div className="font-medium text-sm mb-2 line-clamp-2 h-10 group-hover:text-black transition-colors font-['Poppins']">{productName}</div>
-          <div className="flex justify-center items-center gap-2">
-            <span className="font-bold text-gray-900 font-['Poppins']">
-              {DisplayPriceInRupees(discountedPrice)}
-            </span>
-            {discount > 0 && (
-              <>
-                <span className="text-xs text-gray-400 line-through font-['Poppins']">
-                  {DisplayPriceInRupees(price)}
-                </span>
-                <span className="text-xs font-medium text-green-600 font-['Poppins']">
-                  ({discount}% OFF)
-                </span>
-              </>
-            )}
-          </div>
-        </div>
-      </Link>
-    </div>
-  );
-};
+// Import the separate component files
+import ProductDetailsComponent from '../components/ProductDetails.jsx'
+import SimpleProductCardComponent from '../components/SimpleProductCard.jsx'
 
 const ProductDisplayPage = () => {
   const params = useParams()
@@ -88,7 +24,9 @@ const ProductDisplayPage = () => {
   let productId = params?.product?.split("-")?.slice(-1)[0]
   const [data, setData] = useState({
     name: "",
-    image: []
+    image: [],
+    sizes: {}, // Added for size inventory
+    availableSizes: [] // Added for available sizes
   })
   const [image, setImage] = useState(0)
   const [loading, setLoading] = useState(false)
@@ -98,12 +36,49 @@ const ProductDisplayPage = () => {
   const [showImageModal, setShowImageModal] = useState(false)
   const [relatedProducts, setRelatedProducts] = useState([])
   const [similarStyles, setSimilarStyles] = useState([])
+  // Initialize with empty string, we'll set from localStorage in useEffect
+  const [selectedSize, setSelectedSize] = useState("")
   const [imageLoaded, setImageLoaded] = useState(false)
   const [copied, setCopied] = useState(false)
+  const [addedSizes, setAddedSizes] = useState([]) // Track sizes that have been added to cart
   
   const imageContainer = useRef(null)
   const user = useSelector((state) => state.user)
+  const cartItems = useSelector((state) => state.cartItem.cart) || []
   const { addToWishlist, removeFromWishlist, checkWishlistItem } = useGlobalContext()
+
+  // Import for calculateAdjustedPrice
+  useEffect(() => {
+    // Import required function dynamically
+    import('../utils/sizePricing')
+      .then(module => window.calculateAdjustedPrice = module.calculateAdjustedPrice)
+      .catch(error => console.error('Failed to import sizePricing:', error));
+  }, [])
+  
+  // Update addedSizes based on cart contents
+  useEffect(() => {
+    if (!data || !data._id || !Array.isArray(cartItems)) return;
+    
+    // Find all cart items that match this product ID and extract their sizes
+    const matchingSizes = cartItems
+      .filter(item => 
+        item?.productId && 
+        (item.productId === data._id || item.productId?._id === data._id) &&
+        item.size
+      )
+      .map(item => item.size);
+    
+    // Update addedSizes state with all sizes of this product that are in the cart
+    setAddedSizes(matchingSizes);
+    console.log("Updated addedSizes from cart:", matchingSizes);
+    
+    // If the currently selected size is in cart, make sure we reflect that in the UI
+    if (selectedSize && matchingSizes.includes(selectedSize)) {
+      console.log(`Selected size ${selectedSize} is already in cart`);
+      // We don't need to do anything special here since the AddToCartButton component
+      // will automatically detect that this size is in the cart and show quantity controls
+    }
+  }, [data, cartItems, selectedSize])
 
   const fetchProductDetails = async () => {
     try {
@@ -393,9 +368,48 @@ const ProductDisplayPage = () => {
     setShowImageModal(true);
   }
 
+  // Load the selected size from localStorage when productId becomes available
+  useEffect(() => {
+    if (productId) {
+      // Try to get the size using both product ID and full URL path for better persistence
+      const savedSize = 
+        localStorage.getItem(`selectedSize_${productId}`) || 
+        localStorage.getItem(`selectedSize_${params.product}`);
+        
+      if (savedSize) {
+        console.log(`Found saved size ${savedSize} for product ${productId}`);
+        // We'll set this size if it's available in the product data
+        // This is just a preliminary setting - we'll validate it when product data loads
+        setSelectedSize(savedSize);
+      }
+    }
+  }, [productId, params.product]);
+
   useEffect(() => {
     fetchProductDetails();
   }, [params]);
+  
+  // Effect to handle the saved size when product data loads
+  useEffect(() => {
+    if (data && data._id && data.availableSizes && data.availableSizes.length > 0) {
+      // Try to get the size using both product ID and full URL path for better persistence
+      const savedSize = 
+        localStorage.getItem(`selectedSize_${productId}`) || 
+        localStorage.getItem(`selectedSize_${params.product}`);
+      
+      // Only set the selected size if it's in the available sizes and has stock
+      if (savedSize && 
+          data.availableSizes.includes(savedSize) && 
+          (!data.sizes || !data.sizes[savedSize] || data.sizes[savedSize] > 0)) {
+        setSelectedSize(savedSize);
+        console.log(`Restored saved size ${savedSize} for product ${productId}`);
+        
+        // Normalize storage - ensure both keys have the same value
+        localStorage.setItem(`selectedSize_${productId}`, savedSize);
+        localStorage.setItem(`selectedSize_${params.product}`, savedSize);
+      }
+    }
+  }, [data, productId, params.product]);
   
   // Separate effect to check wishlist status when user changes
   useEffect(() => {
@@ -412,6 +426,23 @@ const ProductDisplayPage = () => {
     }
   }, [data.category]);
 
+  // Track which sizes of this product are already in cart
+  useEffect(() => {
+    if (data && data._id && cartItems.length > 0) {
+      // Find all cart items that match this product ID
+      const productInCart = cartItems.filter(item => 
+        item?.productId && 
+        (item.productId === data._id || item.productId?._id === data._id)
+      );
+      
+      // Extract all sizes that are in cart for this product
+      const sizesInCart = productInCart.map(item => item.size);
+      setAddedSizes(sizesInCart);
+    } else {
+      setAddedSizes([]);
+    }
+  }, [data, cartItems]);
+  
   // Check if scrolling is possible
   useEffect(() => {
     if (imageContainer.current) {
@@ -436,107 +467,7 @@ const ProductDisplayPage = () => {
     }
   }, [data.image]) // Re-run when images change
 
-  // Create a component for product details to avoid duplication
-  const ProductDetails = ({ className = "" }) => {
-    return (
-      <div className={`bg-white rounded-lg shadow-sm border border-gray-100 p-6 hover:shadow-md transition-shadow duration-300 ${className}`}>
-        <div className="flex items-center gap-2 mb-4">
-          <h3 className="font-light text-sm uppercase tracking-[0.15em] text-gray-600 font-['Poppins']">Product Specifications</h3>
-        </div>
-        
-        <div className="animate-fadeIn">
-          <div className="border-t border-gray-200">
-            {/* Remove Primary Color row:
-            <div className="grid grid-cols-2 border-b border-gray-200">
-              <div className="py-3 px-4 font-medium text-gray-700 bg-gray-50 border-r border-gray-200">Primary Color</div>
-              <div className="py-3 px-4 text-gray-800">{data.color || 'Black'}</div>
-            </div>
-            */}
-            
-
-            
-            <div className="grid grid-cols-2 border-b border-gray-100">
-              <div className="py-3.5 px-4 font-medium text-gray-600 bg-gray-50 border-r border-gray-100 font-['Poppins']">Wash Care</div>
-              <div className="py-3.5 px-4 text-gray-800 font-light font-['Poppins']">{data.washCare || 'Machine wash'}</div>
-            </div>
-            
-            <div className="grid grid-cols-2 border-b border-gray-100">
-              <div className="py-3.5 px-4 font-medium text-gray-600 bg-gray-50 border-r border-gray-100 font-['Poppins']">Package Contains</div>
-              <div className="py-3.5 px-4 text-gray-800 font-light font-['Poppins']">Package contains: 1 {data.name}</div>
-            </div>
-            
-            <div className="grid grid-cols-2 border-b border-gray-100">
-              <div className="py-3.5 px-4 font-medium text-gray-600 bg-gray-50 border-r border-gray-100 font-['Poppins']">Size worn by Model</div>
-              <div className="py-3.5 px-4 text-gray-800 font-light font-['Poppins']">{data.sizeModel || '32'}</div>
-            </div>
-            
-            <div className="grid grid-cols-2 border-b border-gray-100">
-              <div className="py-3.5 px-4 font-medium text-gray-600 bg-gray-50 border-r border-gray-100 font-['Poppins']">Fabric</div>
-              <div className="py-3.5 px-4 text-gray-800 font-light font-['Poppins']">{data.fabric || '80% cotton, 19% polyester, 1% elastane'}</div>
-            </div>
-          </div>
-          
-          {/* Product description */}
-          {data.description && (
-            <div className="mt-8">
-              <h3 className="font-light text-sm uppercase tracking-[0.15em] text-gray-600 mb-4 font-['Poppins']">Description</h3>
-              <p className='text-base text-gray-700 leading-relaxed font-light font-["Poppins"]'>{data.description}</p>
-            </div>
-          )}
-          
-          {/* Additional pricing and contact information */}
-          <div className="mt-6">
-            <div className="space-y-4 border-t border-gray-200 pt-4">
-              <div className="flex">
-        
-              </div>
-              
-              <div className="flex">
-                <div className="font-medium text-gray-600 w-32 font-['Poppins']">Marketed By</div>
-                <div className="text-gray-800 font-['Poppins']">
-                  : {data.marketedBy || "Casual Clothings (India) Pvt. Ltd."}
-                </div>
-              </div>
-              
-             
-              
-              <div className="flex">
-                <div className="font-medium text-gray-600 w-32 font-['Poppins']">Imported By</div>
-                <div className="text-gray-800 font-['Poppins']">
-                  : {data.importedBy || "casualclothings Trading (India) Pvt. Ltd."}
-                </div>
-              </div>
-              
-              <div className="flex">
-                <div className="font-medium text-gray-600 w-32 font-['Poppins']">Country of Origin</div>
-                <div className="text-gray-800 font-['Poppins']">: {data.countryOfOrigin || "India"}</div>
-              </div>
-              
-              <div className="flex">
-                <div className="font-medium text-gray-600 w-32 font-['Poppins']">Customer Care Address</div>
-                <div className="text-gray-800 font-['Poppins']">
-                  : Tower-B, 7th Floor, casualclothings Office, Knowledge Park, Main Road, Bengaluru, Karnataka - 560029
-                </div>
-              </div>
-            </div>
-          </div>
-          
-          {/* Display more details if available */}
-          {data?.more_details && Object.keys(data?.more_details).length > 0 && (
-            <div className="mt-4 grid gap-2">
-              <h3 className="font-medium text-gray-900 mb-2">Additional Details</h3>
-              {Object.keys(data?.more_details).map((element, index) => (
-                <div key={`details-${element}-${index}`} className="flex py-2 border-b border-gray-100">
-                  <p className='font-medium text-gray-900 w-1/3 font-["Poppins"]'>{element}</p>
-                  <p className='text-base text-gray-600 w-2/3 font-["Poppins"]'>{data?.more_details[element]}</p>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
-    );
-  }
+  // Using the ProductDetails component defined outside the main component
 
   return (
     <section className='bg-gradient-to-b from-gray-50 to-white min-h-screen py-8'>
@@ -547,7 +478,7 @@ const ProductDisplayPage = () => {
           </div>
         ) : (
           <>
-            {/* Breadcrumb navigation - Styled like HomePage */}
+              {/* Breadcrumb navigation - Styled like HomePage */}
               <div className="flex items-center text-sm text-gray-500 mb-6 font-['Poppins']">
               <Link to="/" className="hover:text-black transition-colors font-medium tracking-wide">Home</Link>
               <span className="mx-2">/</span>
@@ -657,7 +588,7 @@ const ProductDisplayPage = () => {
                 </div>
 
                 {/* Desktop product details */}
-                <ProductDetails className="hidden lg:grid" />
+                <ProductDetailsComponent data={data} className="hidden lg:grid" />
               </div>
 
               {/* Right Side - Product Information */}
@@ -670,18 +601,22 @@ const ProductDisplayPage = () => {
                 {/* Product name */}
                 <h2 className='text-3xl md:text-4xl font-medium text-gray-900 mb-5 leading-tight font-["Playfair_Display"]'>{data.name}</h2>
                 
-
-                
                 {/* Price section - Styled like HomePage */}
                 <div className="mb-8 border-t border-b border-gray-100 py-6">
                   <div className="flex items-center gap-4 mb-2">
                     <span className="text-2xl md:text-3xl font-medium font-['Poppins']">
-                      {DisplayPriceInRupees(pricewithDiscount(data.price, data.discount))}
+                      {selectedSize && window.calculateAdjustedPrice 
+                        ? DisplayPriceInRupees(pricewithDiscount(window.calculateAdjustedPrice(data.price, selectedSize), data.discount))
+                        : DisplayPriceInRupees(pricewithDiscount(data.price, data.discount))
+                      }
                     </span>
                     {data.discount > 0 && (
                       <>
                         <span className="text-gray-500 line-through text-lg font-['Poppins']">
-                          {DisplayPriceInRupees(data.price)}
+                          {selectedSize && window.calculateAdjustedPrice
+                            ? DisplayPriceInRupees(window.calculateAdjustedPrice(data.price, selectedSize))
+                            : DisplayPriceInRupees(data.price)
+                          }
                         </span>
                         <span className="bg-black text-white px-2 py-0.5 text-xs font-medium tracking-wide font-['Poppins']">
                           {data.discount}% OFF
@@ -690,13 +625,61 @@ const ProductDisplayPage = () => {
                     )}
                   </div>
                   <p className="text-sm text-gray-600 font-light font-['Poppins']">Price inclusive of all taxes</p>
+                  {selectedSize && (
+                    <p className="text-xs text-green-600 mt-1 font-['Poppins']">
+                      Size {selectedSize} selected
+                    </p>
+                  )}
                   
-                  {/* Stock Availability - Refined styling */}
-                  <div className="mt-3 flex items-center gap-2">
-                    <span className="text-sm font-medium text-gray-600 font-['Poppins']">Availability:</span>
-                    <span className={`text-sm ${data.stock > 10 ? 'text-green-600 font-medium' : data.stock > 0 ? 'text-orange-500 font-medium' : 'text-red-500 font-medium'} font-['Poppins']`}>
-                      {data.stock > 10 ? 'In Stock' : data.stock > 0 ? `Only ${data.stock} left` : 'Out of Stock'}
-                    </span>
+                  {/* Size Selector */}
+                  <SizeSelector 
+                    availableSizes={data.availableSizes}
+                    selectedSize={selectedSize}
+                    onSizeSelect={(size) => {
+                      setSelectedSize(size);
+                      
+                      // Save the selected size to localStorage for this product
+                      // Store using both product ID and full URL path for better persistence
+                      if (productId) {
+                        localStorage.setItem(`selectedSize_${productId}`, size);
+                        localStorage.setItem(`selectedSize_${params.product}`, size);
+                      }
+                      
+                      // If the size is already in the cart, show a message
+                      if (addedSizes.includes(size)) {
+                        toast.success(`Size ${size} is already in your cart. You can adjust the quantity below.`);
+                      }
+                    }}
+                    required={true}
+                    basePrice={data.price}
+                    addedSizes={addedSizes}
+                  />
+
+                {/* Stock Availability - Size-specific and Total Stock */}
+                  <div className="mt-3 flex flex-col gap-1">
+                    {/* Show overall stock */}
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-medium text-gray-600 font-['Poppins']">Total Availability:</span>
+                      {(() => {
+                        // Calculate total stock across all sizes
+                        const totalStock = Object.values(data.sizes || {}).reduce((a, b) => a + b, 0) || data.stock || 0;
+                        return (
+                          <span className={`text-sm ${totalStock > 10 ? 'text-green-600 font-medium' : totalStock > 0 ? 'text-orange-500 font-medium' : 'text-red-500 font-medium'} font-['Poppins']`}>
+                            {totalStock > 10 ? 'In Stock' : totalStock > 0 ? `Only ${totalStock} items left` : 'Out of Stock'}
+                          </span>
+                        );
+                      })()}
+                    </div>
+                    
+                    {/* Show selected size stock if a size is selected */}
+                    {selectedSize && data.sizes && (
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-medium text-gray-600 font-['Poppins']">Size {selectedSize}:</span>
+                        <span className={`text-sm ${data.sizes[selectedSize] > 5 ? 'text-green-600 font-medium' : data.sizes[selectedSize] > 0 ? 'text-orange-500 font-medium' : 'text-red-500 font-medium'} font-['Poppins']`}>
+                          {data.sizes[selectedSize] > 5 ? 'Available' : data.sizes[selectedSize] > 0 ? `Only ${data.sizes[selectedSize]} left` : 'Out of Stock'}
+                        </span>
+                      </div>
+                    )}
                   </div>
                   
                 </div>
@@ -723,14 +706,49 @@ const ProductDisplayPage = () => {
 
                 {/* Add to Bag button - Premium styling */}
                 <div className="mb-8">
-                  {data.stock === 0 ? (
+                  {selectedSize && data.sizes && data.sizes[selectedSize] <= 0 ? (
                     <button disabled className="w-full bg-gray-200 text-gray-500 py-3.5 font-medium tracking-wide text-lg uppercase cursor-not-allowed transition-all duration-300 border border-gray-300 rounded-md">
-                      Out of Stock
+                      Size {selectedSize} Out of Stock
+                    </button>
+                  ) : selectedSize && Object.values(data.sizes || {}).reduce((a, b) => a + b, 0) <= 0 ? (
+                    <button disabled className="w-full bg-gray-200 text-gray-500 py-3.5 font-medium tracking-wide text-lg uppercase cursor-not-allowed transition-all duration-300 border border-gray-300 rounded-md">
+                      All Sizes Out of Stock
+                    </button>
+                  ) : !selectedSize ? (
+                    <button disabled className="w-full bg-gray-200 text-gray-500 py-3.5 font-medium tracking-wide text-lg uppercase cursor-not-allowed transition-all duration-300 border border-gray-300 rounded-md">
+                      Please Select a Size
                     </button>
                   ) : (
                     <div className="relative overflow-hidden group">
                       <div className="absolute inset-0 w-full h-full bg-gradient-to-r from-transparent via-white/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700 transform translate-x-[-100%] group-hover:translate-x-full"></div>
-                      <AddToCartButton data={data} large={true} />
+                      <AddToCartButton 
+                        data={{
+                          ...data,
+                          // Pass both overall stock and size-specific stock
+                          stock: data.stock,
+                          sizes: data.sizes,
+                          _id: data._id,
+                          name: data.name,
+                          price: data.price
+                        }}
+                        large={true} 
+                        selectedSize={selectedSize}
+                        onAddToCartSuccess={() => {
+                          const currentSize = selectedSize;
+                          // Add the size to addedSizes array for immediate UI update
+                          setAddedSizes(prev => 
+                            prev.includes(currentSize) ? prev : [...prev, currentSize]
+                          );
+                          // Save the selected size in localStorage for persistence
+                          if (currentSize && productId) {
+                            // Store using both product ID and full URL path for better persistence
+                            localStorage.setItem(`selectedSize_${productId}`, currentSize);
+                            localStorage.setItem(`selectedSize_${params.product}`, currentSize);
+                            console.log(`Saved size ${currentSize} for product ${productId} after adding to cart`);
+                          }
+                          // Don't reset selected size to keep showing quantity controls
+                        }} 
+                      />
                     </div>
                   )}
                 </div>
@@ -757,7 +775,7 @@ const ProductDisplayPage = () => {
                 )}
 
                 {/* Product details section - Mobile view */}
-                <ProductDetails className="lg:hidden" />
+                <ProductDetailsComponent data={data} className="lg:hidden" />
               </div>
             </div>
 
@@ -782,7 +800,7 @@ const ProductDisplayPage = () => {
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 md:gap-8">
                 {similarStyles.length > 0 ? 
                   similarStyles.map(product => (
-                    <SimpleProductCard key={product._id} product={product} />
+                    <SimpleProductCardComponent key={product._id} product={product} />
                   )) : 
                   <div className="col-span-4 py-10 text-center text-gray-500">
                     <p>No similar products found</p>
@@ -871,6 +889,11 @@ const ProductDisplayPage = () => {
         .hide-scrollbar {
           -ms-overflow-style: none;
           scrollbar-width: none;
+        }
+        
+        .text-xxs {
+          font-size: 0.625rem; /* 10px */
+          line-height: 0.75rem; /* 12px */
         }
       `}</style>
     </section>

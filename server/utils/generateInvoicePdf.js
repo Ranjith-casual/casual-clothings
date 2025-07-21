@@ -110,7 +110,8 @@ export const generateInvoicePdf = async (data, type = 'delivery') => {
             // Table header
             const tableTop = doc.y + 10;
             const itemX = 50;
-            const descX = 150;
+            const descX = 120;
+            const sizeX = 300;
             const qtyX = 350;
             const priceX = 400;
             const totalX = 480;
@@ -118,6 +119,7 @@ export const generateInvoicePdf = async (data, type = 'delivery') => {
             doc.fontSize(10).font('Helvetica-Bold');
             doc.text('Item', itemX, tableTop);
             doc.text('Description', descX, tableTop);
+            doc.text('Size', sizeX, tableTop);
             doc.text('Qty', qtyX, tableTop);
             doc.text('Price', priceX, tableTop);
             doc.text('Total', totalX, tableTop);
@@ -138,6 +140,8 @@ export const generateInvoicePdf = async (data, type = 'delivery') => {
                 const quantity = item.quantity || 1;
                 const price = item.productDetails?.price || item.price || 0;
                 const itemTotal = item.itemTotal || (price * quantity);
+                const itemSize = item.size || item.productDetails?.size || 'N/A';
+                const itemType = item.itemType || (item.bundleId ? 'bundle' : 'product');
                 
                 // Check if we need a new page
                 if (tableRow > 700) {
@@ -147,7 +151,15 @@ export const generateInvoicePdf = async (data, type = 'delivery') => {
                 
                 doc.fontSize(10).font('Helvetica');
                 doc.text(`${i + 1}`, itemX, tableRow);
-                doc.text(productName.substring(0, 25) + (productName.length > 25 ? '...' : ''), descX, tableRow);
+                doc.text(productName.substring(0, 20) + (productName.length > 20 ? '...' : ''), descX, tableRow);
+                
+                // Only show size for products, not bundles
+                if (itemType === 'bundle') {
+                    doc.text('Bundle', sizeX, tableRow);
+                } else {
+                    doc.text(itemSize, sizeX, tableRow);
+                }
+                
                 doc.text(quantity.toString(), qtyX, tableRow);
                 doc.text(`₹${price.toFixed(2)}`, priceX, tableRow);
                 doc.text(`₹${itemTotal.toFixed(2)}`, totalX, tableRow);

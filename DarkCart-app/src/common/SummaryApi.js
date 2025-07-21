@@ -171,7 +171,12 @@ const SummaryApi = {
     getOrderList:{
         url: '/api/order/get',
         method: 'get'
-    },getAllOrders:{
+    },
+    getComprehensiveOrderDetails:{
+        url: '/api/order/comprehensive',  // Will be appended with /:orderId
+        method: 'get'
+    },
+    getAllOrders:{
         url: '/api/order/all-orders',
         method: 'get'
     },cancelOrder:{

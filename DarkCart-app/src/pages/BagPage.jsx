@@ -76,7 +76,15 @@ const calculateItemPricing = (item) => {
   if (item.productId && item.productId._id) {
     // Regular product
     productTitle = item.productId.name || 'Product';
-    originalPrice = Number(item.productId.price) || 0;
+    
+    // Check if there's a size-adjusted price first
+    if (item.sizeAdjustedPrice) {
+      originalPrice = Number(item.sizeAdjustedPrice) || 0;
+      console.log(`Using size-adjusted price for ${item.productId.name}: ₹${originalPrice} (Size: ${item.size})`);
+    } else {
+      originalPrice = Number(item.productId.price) || 0;
+    }
+    
     discount = Number(item.productId.discount) || 0;
     finalPrice = pricewithDiscount(originalPrice, discount);
     isBundle = false;
@@ -727,6 +735,11 @@ const BagPage = () => {
                                   Bundle
                                 </span>
                               )}
+                              {!pricing.isBundle && item.size && (
+                                <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                                  Size: {item.size}
+                                </span>
+                              )}
                             </h3>
                             
                             {/* Time-limited bundle warning */}
@@ -800,6 +813,11 @@ const BagPage = () => {
                             
                             <div className="text-sm text-gray-600 mt-1">
                               Size: {size}
+                              {item.sizeAdjustedPrice && (
+                                <span className="text-green-600 ml-2">
+                                  (Price adjusted for size)
+                                </span>
+                              )}
                             </div>
                             
                             {/* Price Display */}

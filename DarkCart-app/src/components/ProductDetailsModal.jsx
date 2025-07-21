@@ -175,6 +175,22 @@ const ProductDetailsModal = ({ isOpen, onClose, product, itemType = 'product', o
 
               {/* Product Title */}
               <h1 className="text-2xl font-bold text-gray-900">{details.title}</h1>
+              
+              {/* Size and Quantity from Order (if available) */}
+              {!isBundle && (details.orderSize || details.orderQuantity) && (
+                <div className="flex flex-wrap gap-3 mt-2">
+                  {details.orderSize && (
+                    <div className="inline-flex items-center px-3 py-1 rounded-md text-sm font-medium bg-purple-100 text-purple-800 border border-purple-200">
+                      Size: {details.orderSize}
+                    </div>
+                  )}
+                  {details.orderQuantity && (
+                    <div className="inline-flex items-center px-3 py-1 rounded-md text-sm font-medium bg-blue-100 text-blue-800 border border-blue-200">
+                      Quantity: {details.orderQuantity}
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* Rating */}
               {details.rating > 0 && (

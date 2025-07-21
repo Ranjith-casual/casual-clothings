@@ -42,10 +42,18 @@ const CheckoutPage = () => {
     let discount = 0;
     let isBundle = false;
     let quantity = item.quantity || 1;
+    let size = item.size || '';
     
     if (item.productId && item.productId._id) {
       productTitle = item.productId.name || 'Product';
-      originalPrice = item.productId.price || 0;
+      
+      // Check if size-adjusted price is available in the cart item
+      if (!isBundle && item.sizeAdjustedPrice && size) {
+        originalPrice = item.sizeAdjustedPrice || item.productId.price || 0;
+      } else {
+        originalPrice = item.productId.price || 0;
+      }
+      
       discount = item.productId.discount || 0;
       finalPrice = discount > 0 ? originalPrice * (1 - discount/100) : originalPrice;
       isBundle = false;
@@ -65,7 +73,14 @@ const CheckoutPage = () => {
         discount = 0;
       } else {
         isBundle = false;
-        originalPrice = item.price || 0;
+        
+        // Check if size-adjusted price is available
+        if (!isBundle && item.sizeAdjustedPrice && item.size) {
+          originalPrice = item.sizeAdjustedPrice || item.price || 0;
+        } else {
+          originalPrice = item.price || 0;
+        }
+        
         discount = item.discount || 0;
         finalPrice = discount > 0 ? originalPrice * (1 - discount/100) : originalPrice;
       }
@@ -332,13 +347,29 @@ const CheckoutPage = () => {
 
       // Make sure items are properly formatted for the API
       const preparedItems = checkoutItems.map(item => {
+        // Calculate pricing for this item
+        const pricing = calculateItemPricing(item);
+        
         // Create a simplified version of each item with only the necessary properties
-        return {
+        const baseItem = {
           _id: item._id,
           productId: typeof item.productId === 'object' ? item.productId._id : item.productId,
           bundleId: item.bundleId ? (typeof item.bundleId === 'object' ? item.bundleId._id : item.bundleId) : undefined,
-          quantity: item.quantity || 1
+          quantity: item.quantity || 1,
+          price: pricing.finalPrice // Include the adjusted price
         };
+        
+        // Add size if it's a product (not a bundle)
+        if (item.productId && item.size) {
+          baseItem.size = item.size;
+        }
+        
+        // Include size-adjusted price if available
+        if (item.sizeAdjustedPrice) {
+          baseItem.sizeAdjustedPrice = item.sizeAdjustedPrice;
+        }
+        
+        return baseItem;
       });
 
       const response = await Axios({
@@ -602,7 +633,8 @@ const CheckoutPage = () => {
                       imageSrc = item.image?.[0] || item.images?.[0] || item.primaryImage || item.image || noCart;
                     }
                     
-                    const size = item.size || getProductProperty(item, 'size', 'Standard');
+                    // Get size from cart item or fall back to Standard size for bundles
+                    const size = item.size || getProductProperty(item, 'size', pricing.isBundle ? 'Bundle' : 'Standard');
                     
                     return (
                       <div 
@@ -634,7 +666,12 @@ const CheckoutPage = () => {
                           </h3>
                           
                           <div className="flex flex-wrap text-xs text-gray-500 mt-1">
-                            <span className="mr-2">Size: {size}</span>
+                            {!pricing.isBundle && (
+                              <>
+                                <span className="mr-2">Size: {size}</span>
+                                {item.sizeAdjustedPrice && <span className="mr-2 text-green-600">Size-specific pricing</span>}
+                              </>
+                            )}
                             <span>Qty: {pricing.quantity}</span>
                           </div>
                           

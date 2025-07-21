@@ -6,6 +6,7 @@ import ViewImage from '../components/ViewImage';
 import { IoClose } from 'react-icons/io5';
 import { useSelector } from 'react-redux'
 import AddFieldComponent from '../components/AddFieldComponent';
+import SizeInventoryManager from '../components/SizeInventoryManager';
 import Axios from '../utils/Axios';
 import SummaryApi from '../common/SummaryApi.js';
 import AxiosTostError from '../utils/AxiosTostError';
@@ -29,7 +30,16 @@ function UploadProduct() {
     marketedBy: "",
     importedBy: "",
     countryOfOrigin: "",
-    customerCareAddress: ""
+    customerCareAddress: "",
+    // Add size-specific inventory fields
+    sizes: {
+      XS: 0,
+      S: 0,
+      M: 0,
+      L: 0,
+      XL: 0
+    },
+    availableSizes: []
   });
   const [ViewImageURL, setViewImageURL] = useState("");
   const [selectCategory, setSelectCategory] = useState("");
@@ -112,6 +122,23 @@ function UploadProduct() {
           discount: "",
           description: "",
           more_details: {},
+          washCare: "",
+          packageContains: "",
+          sizeModel: "",
+          fabric: "",
+          marketedBy: "",
+          importedBy: "",
+          countryOfOrigin: "",
+          customerCareAddress: "",
+          // Reset size inventory
+          sizes: {
+            XS: 0,
+            S: 0,
+            M: 0,
+            L: 0,
+            XL: 0
+          },
+          availableSizes: []
         });
       }
     } catch (error) {
@@ -245,17 +272,18 @@ function UploadProduct() {
             </div>
           </div>
 
-          <div className='grid gap-2'>
-            <label htmlFor='stock' className='font-medium'>Number of Stock</label>
-            <input
-              id='stock'
-              type='number'
-              placeholder='Enter product stock'
-              name='stock'
-              value={data.stock}
-              onChange={handleChange}
-              required
-              className='bg-gray-50 border border-gray-300 p-2 rounded focus:outline-none focus:border-primary-200'
+          <div className='grid gap-2 border rounded-md p-4 bg-gray-50'>
+            <label className='font-medium mb-2'>Inventory Management</label>
+            <SizeInventoryManager 
+              value={data.sizes} 
+              onChange={(sizeData) => {
+                setData(prev => ({
+                  ...prev,
+                  sizes: sizeData.sizes,
+                  availableSizes: sizeData.availableSizes,
+                  stock: sizeData.totalStock // Keep the legacy stock field updated as well
+                }));
+              }}
             />
           </div>
 

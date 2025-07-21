@@ -13,6 +13,13 @@ const cartProductSchema = new mongoose.Schema({
         type:Number,
         default : 1,
     },
+    // Add size field for products
+    size: {
+        type: String,
+        enum: ['XS', 'S', 'M', 'L', 'XL'],
+        // Only required if the item is a product
+        required: function() { return this.itemType === 'product'; }
+    },
     userId : {
         type: mongoose.Schema.ObjectId,
         ref : 'users'
@@ -22,6 +29,10 @@ const cartProductSchema = new mongoose.Schema({
         enum: ['product', 'bundle'],
         required: true,
         default: 'product'
+    },
+    // Store the price adjusted for size
+    sizeAdjustedPrice: {
+        type: Number
     }
 },{
     timestamps:true

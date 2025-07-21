@@ -9,6 +9,7 @@ import OrderTimeline from '../components/OrderTimeline';
 import OrderCancellationModal from '../components/OrderCancellationModal';
 import ProductDetailsModal from '../components/ProductDetailsModal';
 import BundleItemsModal from '../components/BundleItemsModal';
+import OrderDetailsModal from '../components/OrderDetailsModal';
 import { useGlobalContext } from '../provider/GlobalProvider';
 import { setOrders } from '../store/orderSlice';
 import noCart from '../assets/Empty-cuate.png'; // Import fallback image
@@ -139,8 +140,19 @@ function MyOrders() {
   };
 
   // Product Details Modal Handlers
-  const handleShowProductDetails = (product, type = 'product', order = null) => {
-    setSelectedProduct(product);
+  const handleShowProductDetails = (product, type = 'product', order = null, item = null) => {
+    // If this is a product (not a bundle) and we have the original item with size info
+    if (type === 'product' && item && (item.size || item.productDetails?.size)) {
+      // Create a new product object with size information added
+      const productWithSize = {
+        ...product,
+        orderSize: item.size || item.productDetails?.size,
+        orderQuantity: item.quantity || 1
+      };
+      setSelectedProduct(productWithSize);
+    } else {
+      setSelectedProduct(product);
+    }
     setSelectedProductType(type);
     setOrderContext(order);
     setShowProductModal(true);
@@ -164,6 +176,45 @@ function MyOrders() {
     setShowBundleItemsModal(false);
     setSelectedBundle(null);
     setOrderContext(null);
+  };
+  
+  // Detailed order modal states
+  const [detailedOrder, setDetailedOrder] = useState(null);
+  const [loadingDetails, setLoadingDetails] = useState(false);
+  const [activeOrderId, setActiveOrderId] = useState(null);
+  const [showOrderDetailsModal, setShowOrderDetailsModal] = useState(false);
+
+  const fetchComprehensiveOrderDetails = async (orderId) => {
+    try {
+      setLoadingDetails(true);
+      setActiveOrderId(orderId);
+      
+      const response = await Axios({
+        url: `${SummaryApi.getComprehensiveOrderDetails.url}/${orderId}`,
+        method: SummaryApi.getComprehensiveOrderDetails.method
+      });
+      
+      if (response.data.success) {
+        console.log('Fetched detailed order information:', response.data.data);
+        setDetailedOrder(response.data.data);
+        setShowOrderDetailsModal(true);
+        return response.data.data;
+      } else {
+        toast.error('Failed to fetch order details');
+        return null;
+      }
+    } catch (error) {
+      console.error('Error fetching comprehensive order details:', error);
+      toast.error('Failed to load order details. Please try again.');
+      return null;
+    } finally {
+      setLoadingDetails(false);
+    }
+  };
+  
+  const handleCloseOrderDetailsModal = () => {
+    setShowOrderDetailsModal(false);
+    // Keep the detailedOrder data in case user reopens the same order
   };
 
   // Invoice Download Function
@@ -594,7 +645,8 @@ function MyOrders() {
                               onClick={() => handleShowProductDetails(
                                 item?.itemType === 'bundle' ? item?.bundleDetails : item?.productDetails,
                                 item?.itemType === 'bundle' ? 'bundle' : 'product',
-                                order
+                                order,
+                                item
                               )}
                             >
                               <img
@@ -622,7 +674,8 @@ function MyOrders() {
                                     onClick={() => handleShowProductDetails(
                                       item?.itemType === 'bundle' ? item?.bundleDetails : item?.productDetails,
                                       item?.itemType === 'bundle' ? 'bundle' : 'product',
-                                      order
+                                      order,
+                                      item
                                     )}
                                   >
                                     {item?.itemType === 'bundle' ? item?.bundleDetails?.title : item?.productDetails?.name}
@@ -675,8 +728,16 @@ function MyOrders() {
                                         View Items
                                       </button>
                                     )}
-                                    <span className={`text-xs font-medium ${
-                                      isCancelled ? 'text-red-600' : 'text-gray-600'
+                                    {/* Display product size if available and item is not a bundle */}
+                                    {item?.itemType !== 'bundle' && (item?.size || item?.productDetails?.size) && (
+                                      <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium ${
+                                        isCancelled ? 'bg-red-50 text-red-700' : 'bg-purple-50 text-purple-700'
+                                      }`}>
+                                        Size: {item?.size || item?.productDetails?.size}
+                                      </span>
+                                    )}
+                                    <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium ${
+                                      isCancelled ? 'bg-red-50 text-red-700' : 'bg-blue-50 text-blue-700'
                                     }`}>
                                       Qty: {item?.quantity}
                                     </span>
@@ -1104,8 +1165,9 @@ function MyOrders() {
                   
                   {/* Bottom Controls */}
                   <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mt-4 gap-3">
-                    {/* Download Invoice Button - Always Available */}
-                    <div className="flex items-center gap-2">
+                    {/* Action Buttons - Download Invoice & View Details */}
+                    <div className="flex items-center flex-wrap gap-2">
+                      {/* Download Invoice Button */}
                       <button
                         onClick={() => handleDownloadInvoice(order)}
                         disabled={downloadingInvoices.has(order.orderId)}
@@ -1124,6 +1186,29 @@ function MyOrders() {
                           <>
                             <FaDownload className='w-4 h-4' />
                             <span>Download Invoice</span>
+                          </>
+                        )}
+                      </button>
+                      
+                      {/* View Comprehensive Details Button */}
+                      <button
+                        onClick={() => fetchComprehensiveOrderDetails(order._id)}
+                        disabled={loadingDetails && activeOrderId === order._id}
+                        className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-semibold transition-colors ${
+                          loadingDetails && activeOrderId === order._id
+                            ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                            : 'bg-green-50 text-green-700 border border-green-200 hover:bg-green-100'
+                        }`}
+                      >
+                        {loadingDetails && activeOrderId === order._id ? (
+                          <>
+                            <div className='w-4 h-4 border-2 border-green-400 border-t-transparent rounded-full animate-spin'></div>
+                            <span>Loading...</span>
+                          </>
+                        ) : (
+                          <>
+                            <FaInfoCircle className='w-4 h-4' />
+                            <span>View All Details</span>
                           </>
                         )}
                       </button>
@@ -1241,6 +1326,15 @@ function MyOrders() {
           isOpen={showBundleItemsModal}
           onClose={handleCloseBundleItemsModal}
           orderContext={orderContext}
+        />
+      )}
+      
+      {/* Comprehensive Order Details Modal */}
+      {showOrderDetailsModal && (
+        <OrderDetailsModal
+          order={detailedOrder}
+          isLoading={loadingDetails}
+          onClose={handleCloseOrderDetailsModal}
         />
       )}
     </div>

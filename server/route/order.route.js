@@ -47,4 +47,10 @@ orderRouter.post('/process-cancellation', Auth, admin, processCancellationReques
 orderRouter.get('/cancellation-policy', getCancellationPolicy);
 orderRouter.put('/update-cancellation-policy', Auth, admin, updateCancellationPolicy);
 
+// Import the comprehensive order details controller
+import { getComprehensiveOrderDetails } from '../controllers/orderCancellation.controller.js';
+
+// Get comprehensive order details with all information
+orderRouter.get('/comprehensive/:orderId', Auth, getComprehensiveOrderDetails);
+
 export default orderRouter;

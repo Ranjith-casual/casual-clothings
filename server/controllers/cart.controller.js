@@ -6,24 +6,83 @@ import BundleModel from "../models/bundles.js";
 export const addToCartItemController = async (req, res) => {
     try {
         const userId = req?.userId;
-        const { productId } = req?.body;
+        const { productId, size, price } = req?.body;
+
+        console.log('=== ADD TO CART DEBUG START ===');
+        console.log('User ID:', userId);
+        console.log('Request body:', req.body);
+        console.log('Product ID:', productId);
+        console.log('Size:', size);
+        console.log('Price:', price);
 
         if(!productId){
+            console.log('Error: Product ID is required');
             return res.status(400).json({
                 message: "Product ID is required",
                 error: true,
                 success: false,
             });
         }
+        
+        // If it's a product, size is required
+        if (!size) {
+            console.log('Error: Size is required');
+            return res.status(400).json({
+                message: "Size is required for products",
+                error: true,
+                success: false,
+            });
+        }
 
+        // Check if the same product with the same size already exists in cart
         const checkItemCart = await CartProductModel.findOne({
             userId: userId,
             productId: productId,
+            size: size
         });
 
         if(checkItemCart) {
             return res.status(400).json({
-                message: "Product already exists in cart",
+                message: "Product with this size already exists in cart",
+                error: true,
+                success: false,
+            });
+        }
+        
+        // Get product to check stock
+        const product = await mongoose.model('product').findById(productId);
+        if (!product) {
+            return res.status(404).json({
+                message: "Product not found",
+                error: true,
+                success: false,
+            });
+        }
+        
+        // Check size-specific stock
+        if (product.sizes && product.sizes[size] < 1) {
+            return res.status(400).json({
+                message: `Not enough stock for size ${size}`,
+                error: true,
+                success: false,
+            });
+        }
+        
+        // Calculate total remaining stock across all sizes
+        const totalRemainingStock = Object.values(product.sizes).reduce((a, b) => a + b, 0);
+        
+        // Count how many items of this product (any size) are already in the cart
+        const existingCartItems = await CartProductModel.find({
+            userId: userId,
+            productId: productId
+        });
+        
+        const totalQuantityInCart = existingCartItems.reduce((acc, item) => acc + item.quantity, 0);
+        
+        // Check total product stock
+        if (totalQuantityInCart + 1 > totalRemainingStock) {
+            return res.status(400).json({
+                message: "Not enough total stock for this product",
                 error: true,
                 success: false,
             });
@@ -33,7 +92,9 @@ export const addToCartItemController = async (req, res) => {
             quantity: 1,
             userId: userId,
             productId: productId,
-            itemType: 'product'
+            size: size,
+            itemType: 'product',
+            sizeAdjustedPrice: price // Store the size-adjusted price
         });
 
         const save = await cartItem.save();
@@ -48,6 +109,10 @@ export const addToCartItemController = async (req, res) => {
             { new: true }
         );
 
+        console.log('Cart item saved successfully:', save);
+        console.log('User shopping cart updated:', updateCartUser);
+        console.log('=== ADD TO CART DEBUG END ===');
+
         return res.json({
             message: "Product added to cart successfully",
             error: false,
@@ -55,8 +120,14 @@ export const addToCartItemController = async (req, res) => {
             data: save,
         });
     } catch (error) {
+        console.log('=== ADD TO CART ERROR ===');
+        console.log('Error:', error);
+        console.log('Error message:', error.message);
+        console.log('Error stack:', error.stack);
+        console.log('=== ADD TO CART DEBUG END ===');
+
         return res.status(500).json({
-            message: "Internal server error",
+            message: "Internal server error: " + error.message,
             error: true,
             success: false,
         });
@@ -153,22 +224,85 @@ export const getCartItemController = async (req, res) => {
 export const updateCartItemQtyController = async(request,response)=>{
     try {
         const userId = request.userId 
-        const { _id,qty } = request.body
+        const { _id, qty } = request.body
 
-        if(!_id || qty === undefined)
-            {
+        if(!_id || qty === undefined) {
             return response.status(400).json({
                 message : "provide _id, qty"
-            })
+            });
         }
-
+        
+        // Get cart item with product details
+        const cartItem = await CartProductModel.findOne({
+            _id: _id,
+            userId: userId
+        });
+        
+        if (!cartItem) {
+            return response.status(404).json({
+                message: "Cart item not found",
+                success: false,
+                error: true
+            });
+        }
+        
+        // Check if it's a product (not a bundle)
+        if (cartItem.itemType === 'product' && cartItem.productId) {
+            // Get product to check stock
+            const product = await mongoose.model('product').findById(cartItem.productId);
+            if (!product) {
+                return response.status(404).json({
+                    message: "Product not found",
+                    success: false,
+                    error: true
+                });
+            }
+            
+            // Check size-specific stock
+            if (product.sizes && cartItem.size) {
+                const sizeStock = product.sizes[cartItem.size];
+                if (sizeStock < qty) {
+                    return response.status(400).json({
+                        message: `Not enough stock for size ${cartItem.size}`,
+                        success: false,
+                        error: true,
+                        available: sizeStock
+                    });
+                }
+            }
+            
+            // Calculate total remaining stock across all sizes
+            const totalRemainingStock = Object.values(product.sizes).reduce((a, b) => a + b, 0);
+            
+            // Count how many items of this product (any size) are already in the cart except this one
+            const existingCartItems = await CartProductModel.find({
+                userId: userId,
+                productId: cartItem.productId,
+                _id: { $ne: _id }
+            });
+            
+            const otherItemsQuantity = existingCartItems.reduce((acc, item) => acc + item.quantity, 0);
+            
+            // Check total product stock
+            if (otherItemsQuantity + qty > totalRemainingStock) {
+                return response.status(400).json({
+                    message: "Not enough total stock for this product across all sizes",
+                    success: false,
+                    error: true,
+                    requested: qty,
+                    otherQuantities: otherItemsQuantity,
+                    available: totalRemainingStock
+                });
+            }
+        }
+        
         const updateCartitem = await CartProductModel.updateOne({
             _id : _id,
             userId : userId
         },{
             quantity : qty
-        })
-
+        });
+        
         return response.json({
             message : "Update cart",
             success : true,
@@ -347,7 +481,7 @@ export const validateCartItemsController = async (req, res) => {
         })
         .populate({
             path: 'productId',
-            select: 'name price stock publish'
+            select: 'name price stock sizes availableSizes publish'
         })
         .populate({
             path: 'bundleId',
@@ -438,8 +572,23 @@ export const validateCartItemsController = async (req, res) => {
                     continue;
                 }
                 
-                // Check if product has stock
-                if (item.productId.stock !== undefined && item.productId.stock < item.quantity) {
+                // Check if product has size-specific stock
+                if (item.productId.sizes && item.size) {
+                    const sizeStock = item.productId.sizes[item.size];
+                    if (sizeStock < item.quantity) {
+                        invalidItems.push({
+                            cartItemId: item._id,
+                            reason: `Insufficient stock for size ${item.size}`,
+                            productName: item.productId.name,
+                            requested: item.quantity,
+                            available: sizeStock,
+                            size: item.size
+                        });
+                        continue;
+                    }
+                } 
+                // Fallback to legacy stock check
+                else if (item.productId.stock !== undefined && item.productId.stock < item.quantity) {
                     invalidItems.push({
                         cartItemId: item._id,
                         reason: "Insufficient stock",
@@ -448,6 +597,31 @@ export const validateCartItemsController = async (req, res) => {
                         available: item.productId.stock
                     });
                     continue;
+                }
+                
+                // Check total product stock across all sizes vs all items of this product in the cart
+                if (item.productId.sizes) {
+                    // Calculate total remaining stock
+                    const totalRemainingStock = Object.values(item.productId.sizes).reduce((a, b) => a + b, 0);
+                    
+                    // Get all cart items for this product to check total quantities
+                    const productCartItems = await CartProductModel.find({
+                        productId: item.productId._id,
+                        _id: { $in: cartItemIds }
+                    });
+                    
+                    const totalQuantityInCart = productCartItems.reduce((acc, cartItem) => acc + cartItem.quantity, 0);
+                    
+                    if (totalQuantityInCart > totalRemainingStock) {
+                        invalidItems.push({
+                            cartItemId: item._id,
+                            reason: "Total requested quantity exceeds available stock across all sizes",
+                            productName: item.productId.name,
+                            totalRequested: totalQuantityInCart,
+                            totalAvailable: totalRemainingStock
+                        });
+                        continue;
+                    }
                 }
             } else {
                 invalidItems.push({

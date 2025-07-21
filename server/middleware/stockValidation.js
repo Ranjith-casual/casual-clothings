@@ -71,7 +71,23 @@ export const validateStockAvailability = async (req, res, next) => {
                     });
                 }
 
-                if (product.stock < item.quantity) {
+                // Check size-specific inventory if size is provided
+                if (item.size && product.sizes) {
+                    const sizeStock = product.sizes[item.size] || 0;
+                    if (sizeStock < item.quantity) {
+                        return res.status(400).json({
+                            success: false,
+                            error: true,
+                            message: `Insufficient stock for "${product.name}" in size ${item.size}. Available: ${sizeStock}, Requested: ${item.quantity}`,
+                            productId: product._id,
+                            size: item.size,
+                            availableStock: sizeStock,
+                            requestedQuantity: item.quantity
+                        });
+                    }
+                }
+                // Fallback to legacy stock check
+                else if (product.stock < item.quantity) {
                     return res.status(400).json({
                         success: false,
                         error: true,
