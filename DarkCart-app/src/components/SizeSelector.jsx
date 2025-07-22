@@ -1,5 +1,5 @@
-import React from 'react';
-import { SIZE_PRICE_ADJUSTMENTS, formatPrice } from '../utils/sizePricing';
+import React, { useEffect, useState } from 'react';
+import { formatPrice } from '../utils/sizePricing';
 
 /**
  * Size selector component for product pages
@@ -12,9 +12,27 @@ import { SIZE_PRICE_ADJUSTMENTS, formatPrice } from '../utils/sizePricing';
  * @param {Object} props.sizes Object containing inventory count for each size
  * @param {Number} props.basePrice The base price of the product
  * @param {Array} props.addedSizes Array of sizes that have been added to cart
+ * @param {Object} props.product Full product data including sizePricing
  */
-const SizeSelector = ({ availableSizes = [], selectedSize, onSizeSelect, required = true, sizes = {}, basePrice = 0, addedSizes = [] }) => {
-  const allSizes = ['XS', 'S', 'M', 'L', 'XL'];
+const SizeSelector = ({ 
+  availableSizes = [], 
+  selectedSize, 
+  onSizeSelect, 
+  required = true, 
+  sizes = {}, 
+  basePrice = 0, 
+  addedSizes = [], 
+  product = {}
+}) => {
+  // Get available sizes from the product data instead of hardcoded values
+  // First check the sizes object to get all available sizes with stock info
+  const productSizes = Object.keys(sizes || {});
+  
+  // If product has sizePricing data, make sure we include those sizes too
+  const pricingSizes = product?.sizePricing ? Object.keys(product.sizePricing) : [];
+  
+  // Combine all possible sizes from both sources
+  const allSizes = [...new Set([...productSizes, ...pricingSizes])].sort();
   
   // If no explicit available sizes, calculate from the sizes inventory object
   const effectiveAvailableSizes = availableSizes?.length > 0 
@@ -45,7 +63,9 @@ const SizeSelector = ({ availableSizes = [], selectedSize, onSizeSelect, require
           const isInCart = addedSizes && addedSizes.includes(size);
           const inventory = sizes[size] || 0;
           
-          const priceAdjustment = SIZE_PRICE_ADJUSTMENTS[size];
+          // Get size-specific price if available
+          const sizePrice = product?.sizePricing?.[size];
+          const hasCustomPrice = sizePrice !== undefined && sizePrice !== basePrice;
           
           return (
             <div key={size} className="flex flex-col items-center">
@@ -99,8 +119,11 @@ const SizeSelector = ({ availableSizes = [], selectedSize, onSizeSelect, require
               </div>
               
               <div className="flex flex-col items-center mt-1">
+                {/* Show size-specific price if available */}
                 {isAvailable && (
-                  <span className="text-xs text-gray-600">+₹{priceAdjustment}</span>
+                  <span className={`text-xs ${hasCustomPrice ? (sizePrice > basePrice ? 'text-orange-600' : 'text-green-600') : 'text-gray-700'} font-medium`}>
+                    {formatPrice(sizePrice !== undefined ? sizePrice : basePrice)}
+                  </span>
                 )}
                 
                 {/* Show in cart indicator */}

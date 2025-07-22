@@ -296,9 +296,41 @@ const OrderDetailsModal = ({ order, onClose, isLoading }) => {
                   const name = isBundle 
                     ? (item.bundleDetails?.title || item.bundleId?.title || 'Bundle') 
                     : (item.productDetails?.name || item.productId?.name || 'Product');
-                  const price = isBundle 
-                    ? (item.bundleDetails?.bundlePrice || item.bundleId?.bundlePrice || 0) 
-                    : (item.productDetails?.price || item.productId?.price || 0);
+                  // Determine the correct price to use for this item
+                  let price;
+                  if (isBundle) {
+                    // For bundles: First check unitPrice from order, then bundlePrice from details
+                    price = item.unitPrice || 
+                            item.bundleDetails?.bundlePrice || 
+                            item.bundleId?.bundlePrice ||
+                            item.bundleDetails?.price || 0;
+                  } else {
+                    // For products: Check in priority order
+                    
+                    // First check unit price set directly on the order item (most accurate)
+                    if (item.unitPrice !== undefined) {
+                      price = Number(item.unitPrice);
+                    }
+                    // Then check for size-adjusted price stored with the order item
+                    else if (item.sizeAdjustedPrice !== undefined) {
+                      price = Number(item.sizeAdjustedPrice);
+                    }
+                    // Then check for finalPrice in productDetails
+                    else if (item.productDetails?.finalPrice !== undefined) {
+                      price = Number(item.productDetails.finalPrice);
+                    }
+                    // Then check for size-specific pricing from product data
+                    else if (item.size && 
+                            (item.productId?.sizePricing?.[item.size] !== undefined || 
+                             item.productDetails?.sizePricing?.[item.size] !== undefined)) {
+                      price = Number(item.productId?.sizePricing?.[item.size] || 
+                                   item.productDetails?.sizePricing?.[item.size]);
+                    }
+                    // Otherwise use the regular product price
+                    else {
+                      price = Number(item.productDetails?.price || item.productId?.price || 0);
+                    }
+                  }
                   const total = price * (item.quantity || 1);
                   
                   return (
@@ -306,10 +338,28 @@ const OrderDetailsModal = ({ order, onClose, isLoading }) => {
                       <td className="p-2">{name}</td>
                       <td className="p-2">{isBundle ? 'Bundle' : 'Product'}</td>
                       <td className="text-center p-2">
-                        {isBundle ? 'N/A' : (item.size || item.productDetails?.size || 'N/A')}
+                        {isBundle ? 'N/A' : (
+                          <>
+                            {item.size || item.productDetails?.size || 'N/A'}
+                            {item.sizeAdjustedPrice && (
+                              <span className="block text-xs text-green-600">
+                                (Price: ₹{item.sizeAdjustedPrice})
+                              </span>
+                            )}
+                          </>
+                        )}
                       </td>
                       <td className="text-center p-2">{item.quantity || 1}</td>
-                      <td className="text-right p-2">₹{price.toFixed(2)}</td>
+                      <td className="text-right p-2">
+                        {/* Enhanced price display with debug info */}
+                        <div>
+                          <span className="font-semibold">₹{price.toFixed(2)}</span>
+                          {item.sizeAdjustedPrice && (
+                            <span className="block text-xs text-green-600">
+                              (Size: {item.size})
+                            </span>
+                          )}
+                        </div></td>
                       <td className="text-right p-2">₹{total.toFixed(2)}</td>
                     </tr>
                   );

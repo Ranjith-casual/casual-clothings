@@ -839,100 +839,135 @@ function MyOrders() {
                       ))}
                     </div>
                     
-                    {/* Order Summary */}
+                    {/* Price Details */}
                     <div className={`mt-3 p-2 sm:p-3 rounded-lg border ${
-                      isCancelled ? 'bg-red-50 border-red-200' : 'bg-gray-100 border-gray-200'
+                      isCancelled ? 'bg-red-50 border-red-200' : 'bg-white border-gray-200'
                     }`}>
-                      {/* Items Total */}
-                      <div className="flex justify-between items-center mb-2">
-                        <span className={`text-xs sm:text-sm ${
-                          isCancelled ? 'text-red-700' : 'text-gray-600'
+                      <div className="p-2 sm:p-3 border-b">
+                        <h2 className={`text-base font-medium tracking-tight uppercase ${
+                          isCancelled ? 'text-red-700' : 'text-gray-800'
                         }`}>
-                          Items ({order?.totalQuantity} {order?.totalQuantity === 1 ? 'item' : 'items'})
-                        </span>
-                        <span className={`font-medium text-sm ${
-                          isCancelled ? 'text-red-800' : 'text-black'
-                        }`}>
-                          ₹{order?.subTotalAmt?.toFixed(2) || (order?.totalAmt - 50)?.toFixed(2)}
-                        </span>
+                          Price Details ({order?.totalQuantity} {order?.totalQuantity === 1 ? 'Item' : 'Items'})
+                        </h2>
                       </div>
                       
-                      {/* Savings Summary - Right after Items */}
-                      {(() => {
-                        let totalSavings = 0;
-                        let hasAnyDiscount = false;
-                        order?.items?.forEach(item => {
-                          const isBundle = item?.itemType === 'bundle';
-                          
-                          if (isBundle) {
-                            const originalPrice = item?.bundleId?.originalPrice || item?.bundleDetails?.originalPrice || 0;
-                            const bundlePrice = item?.bundleId?.bundlePrice || item?.bundleDetails?.bundlePrice || 0;
-                            if (originalPrice > bundlePrice) {
-                              totalSavings += (originalPrice - bundlePrice) * item?.quantity;
-                              hasAnyDiscount = true;
-                            }
-                          } else {
-                            const productPrice = item?.productId?.price || item?.productDetails?.price || 0;
-                            const discount = item?.productId?.discount || item?.productDetails?.discount || 0;
-                            if (discount > 0) {
-                              const discountAmount = productPrice * (discount / 100);
-                              totalSavings += discountAmount * item?.quantity;
-                              hasAnyDiscount = true;
-                            }
-                          }
-                        });
-                        
-                        return hasAnyDiscount && totalSavings > 0 ? (
-                          <div className="flex justify-between items-center mb-2">
-                            <span className={`text-xs sm:text-sm font-medium ${
-                              isCancelled ? 'text-red-700' : 'text-green-700'
+                      <div className="p-2 sm:p-3">
+                        <div className="space-y-3">
+                          {/* Total MRP */}
+                          <div className="flex justify-between items-center">
+                            <span className={`text-xs sm:text-sm ${
+                              isCancelled ? 'text-red-700' : 'text-gray-700'
                             }`}>
-                              Total Savings
+                              Total MRP
                             </span>
-                            <span className={`font-bold text-sm ${
-                              isCancelled ? 'text-red-600' : 'text-green-600'
+                            <span className={`font-medium text-sm ${
+                              isCancelled ? 'text-red-800' : 'text-gray-900'
                             }`}>
-                              -₹{totalSavings.toFixed(2)}
+                              {(() => {
+                                // Calculate original price before discounts
+                                let originalTotal = 0;
+                                order?.items?.forEach(item => {
+                                  if (item?.itemType === 'bundle') {
+                                    originalTotal += (item?.bundleId?.originalPrice || item?.bundleDetails?.originalPrice || 0) * item.quantity;
+                                  } else {
+                                    const basePrice = item?.productId?.price || item?.productDetails?.price || 0;
+                                    originalTotal += basePrice * item.quantity;
+                                  }
+                                });
+                                return `₹${originalTotal.toFixed(2)}`;
+                              })()}
                             </span>
                           </div>
-                        ) : null;
-                      })()}
-                      
-                      {/* Delivery Charge */}
-                      <div className="flex justify-between items-center mb-2">
-                        <span className={`text-xs sm:text-sm ${
-                          isCancelled ? 'text-red-700' : 'text-gray-600'
-                        }`}>
-                          Delivery Charge
-                        </span>
-                        <span className={`font-medium text-sm ${
-                          isCancelled ? 'text-red-800' : 'text-black'
-                        }`}>
+                          
+                          {/* Discount on MRP */}
                           {(() => {
-                            // Calculate delivery charge (assuming it's the difference between total and subtotal)
-                            const deliveryCharge = (order?.totalAmt || 0) - (order?.subTotalAmt || order?.totalAmt - 50 || 0);
-                            return deliveryCharge > 0 ? `₹${deliveryCharge.toFixed(2)}` : 'FREE';
+                            // Calculate total savings
+                            let totalSavings = 0;
+                            order?.items?.forEach(item => {
+                              if (item?.itemType === 'bundle') {
+                                const originalPrice = item?.bundleId?.originalPrice || item?.bundleDetails?.originalPrice || 0;
+                                const bundlePrice = item?.bundleId?.bundlePrice || item?.bundleDetails?.bundlePrice || 0;
+                                if (originalPrice > bundlePrice) {
+                                  totalSavings += (originalPrice - bundlePrice) * item.quantity;
+                                }
+                              } else {
+                                const basePrice = item?.productId?.price || item?.productDetails?.price || 0;
+                                const discount = item?.productId?.discount || item?.productDetails?.discount || 0;
+                                if (discount > 0) {
+                                  totalSavings += (basePrice * discount/100) * item.quantity;
+                                }
+                              }
+                            });
+                            
+                            return totalSavings > 0 ? (
+                              <div className="flex justify-between items-center">
+                                <span className={`text-xs sm:text-sm ${
+                                  isCancelled ? 'text-red-700' : 'text-gray-700'
+                                }`}>
+                                  Discount on MRP
+                                </span>
+                                <span className={`font-medium text-sm ${
+                                  isCancelled ? 'text-red-700' : 'text-green-600'
+                                }`}>
+                                  -₹{totalSavings.toFixed(2)}
+                                </span>
+                              </div>
+                            ) : null;
                           })()}
-                        </span>
-                      </div>
-                      
-                      {/* Divider */}
-                      <div className={`border-t my-2 ${
-                        isCancelled ? 'border-red-300' : 'border-gray-300'
-                      }`}></div>
-                      
-                      {/* Order Total */}
-                      <div className="flex justify-between items-center">
-                        <span className={`font-semibold text-sm sm:text-base ${
-                          isCancelled ? 'text-red-800' : 'text-black'
-                        }`}>
-                          Order Total
-                        </span>
-                        <span className={`font-bold text-lg sm:text-xl ${
-                          isCancelled ? 'text-red-800 line-through' : 'text-black'
-                        }`}>
-                          ₹{order?.totalAmt?.toFixed(2)}
-                        </span>
+                          
+                          {/* Platform Fee */}
+                          <div className="flex justify-between items-center">
+                            <span className={`text-xs sm:text-sm ${
+                              isCancelled ? 'text-red-700' : 'text-gray-700'
+                            }`}>
+                              Platform Fee
+                            </span>
+                            <div className="flex items-center">
+                              <span className={`line-through text-xs mr-1 ${
+                                isCancelled ? 'text-red-400' : 'text-gray-500'
+                              }`}>₹99</span>
+                              <span className={`font-medium text-sm ${
+                                isCancelled ? 'text-red-700' : 'text-gray-900'
+                              }`}>
+                                FREE
+                              </span>
+                            </div>
+                          </div>
+                          
+                          {/* Delivery Charge */}
+                          <div className="flex justify-between items-center">
+                            <span className={`text-xs sm:text-sm ${
+                              isCancelled ? 'text-red-700' : 'text-gray-700'
+                            }`}>
+                              Delivery Charge
+                            </span>
+                            <span className={`font-medium text-sm ${
+                              isCancelled ? 'text-red-800' : 'text-gray-900'
+                            }`}>
+                              {(() => {
+                                // Calculate delivery charge
+                                const deliveryCharge = (order?.totalAmt || 0) - (order?.subTotalAmt || order?.totalAmt - 50 || 0);
+                                return deliveryCharge > 0 ? `₹${deliveryCharge.toFixed(2)}` : 'FREE';
+                              })()}
+                            </span>
+                          </div>
+                          
+                          {/* Total Amount - with border separator */}
+                          <div className="border-t pt-3 mt-3">
+                            <div className="flex justify-between items-center">
+                              <span className={`font-semibold text-sm sm:text-base ${
+                                isCancelled ? 'text-red-800' : 'text-black'
+                              }`}>
+                                Total Amount
+                              </span>
+                              <span className={`font-bold text-base ${
+                                isCancelled ? 'text-red-800 line-through' : 'text-black'
+                              }`}>
+                                ₹{order?.totalAmt?.toFixed(2)}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
                       </div>
                     </div>
                     

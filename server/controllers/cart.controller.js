@@ -143,7 +143,7 @@ export const getCartItemController = async (req, res) => {
         const cartItems = await CartProductModel.find({ userId: userId })
             .populate({
                 path: "productId",
-                select: "name price discount image primaryImage size brand stock publish" 
+                select: "name price discount image primaryImage size brand stock publish sizes sizePricing" 
             })
             .populate({
                 path: "bundleId",
@@ -156,12 +156,16 @@ export const getCartItemController = async (req, res) => {
                 _id: item._id,
                 itemType: item.itemType,
                 quantity: item.quantity,
+                size: item.size,
+                sizeAdjustedPrice: item.sizeAdjustedPrice,
                 hasProductId: !!item.productId,
                 hasBundleId: !!item.bundleId,
                 productId: item.productId ? {
                     _id: item.productId._id,
                     name: item.productId.name,
-                    price: item.productId.price
+                    price: item.productId.price,
+                    sizes: item.productId.sizes,
+                    sizePricing: item.productId.sizePricing
                 } : null,
                 bundleId: item.bundleId ? {
                     _id: item.bundleId._id,
@@ -465,8 +469,10 @@ export const addBundleToCartController = async (req, res) => {
 // Validate cart items before checkout
 export const validateCartItemsController = async (req, res) => {
     try {
+        const userId = req?.userId;
         const { cartItemIds } = req.body;
         
+        // Validate input
         if (!cartItemIds || !Array.isArray(cartItemIds) || cartItemIds.length === 0) {
             return res.status(400).json({
                 message: "Please provide valid cart item IDs",
@@ -475,17 +481,18 @@ export const validateCartItemsController = async (req, res) => {
             });
         }
         
-        // Find all the cart items
+        // Find all the cart items with userId check for security
         const cartItems = await CartProductModel.find({
-            _id: { $in: cartItemIds }
+            _id: { $in: cartItemIds },
+            ...(userId ? { userId } : {})  // Add userId check if available
         })
         .populate({
             path: 'productId',
-            select: 'name price stock sizes availableSizes publish'
+            select: 'name price stock sizes availableSizes publish discount image'
         })
         .populate({
             path: 'bundleId',
-            select: 'title bundlePrice stock isActive isTimeLimited startDate endDate'
+            select: 'title bundlePrice stock isActive isTimeLimited startDate endDate discount images originalPrice'
         });
         
         if (!cartItems || cartItems.length === 0) {
@@ -497,9 +504,18 @@ export const validateCartItemsController = async (req, res) => {
         }
         
         const invalidItems = [];
+        const validItems = [];
+        let subtotal = 0;
         
         // Check each cart item for validity
         for (const item of cartItems) {
+            let isValid = true;
+            const validationResult = {
+                cartItemId: item._id,
+                quantity: item.quantity,
+                itemType: item.itemType
+            };
+            
             // Check for bundles
             if (item.itemType === 'bundle' && item.bundleId) {
                 // Check if bundle exists
@@ -512,25 +528,35 @@ export const validateCartItemsController = async (req, res) => {
                     continue;
                 }
                 
+                validationResult.bundleId = item.bundleId._id;
+                validationResult.bundleTitle = item.bundleId.title;
+                validationResult.price = item.bundleId.bundlePrice;
+                validationResult.discount = item.bundleId.discount || 0;
+                
+                // Calculate item price with discount
+                const itemPrice = item.bundleId.bundlePrice * (1 - (item.bundleId.discount || 0) / 100);
+                validationResult.finalPrice = itemPrice;
+                validationResult.totalPrice = itemPrice * item.quantity;
+                
                 // Check if bundle is active
                 if (!item.bundleId.isActive) {
                     invalidItems.push({
-                        cartItemId: item._id,
-                        reason: "Bundle is not active",
-                        bundleTitle: item.bundleId.title
+                        ...validationResult,
+                        reason: "Bundle is not active"
                     });
+                    isValid = false;
                     continue;
                 }
                 
                 // Check if bundle has stock
                 if (item.bundleId.stock !== undefined && item.bundleId.stock < item.quantity) {
                     invalidItems.push({
-                        cartItemId: item._id,
+                        ...validationResult,
                         reason: "Insufficient stock",
-                        bundleTitle: item.bundleId.title,
                         requested: item.quantity,
                         available: item.bundleId.stock
                     });
+                    isValid = false;
                     continue;
                 }
                 
@@ -542,10 +568,10 @@ export const validateCartItemsController = async (req, res) => {
                     
                     if (now < startDate || now > endDate) {
                         invalidItems.push({
-                            cartItemId: item._id,
-                            reason: "Time-limited bundle is no longer available",
-                            bundleTitle: item.bundleId.title
+                            ...validationResult,
+                            reason: "Time-limited bundle is no longer available"
                         });
+                        isValid = false;
                         continue;
                     }
                 }
@@ -559,43 +585,83 @@ export const validateCartItemsController = async (req, res) => {
                         reason: "Product not found",
                         productId: item.productId
                     });
+                    isValid = false;
                     continue;
                 }
+                
+                validationResult.productId = item.productId._id;
+                validationResult.productName = item.productId.name;
+                validationResult.price = item.productId.price;
+                validationResult.discount = item.productId.discount || 0;
+                validationResult.size = item.size;
+                validationResult.color = item.color;
+                
+                // Calculate item price with discount
+                const itemPrice = item.productId.price * (1 - (item.productId.discount || 0) / 100);
+                validationResult.finalPrice = itemPrice;
+                validationResult.totalPrice = itemPrice * item.quantity;
                 
                 // Check if product is published (active)
                 if (!item.productId.publish) {
                     invalidItems.push({
-                        cartItemId: item._id,
-                        reason: "Product is not available",
-                        productName: item.productId.name
+                        ...validationResult,
+                        reason: "Product is not available"
                     });
+                    isValid = false;
                     continue;
                 }
                 
                 // Check if product has size-specific stock
                 if (item.productId.sizes && item.size) {
-                    const sizeStock = item.productId.sizes[item.size];
-                    if (sizeStock < item.quantity) {
+                    // Safely access size stock with error handling
+                    try {
+                        const sizeStock = item.productId.sizes[item.size];
+                        
+                        // Check if sizeStock is a valid number
+                        if (typeof sizeStock !== 'number' || isNaN(sizeStock)) {
+                            invalidItems.push({
+                                ...validationResult,
+                                reason: `Invalid stock information for size ${item.size}`,
+                                requested: item.quantity,
+                                available: 0,
+                                size: item.size
+                            });
+                            isValid = false;
+                            continue;
+                        }
+                        
+                        if (sizeStock < item.quantity) {
+                            invalidItems.push({
+                                ...validationResult,
+                                reason: `Insufficient stock for size ${item.size}`,
+                                requested: item.quantity,
+                                available: sizeStock,
+                                size: item.size
+                            });
+                            isValid = false;
+                            continue;
+                        }
+                    } catch (sizeError) {
+                        console.error(`Error processing size ${item.size} for product ${item.productId._id}:`, sizeError);
                         invalidItems.push({
-                            cartItemId: item._id,
-                            reason: `Insufficient stock for size ${item.size}`,
-                            productName: item.productId.name,
+                            ...validationResult,
+                            reason: `Error processing size information`,
                             requested: item.quantity,
-                            available: sizeStock,
                             size: item.size
                         });
+                        isValid = false;
                         continue;
                     }
                 } 
                 // Fallback to legacy stock check
                 else if (item.productId.stock !== undefined && item.productId.stock < item.quantity) {
                     invalidItems.push({
-                        cartItemId: item._id,
+                        ...validationResult,
                         reason: "Insufficient stock",
-                        productName: item.productId.name,
                         requested: item.quantity,
                         available: item.productId.stock
                     });
+                    isValid = false;
                     continue;
                 }
                 
@@ -614,12 +680,12 @@ export const validateCartItemsController = async (req, res) => {
                     
                     if (totalQuantityInCart > totalRemainingStock) {
                         invalidItems.push({
-                            cartItemId: item._id,
+                            ...validationResult,
                             reason: "Total requested quantity exceeds available stock across all sizes",
-                            productName: item.productId.name,
                             totalRequested: totalQuantityInCart,
                             totalAvailable: totalRemainingStock
                         });
+                        isValid = false;
                         continue;
                     }
                 }
@@ -629,6 +695,14 @@ export const validateCartItemsController = async (req, res) => {
                     reason: "Invalid item type or missing product/bundle reference",
                     itemType: item.itemType
                 });
+                isValid = false;
+                continue;
+            }
+            
+            // If item is valid, add to valid items list and update subtotal
+            if (isValid) {
+                validItems.push(validationResult);
+                subtotal += validationResult.totalPrice;
             }
         }
         
@@ -637,14 +711,24 @@ export const validateCartItemsController = async (req, res) => {
                 message: "Some items in your cart are unavailable for purchase",
                 error: true,
                 success: false,
-                invalidItems: invalidItems
+                invalidItems: invalidItems,
+                validItems: validItems.length > 0 ? validItems : undefined
             });
         }
+        
+        // Calculate potential shipping costs or tax information
+        const estimatedTax = subtotal * 0.05; // Example: 5% tax
         
         return res.json({
             message: "All items in cart are valid",
             error: false,
-            success: true
+            success: true,
+            validItems,
+            summary: {
+                subtotal,
+                estimatedTax,
+                estimatedTotal: subtotal + estimatedTax
+            }
         });
         
     } catch (error) {

@@ -169,17 +169,65 @@ const DisplayCartItem = ({close}) => {
                                                             <p className='font-semibold text-black mt-1.5'>
                                                                 {item?.itemType === 'bundle' 
                                                                     ? DisplayPriceInRupees(item?.bundleId?.bundlePrice)
-                                                                    : DisplayPriceInRupees(pricewithDiscount(
-                                                                        item?.sizeAdjustedPrice || item?.productId?.price,
-                                                                        item?.productId?.discount))
+                                                                    : (() => {
+                                                                        // DEBUG info
+                                                                        console.log(`CartItem price debug for ${item?._id}:`, {
+                                                                            size: item?.size,
+                                                                            sizeAdjustedPrice: item?.sizeAdjustedPrice,
+                                                                            productId: item?.productId?._id,
+                                                                            basePrice: item?.productId?.price,
+                                                                            discount: item?.productId?.discount,
+                                                                            sizePricing: item?.productId?.sizePricing
+                                                                        });
+                                                                        
+                                                                        // First check if we have a sizeAdjustedPrice from the backend
+                                                                        // This is stored when the item was added to the cart
+                                                                        if (item?.sizeAdjustedPrice !== undefined) {
+                                                                            console.log(`Using sizeAdjustedPrice: ${item.sizeAdjustedPrice}`);
+                                                                            const finalPrice = pricewithDiscount(
+                                                                                item.sizeAdjustedPrice,
+                                                                                item?.productId?.discount
+                                                                            );
+                                                                            return DisplayPriceInRupees(finalPrice);
+                                                                        }
+                                                                        
+                                                                        // Otherwise try to use sizePricing from product data
+                                                                        const basePrice = item?.size && 
+                                                                                       item?.productId?.sizePricing && 
+                                                                                       item?.productId?.sizePricing[item.size] !== undefined
+                                                                            ? item?.productId?.sizePricing[item.size]
+                                                                            : (item?.productId?.price || 0);
+                                                                        
+                                                                        // Apply discount if available
+                                                                        const finalPrice = pricewithDiscount(
+                                                                            basePrice,
+                                                                            item?.productId?.discount
+                                                                        );
+                                                                        
+                                                                        console.log(`Calculated price: ${finalPrice}`);
+                                                                        return DisplayPriceInRupees(finalPrice);
+                                                                    })()
                                                                 }
                                                             </p>
                                                             {item?.itemType !== 'bundle' && item?.size && (
                                                                 <div className='flex flex-col gap-0.5'>
                                                                     <p className='text-xs text-green-600'>
                                                                         Size: <span className="font-semibold">{item?.size}</span>
-                                                                        {item?.sizeAdjustedPrice && " (Price adjusted)"}
                                                                     </p>
+                                                                    
+                                                                    {/* Show price details if this size has a custom price */}
+                                                                    {item?.productId?.sizePricing && 
+                                                                     item?.productId?.sizePricing[item.size] !== undefined && 
+                                                                     item?.productId?.sizePricing[item.size] !== item?.productId?.price && (
+                                                                        <p className={`text-xs ${item?.productId?.sizePricing[item.size] > item?.productId?.price ? 'text-orange-600' : 'text-green-600'}`}>
+                                                                            Price for this size: {DisplayPriceInRupees(item?.productId?.sizePricing[item.size])}
+                                                                            {item?.productId?.sizePricing[item.size] > item?.productId?.price ? 
+                                                                                ` (${((item?.productId?.sizePricing[item.size] - item?.productId?.price) / item?.productId?.price * 100).toFixed(0)}% higher)` : 
+                                                                                ` (${((item?.productId?.price - item?.productId?.sizePricing[item.size]) / item?.productId?.price * 100).toFixed(0)}% lower)`
+                                                                            }
+                                                                        </p>
+                                                                     )
+                                                                    }
                                                                     
                                                                     {/* Display stock information */}
                                                                     {item?.productId?.sizes && item?.productId?.sizes[item.size] !== undefined && (
@@ -206,6 +254,8 @@ const DisplayCartItem = ({close}) => {
                                                                             // Ensure both size-specific and overall stock data are available
                                                                             sizes: item?.productId?.sizes || {},
                                                                             stock: item?.productId?.stock,
+                                                                            // Add size-specific pricing
+                                                                            sizePricing: item?.productId?.sizePricing || {},
                                                                             // Add any other necessary fields
                                                                             _id: item?.productId?._id,
                                                                             name: item?.productId?.name

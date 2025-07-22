@@ -19,6 +19,7 @@ import userManagementRouter from './route/userManagement.route.js' // Import use
 import paymentRouter from './route/payment.route.js' // Import payment routes
 import orderCancellationRouter from './route/orderCancellation.route.js' // Import order cancellation routes
 import emailRouter from './route/email.route.js' // Import email routes
+import configRouter from './route/config.route.js' // Import config routes for sizes management
 
 
 
@@ -95,7 +96,7 @@ app.use('/api/user-management', userManagementRouter) // Use user management rou
 app.use('/api/payment', paymentRouter) // Use payment routes
 app.use('/api/order-cancellation', orderCancellationRouter) // Use order cancellation routes
 app.use('/api/email', emailRouter) // Use email routes
- // Use analytics routes
+app.use('/api/config', configRouter) // Use config routes for sizes management
 
 
 connectDB().then(

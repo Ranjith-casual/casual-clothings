@@ -47,11 +47,16 @@ const ProductDisplayPage = () => {
   const cartItems = useSelector((state) => state.cartItem.cart) || []
   const { addToWishlist, removeFromWishlist, checkWishlistItem } = useGlobalContext()
 
-  // Import for calculateAdjustedPrice
+  // Import size pricing utility
+  const [pricingUtil, setPricingUtil] = useState(null);
+  
   useEffect(() => {
     // Import required function dynamically
     import('../utils/sizePricing')
-      .then(module => window.calculateAdjustedPrice = module.calculateAdjustedPrice)
+      .then(module => {
+        window.calculateAdjustedPrice = module.calculateAdjustedPrice;
+        setPricingUtil(module);
+      })
       .catch(error => console.error('Failed to import sizePricing:', error));
   }, [])
   
@@ -605,16 +610,16 @@ const ProductDisplayPage = () => {
                 <div className="mb-8 border-t border-b border-gray-100 py-6">
                   <div className="flex items-center gap-4 mb-2">
                     <span className="text-2xl md:text-3xl font-medium font-['Poppins']">
-                      {selectedSize && window.calculateAdjustedPrice 
-                        ? DisplayPriceInRupees(pricewithDiscount(window.calculateAdjustedPrice(data.price, selectedSize), data.discount))
+                      {selectedSize && pricingUtil 
+                        ? DisplayPriceInRupees(pricewithDiscount(pricingUtil.calculateAdjustedPrice(data.price, selectedSize, data), data.discount))
                         : DisplayPriceInRupees(pricewithDiscount(data.price, data.discount))
                       }
                     </span>
                     {data.discount > 0 && (
                       <>
                         <span className="text-gray-500 line-through text-lg font-['Poppins']">
-                          {selectedSize && window.calculateAdjustedPrice
-                            ? DisplayPriceInRupees(window.calculateAdjustedPrice(data.price, selectedSize))
+                          {selectedSize && pricingUtil
+                            ? DisplayPriceInRupees(pricingUtil.calculateAdjustedPrice(data.price, selectedSize, data))
                             : DisplayPriceInRupees(data.price)
                           }
                         </span>
@@ -653,6 +658,8 @@ const ProductDisplayPage = () => {
                     required={true}
                     basePrice={data.price}
                     addedSizes={addedSizes}
+                    sizes={data.sizes || {}}
+                    product={data} // Pass the entire product data for size pricing
                   />
 
                 {/* Stock Availability - Size-specific and Total Stock */}
@@ -727,9 +734,13 @@ const ProductDisplayPage = () => {
                           // Pass both overall stock and size-specific stock
                           stock: data.stock,
                           sizes: data.sizes,
+                          sizePricing: data.sizePricing || {}, // Pass the full sizePricing object
                           _id: data._id,
                           name: data.name,
-                          price: data.price
+                          // Calculate the correct price based on selected size
+                          price: selectedSize && data.sizePricing && data.sizePricing[selectedSize]
+                            ? data.sizePricing[selectedSize]  // Use size-specific price if available
+                            : data.price                     // Otherwise use base price
                         }}
                         large={true} 
                         selectedSize={selectedSize}

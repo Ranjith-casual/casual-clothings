@@ -2,9 +2,158 @@ import orderCancellationModel from "../models/orderCancellation.model.js";
 import cancellationPolicyModel from "../models/cancellationPolicy.model.js";
 import orderModel from "../models/order.model.js";
 import UserModel from "../models/users.model.js";
+import ProductModel from "../models/product.model.js";
+import BundleModel from "../models/bundles.js";
 import sendEmail from "../config/sendEmail.js";
 import { sendRefundInvoiceEmail } from "./payment.controller.js";
 import fs from 'fs';
+import mongoose from "mongoose";
+
+// Comprehensive Order Details Controller - Get complete order details with properly populated data
+export const getComprehensiveOrderDetails = async (req, res) => {
+    try {
+        const { orderId } = req.params;
+        
+        if (!mongoose.Types.ObjectId.isValid(orderId)) {
+            return res.status(400).json({
+                success: false,
+                error: true,
+                message: "Invalid order ID format"
+            });
+        }
+        
+        // Find the order with populated address
+        const order = await orderModel.findById(orderId)
+            .populate('deliveryAddress')
+            .lean();
+            
+        if (!order) {
+            return res.status(404).json({
+                success: false,
+                error: true,
+                message: "Order not found"
+            });
+        }
+        
+        // Check if user has permission to view this order
+        const userId = req.userId;
+        const isAdmin = req.isAdmin;
+        
+        if (!isAdmin && order.userId.toString() !== userId) {
+            return res.status(403).json({
+                success: false,
+                error: true,
+                message: "You don't have permission to view this order"
+            });
+        }
+        
+        // Enhance each item with complete details
+        const enhancedItems = await Promise.all(order.items.map(async (item) => {
+            try {
+                if (item.itemType === 'product' && item.productId) {
+                    // If product details are incomplete, fetch from database
+                    if (!item.productDetails || !item.productDetails.name) {
+                        const product = await ProductModel.findById(item.productId).lean();
+                        if (product) {
+                            item.productDetails = {
+                                ...product,
+                                _id: product._id.toString()
+                            };
+                        }
+                    }
+                    
+                    // Ensure size-specific pricing is correctly set
+                    if (item.size) {
+                        // If product has size-specific pricing, make sure it's included
+                        const product = await ProductModel.findById(item.productId).lean();
+                        if (product && product.sizePricing && product.sizePricing[item.size]) {
+                            // If item doesn't have sizeAdjustedPrice, set it
+                            if (item.sizeAdjustedPrice === undefined) {
+                                item.sizeAdjustedPrice = product.sizePricing[item.size];
+                                console.log(`Added missing sizeAdjustedPrice ${product.sizePricing[item.size]} for product ${product.name} size ${item.size}`);
+                            }
+                            
+                            // Make sure productDetails has the size pricing
+                            if (!item.productDetails.sizePricing) {
+                                item.productDetails.sizePricing = {};
+                            }
+                            item.productDetails.sizePricing[item.size] = product.sizePricing[item.size];
+                        }
+                    }
+                    
+                    // Ensure unitPrice is correctly set
+                    if (item.unitPrice === undefined) {
+                        if (item.sizeAdjustedPrice !== undefined) {
+                            item.unitPrice = Number(item.sizeAdjustedPrice);
+                        } else if (item.productDetails?.finalPrice !== undefined) {
+                            item.unitPrice = Number(item.productDetails.finalPrice);
+                        } else {
+                            const price = item.productDetails?.price || 0;
+                            const discount = item.productDetails?.discount || 0;
+                            item.unitPrice = discount > 0 ? price * (1 - discount/100) : price;
+                        }
+                        console.log(`Set missing unitPrice to ${item.unitPrice} for product ${item.productDetails?.name || 'unknown'}`);
+                    }
+                    
+                } else if (item.itemType === 'bundle' && item.bundleId) {
+                    // If bundle details are incomplete, fetch from database
+                    if (!item.bundleDetails || !item.bundleDetails.title) {
+                        const bundle = await BundleModel.findById(item.bundleId).lean();
+                        if (bundle) {
+                            item.bundleDetails = {
+                                ...bundle,
+                                _id: bundle._id.toString()
+                            };
+                            
+                            // Ensure unitPrice is set for bundle
+                            if (item.unitPrice === undefined) {
+                                item.unitPrice = bundle.bundlePrice;
+                            }
+                        }
+                    }
+                }
+                return item;
+            } catch (error) {
+                console.error(`Error processing item ${item._id}:`, error);
+                return item; // Return original item if enhancement fails
+            }
+        }));
+        
+        // Update order with enhanced items
+        order.items = enhancedItems;
+        
+        // Get user information
+        const user = await UserModel.findById(order.userId).select('name email phone').lean();
+        order.user = user;
+        
+        // Check if order has any cancellation requests
+        const cancellationRequest = await orderCancellationModel.findOne({
+            orderId: orderId,
+            isActive: true
+        }).sort({ requestDate: -1 }).lean();
+        
+        // Add cancellation info to response if exists
+        if (cancellationRequest) {
+            order.cancellationRequest = cancellationRequest;
+        }
+        
+        return res.json({
+            success: true,
+            error: false,
+            message: "Order details retrieved successfully",
+            data: order
+        });
+        
+    } catch (error) {
+        console.error("Error fetching comprehensive order details:", error);
+        return res.status(500).json({
+            success: false,
+            error: true,
+            message: "Error retrieving order details",
+            details: error.message
+        });
+    }
+};
 
 // User requests order cancellation
 export const requestOrderCancellation = async (req, res) => {
@@ -1039,99 +1188,6 @@ export const getCancellationByOrderId = async (req, res) => {
             success: false,
             error: true,
             message: "Internal server error while getting cancellation details"
-        });
-    }
-};
-
-// Get comprehensive order details with all related information
-export const getComprehensiveOrderDetails = async (req, res) => {
-    try {
-        const { orderId } = req.params;
-        const userId = req.userId;
-        
-        // Find the order with populated references
-        const order = await orderModel.findOne({ 
-            $or: [
-                { orderId: orderId, userId: userId },
-                { _id: orderId, userId: userId }
-            ]
-        })
-        .populate({
-            path: "items.productId",
-            select: "name image price stock discount description brand category sizes"
-        })
-        .populate({
-            path: "items.bundleId",
-            select: "title description image images bundlePrice originalPrice stock items discount",
-            populate: {
-                path: "items.productId",
-                select: "name image price stock discount description brand"
-            }
-        })
-        .populate("deliveryAddress", "address_line city state pincode country landmark addressType mobile")
-        .populate("userId", "name email phone");
-        
-        if (!order) {
-            return res.status(404).json({
-                success: false,
-                error: true,
-                message: "Order not found"
-            });
-        }
-        
-        // Get cancellation request information if any
-        const { default: orderCancellationModel } = await import('../models/orderCancellation.model.js');
-        const cancellationRequest = await orderCancellationModel.findOne({
-            orderId: order._id
-        }).sort({ createdAt: -1 });
-        
-        // Format the response with all available information
-        const comprehensiveOrderDetails = {
-            ...order.toObject(),
-            // Add cancellation details if available
-            cancellation: cancellationRequest ? {
-                status: cancellationRequest.status,
-                requestDate: cancellationRequest.requestDate,
-                reason: cancellationRequest.reason,
-                additionalReason: cancellationRequest.additionalReason,
-                refundDetails: cancellationRequest.refundDetails || {},
-                adminResponse: cancellationRequest.adminResponse || {},
-                deliveryInfo: cancellationRequest.deliveryInfo || {}
-            } : null,
-            // Add delivery timeline with dates
-            deliveryTimeline: {
-                orderPlaced: order.createdAt,
-                estimatedDelivery: order.estimatedDeliveryDate,
-                actualDelivery: order.actualDeliveryDate,
-                deliveryDays: order.deliveryDays,
-                deliveryDistance: order.deliveryDistance,
-                deliveryNotes: order.deliveryNotes
-            },
-            // Add payment details
-            paymentDetails: {
-                method: order.paymentMethod,
-                status: order.paymentStatus,
-                paymentId: order.paymentId,
-                refundId: order.refundDetails?.refundId,
-                refundAmount: order.refundDetails?.refundAmount,
-                refundPercentage: order.refundDetails?.refundPercentage,
-                refundDate: order.refundDetails?.refundDate
-            }
-        };
-        
-        return res.status(200).json({
-            success: true,
-            error: false,
-            message: "Comprehensive order details retrieved successfully",
-            data: comprehensiveOrderDetails
-        });
-        
-    } catch (error) {
-        console.error("Error getting comprehensive order details:", error);
-        return res.status(500).json({
-            success: false,
-            error: true,
-            message: "Internal server error while retrieving order details"
         });
     }
 };

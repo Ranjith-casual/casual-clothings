@@ -285,16 +285,39 @@ export const onlinePaymentOrderController = async (req, res) => {
           }
         }
         
+        // Determine correct prices for bundles
+        let bundlePrice = 0;
+        let originalPrice = 0;
+        
+        // Get the original bundle price
+        originalPrice = item.originalPrice || bundleDetails?.originalPrice || 0;
+        
+        // Use the explicit bundle price
+        bundlePrice = item.price || item.bundlePrice || bundleDetails?.bundlePrice || 0;
+        
+        // Calculate total for this bundle item
+        const bundleItemTotal = bundlePrice * item.quantity;
+        
+        console.log(`Bundle pricing: bundleId=${bundleId}, price=${bundlePrice}, originalPrice=${originalPrice}, quantity=${item.quantity}, total=${bundleItemTotal}`);
+        
         processedItems.push({
           bundleId: bundleId,
           itemType: 'bundle',
-          bundleDetails: bundleDetails || {
-            title: 'Bundle',
-            image: '',
-            bundlePrice: 0
+          bundleDetails: {
+            ...(bundleDetails || {
+              title: 'Bundle',
+              image: '',
+            }),
+            // Store accurate pricing
+            bundlePrice: bundlePrice,
+            originalPrice: originalPrice,
+            // Ensure price field exists
+            price: bundlePrice
           },
           quantity: item.quantity,
-          itemTotal: (bundleDetails?.bundlePrice || 0) * item.quantity
+          unitPrice: bundlePrice,
+          originalPrice: originalPrice,
+          itemTotal: bundleItemTotal
         });
       } else {
         const productId = (typeof item.productId === 'object' && item.productId._id) ? item.productId._id : item.productId;
@@ -319,23 +342,134 @@ export const onlinePaymentOrderController = async (req, res) => {
           }
         }
         
-        processedItems.push({
+        // Determine the correct price to use (size-adjusted or regular)
+        let priceToUse = 0;
+        let originalPrice = 0;
+        let discountToApply = 0;
+        
+        // Get the original product price before any adjustments
+        originalPrice = productDetails?.price || 0;
+        
+        // First check for size-specific pricing in the product data
+        if (item.size && item.productId) {
+          try {
+            const product = await ProductModel.findById(productId);
+            
+            if (product?.sizePricing?.[item.size] !== undefined) {
+              const sizePrice = product.sizePricing[item.size];
+              console.log(`Using size-specific pricing from product for ${productId}, size ${item.size}: ${sizePrice}`);
+              
+              // Store the size-adjusted price for consistency
+              item.sizeAdjustedPrice = Number(sizePrice);
+              priceToUse = Number(sizePrice);
+              
+              // Debug info
+              console.log(`Set sizeAdjustedPrice=${sizePrice} for product ${product.name} size ${item.size}`);
+            } else {
+              console.log(`No size-specific pricing found for ${productId}, size ${item.size}`);
+            }
+          } catch (error) {
+            console.error(`Error fetching size-specific pricing for ${productId}:`, error);
+          }
+        }
+        // Then check if size-adjusted price was explicitly provided
+        else if (item.sizeAdjustedPrice !== undefined) {
+          console.log(`Using provided size-adjusted price for product ${productId}: ${item.sizeAdjustedPrice} (Size: ${item.size})`);
+          priceToUse = Number(item.sizeAdjustedPrice);
+        } else {
+          // Use regular price with discount if applicable
+          priceToUse = originalPrice;
+          console.log(`Using regular price for product ${productId}: ${priceToUse}`);
+        }
+        
+        // Get discount percentage
+        discountToApply = productDetails?.discount || 0;
+        
+        // Calculate final price after discount (only if not using size-adjusted price)
+        const finalPrice = item.sizeAdjustedPrice !== undefined 
+          ? priceToUse 
+          : (discountToApply > 0 ? priceToUse * (1 - discountToApply/100) : priceToUse);
+          
+        console.log(`Final price calculation for ${productId} (${item.size || 'no size'}): originalPrice=${originalPrice}, priceToUse=${priceToUse}, finalPrice=${finalPrice}, sizeAdjusted=${item.sizeAdjustedPrice}`);
+        
+        // Calculate item total with quantity
+        const calculatedItemTotal = finalPrice * item.quantity;
+        
+        // Create processed item with explicit price fields for all price types
+        const processedItem = {
           productId: productId,
           itemType: 'product',
-          productDetails: productDetails || {
-            name: 'Product',
-            image: [],
-            price: 0,
-            size: item.size // Include size in product details
+          productDetails: {
+            ...(productDetails || {
+              name: 'Product',
+              image: [],
+              price: 0,
+            }),
+            // Store original price in productDetails
+            originalPrice: originalPrice,
+            // Store the final price used in the order
+            finalPrice: finalPrice,
+            // Update the price field with the accurate price
+            price: finalPrice
           },
           // Include size information in the order item
           size: item.size,
           quantity: item.quantity,
-          itemTotal: (productDetails?.price || 0) * item.quantity
-        });
+          // Always set unitPrice to ensure it's available for display
+          unitPrice: finalPrice,
+          discount: discountToApply,
+          originalPrice: originalPrice,
+          itemTotal: calculatedItemTotal
+        };
+        
+        // Add size-adjusted price if available (ensures it's a direct property of the item)
+        if (item.sizeAdjustedPrice !== undefined) {
+          processedItem.sizeAdjustedPrice = Number(item.sizeAdjustedPrice);
+          
+          // Also ensure productDetails has the sizePricing info
+          if (!processedItem.productDetails.sizePricing) {
+            processedItem.productDetails.sizePricing = {};
+          }
+          processedItem.productDetails.sizePricing[item.size] = Number(item.sizeAdjustedPrice);
+        }
+        
+        // Add the processed item to our array
+        processedItems.push(processedItem);
+        
+        // Log the processed item for debugging
+        console.log(`Processed order item: 
+          productId: ${productId}
+          name: ${productDetails?.name || 'Unknown'}
+          size: ${item.size || 'N/A'}
+          sizeAdjustedPrice: ${item.sizeAdjustedPrice || 'N/A'}
+          unitPrice: ${finalPrice}
+          quantity: ${item.quantity}
+          itemTotal: ${calculatedItemTotal}
+        `);
       }
     }
     
+    // Before creating the payload, log detailed info about each processed item
+    console.log("==== PROCESSED ITEMS SUMMARY ====");
+    for (const item of processedItems) {
+      console.log(`
+        Item Type: ${item.itemType}
+        ${item.itemType === 'product' ? 'Product Name: ' + (item.productDetails?.name || 'Unknown') : 'Bundle Name: ' + (item.bundleDetails?.title || 'Unknown')}
+        Size: ${item.size || 'N/A'}
+        Original Price: ${item.originalPrice || 'N/A'}
+        Unit Price: ${item.unitPrice || 'N/A'}
+        Size-Adjusted Price: ${item.sizeAdjustedPrice || 'N/A'}
+        Quantity: ${item.quantity || 'N/A'}
+        Item Total: ${item.itemTotal || 'N/A'}
+      `);
+      
+      // Additional validation to ensure size-adjusted prices are set correctly
+      if (item.itemType === 'product' && item.size && !item.sizeAdjustedPrice) {
+        console.warn(`⚠️ WARNING: Item has size ${item.size} but no sizeAdjustedPrice is set!`);
+      }
+    }
+    console.log("================================");
+
     // Now create the payload with the processed items
     const payload = {
       userId: userId,
@@ -355,7 +489,7 @@ export const onlinePaymentOrderController = async (req, res) => {
       orderStatus: "ORDER PLACED"
     };
 
-    console.log("Single Order Payload:", payload);
+    console.log("Single Order Payload Created");
 
     // Use transaction to ensure data consistency
     const session = await mongoose.startSession();
@@ -833,7 +967,7 @@ export const getOrderController = async (req, res) => {
         const userId = req.userId;
         const orders = await orderModel.find({ userId: userId })
           .sort({createdAt: -1})
-          .populate("items.productId", "name image price stock discount") // Updated populate path
+          .populate("items.productId", "name image price stock discount sizePricing") // Include sizePricing
           .populate("items.bundleId", "title description image images bundlePrice originalPrice stock items") // Include items array
           .populate("deliveryAddress", "address_line city state pincode country landmark addressType mobile")
           .populate("userId", "name email phone");
@@ -886,7 +1020,7 @@ export const getOrderByIdController = async (req, res) => {
         const userId = req.userId;
         
         const order = await orderModel.findOne({ orderId: orderId, userId: userId })
-          .populate("items.productId", "name image price stock discount description brand")
+          .populate("items.productId", "name image price stock discount description brand sizePricing") // Include sizePricing
           .populate("items.bundleId", "title description image images bundlePrice originalPrice stock items discount")
           .populate("deliveryAddress", "address_line city state pincode country landmark addressType mobile")
           .populate("userId", "name email phone");

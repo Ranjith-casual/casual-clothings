@@ -86,27 +86,21 @@ const AddToCartButton = ({ data, isBundle = false, cartItemId = null, currentQty
       setLoading(true);
 
       const apiEndpoint = isBundle ? SummaryApi.addBundleToCart : SummaryApi.addToCart;
-      // Import function to calculate adjusted price
-      let calculateAdjustedPrice;
-      try {
-        calculateAdjustedPrice = window.calculateAdjustedPrice || 
-          (await import('../utils/sizePricing.js')).calculateAdjustedPrice;
-      } catch (err) {
-        console.error('Error importing sizePricing:', err);
-      }
       
-      // Calculate adjusted price if size is selected
-      const adjustedPrice = selectedSize && calculateAdjustedPrice 
-        ? calculateAdjustedPrice(data.price, selectedSize) 
+      // Get the price directly from the data object's sizePricing if available
+      const sizePrice = selectedSize && data.sizePricing && data.sizePricing[selectedSize] !== undefined
+        ? data.sizePricing[selectedSize]
         : data.price;
       
       // Ensure price is sent as a number
-      const numericPrice = parseFloat(adjustedPrice);
+      const numericPrice = parseFloat(sizePrice);
       console.log("Adding to cart:", { 
         productId: data._id, 
         size: selectedSize, 
         price: numericPrice,
-        originalPrice: data.price
+        originalPrice: data.price,
+        hasSizePricing: !!data.sizePricing,
+        sizePricingValue: data.sizePricing && selectedSize ? data.sizePricing[selectedSize] : 'N/A'
       });
       
       const requestData = isBundle 

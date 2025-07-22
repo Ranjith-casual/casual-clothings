@@ -475,7 +475,16 @@ const BagPage = () => {
       
       if (response.data.success) {
         // If validation passes, proceed to checkout
+        
+        // Store the selected cart item IDs
         sessionStorage.setItem('selectedCartItems', JSON.stringify(selectedItems));
+        
+        // Store the full cart items data with complete pricing information
+        const selectedCartItemsData = cartItemsList.filter(item => 
+          selectedItems.includes(item._id)
+        );
+        sessionStorage.setItem('selectedCartItemsData', JSON.stringify(selectedCartItemsData));
+        
         navigate('/checkout/address');
       } else {
         // If validation fails, show error message
@@ -487,11 +496,25 @@ const BagPage = () => {
     } catch (error) {
       console.error("Error validating cart items:", error);
       
+      // Handle token expiration specifically
+      if (error.response?.status === 401 && error.response?.data?.tokenExpired) {
+        toast.error("Your session has expired. Please login again.");
+        // Clear tokens
+        localStorage.removeItem("accessToken");
+        localStorage.removeItem("refreshToken");
+        // Redirect to login
+        navigate('/login');
+        return;
+      }
+      
       // Extract and display the error message from the response if available
       const errorMessage = error.response?.data?.message || 
         "Failed to validate cart items. Please try again.";
       
       toast.error(errorMessage);
+      
+      // Refresh cart items to ensure we have the latest data
+      fetchCartItems();
       
       // If there are specific items that caused the error, log them and show more details
       if (error.response?.data?.invalidItems) {

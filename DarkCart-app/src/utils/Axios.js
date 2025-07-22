@@ -32,14 +32,24 @@ Axios.interceptors.response.use(
         if (error.response && error.config) {
             const originalRequest = error.config;
 
-            if (error.response.status === 401 && !originalRequest.retry) {
+            // Explicitly check for token expired message from our backend
+            const isTokenExpired = 
+                error.response.status === 401 && 
+                (error.response.data?.tokenExpired || 
+                error.response.data?.message?.includes('expired') ||
+                error.response.data?.message?.includes('JWT'));
+                
+            // Handle token refresh if token expired and this isn't already a retry
+            if ((error.response.status === 401) && !originalRequest.retry) {
                 originalRequest.retry = true;
                 const refreshToken = localStorage.getItem("refreshToken");
                 
                 if(refreshToken) {
                     try {
+                        console.log("Attempting to refresh token...");
                         const newAccessToken = await refreshAccessToken(refreshToken);
                         if(newAccessToken) {
+                            console.log("Token refreshed successfully");
                             originalRequest.headers.Authorization = `Bearer ${newAccessToken}`;
                             return Axios(originalRequest);
                         }
@@ -48,12 +58,30 @@ Axios.interceptors.response.use(
                         // Clear tokens if refresh fails
                         localStorage.removeItem("accessToken");
                         localStorage.removeItem("refreshToken");
-                        // Redirect to login if needed
+                        
+                        // Only redirect to login if not already there
                         if (window.location.pathname !== "/login") {
-                            window.location.href = "/login";
+                            console.log("Redirecting to login due to authentication failure");
+                            // Use a small delay to allow any pending operations to complete
+                            setTimeout(() => {
+                                window.location.href = "/login?expired=true";
+                            }, 100);
                         }
                     }
+                } else {
+                    console.log("No refresh token available");
+                    // No refresh token available, clear any access token
+                    localStorage.removeItem("accessToken");
                 }
+            }
+            
+            // Add specific error information for debugging
+            if (error.response.status === 500) {
+                console.error("Server error details:", {
+                    endpoint: originalRequest.url,
+                    method: originalRequest.method,
+                    responseData: error.response.data
+                });
             }
         }
         return Promise.reject(error);

@@ -1,31 +1,28 @@
 /**
  * Size-based price adjustment utility
- * Maps clothing sizes to their price adjustments
+ * Calculates product prices based on size-specific pricing
  */
-
-// Map sizes to their price adjustments
-export const SIZE_PRICE_ADJUSTMENTS = {
-  'XS': 30,
-  'S': 50,
-  'M': 60,
-  'L': 70,
-  'XL': 80
-};
 
 /**
- * Calculate the adjusted price based on the selected size
+ * Calculate the adjusted price based on the selected size and product data
  * @param {number} basePrice - The base price of the product
- * @param {string} size - The selected size (XS, S, M, L, XL)
- * @returns {number} - The price after size adjustment
+ * @param {string} size - The selected size (XS, S, M, L, XL, etc.)
+ * @param {Object} product - The product data containing sizePricing information
+ * @returns {number} - The price for the selected size
  */
-export const calculateSizeAdjustedPrice = (basePrice, size) => {
-  // If no size is selected or size doesn't exist in our mapping, return the base price
-  if (!size || !SIZE_PRICE_ADJUSTMENTS[size]) {
+export const calculateSizeAdjustedPrice = (basePrice, size, product) => {
+  // If no product data or size is provided, return the base price
+  if (!size || !product) {
     return basePrice;
   }
   
-  // Add the size-specific adjustment to the base price
-  return basePrice + SIZE_PRICE_ADJUSTMENTS[size];
+  // If the product has size-specific pricing and a price exists for this size, use that
+  if (product.sizePricing && product.sizePricing[size] !== undefined) {
+    return product.sizePricing[size];
+  }
+  
+  // Otherwise, return the base price
+  return basePrice;
 };
 
 // Export as calculateAdjustedPrice for compatibility with existing code

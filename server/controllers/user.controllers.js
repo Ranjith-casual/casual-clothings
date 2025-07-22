@@ -48,7 +48,7 @@ export async function registerUserController(req, res) {
     const verifyEmailUrl = `${process.env.FRONT_URL}/verify-email?code=${save._id}`;
     const verifyEmail = await sendEmail({
       sendTo: email,
-      subject: "Verification E-mail from Darkart",
+      subject: "Verification E-mail from Casual Clothing Fashion",
       html: verifyEmailTemplate({
         name,
         url: verifyEmailUrl,

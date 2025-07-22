@@ -288,9 +288,24 @@ const GlobalProvider = ({ children }) => {
         // Handle bundle pricing
         priceAfterDiscount = curr?.bundleId?.bundlePrice || 0;
       } else if (curr?.productId) {
-        // Handle product pricing
+        // First check if we have a sizeAdjustedPrice from the backend
+        // This is stored when the item was added to the cart
+        let basePrice;
+        if (curr?.sizeAdjustedPrice !== undefined) {
+          basePrice = curr.sizeAdjustedPrice;
+        } 
+        // Otherwise try to use sizePricing from product data
+        else if (curr?.size && curr?.productId?.sizePricing && curr?.productId?.sizePricing[curr.size] !== undefined) {
+          basePrice = curr?.productId?.sizePricing[curr.size];
+        }
+        // Last resort: use the product's base price
+        else {
+          basePrice = curr?.productId?.price || 0;
+        }
+          
+        // Handle product pricing with discount
         priceAfterDiscount = pricewithDiscount(
-          curr?.productId?.price,
+          basePrice,
           curr?.productId?.discount
         );
       } else {
@@ -308,8 +323,18 @@ const GlobalProvider = ({ children }) => {
         // Handle bundle original pricing
         originalPrice = curr?.bundleId?.originalPrice || curr?.bundleId?.bundlePrice || 0;
       } else if (curr?.productId) {
-        // Handle product original pricing
-        originalPrice = curr?.productId?.price || 0;
+        // First check if we have a sizeAdjustedPrice from the backend
+        if (curr?.sizeAdjustedPrice !== undefined) {
+          originalPrice = curr.sizeAdjustedPrice;
+        }
+        // Otherwise check for size-specific pricing
+        else if (curr?.size && curr?.productId?.sizePricing && curr?.productId?.sizePricing[curr.size] !== undefined) {
+          originalPrice = curr?.productId?.sizePricing[curr.size];
+        }
+        // Last resort: use the product's base price
+        else {
+          originalPrice = curr?.productId?.price || 0;
+        }
       } else {
         originalPrice = 0;
       }

@@ -34,8 +34,12 @@ const productSchema = mongoose.Schema({
     // Available sizes array for quick filtering
     availableSizes: {
         type: [String],
-        enum: ['XS', 'S', 'M', 'L', 'XL'],
         default: []
+    },
+    // Size-specific pricing
+    sizePricing: {
+        type: mongoose.Schema.Types.Mixed,
+        default: {}
     },
     price: {
         type: Number,

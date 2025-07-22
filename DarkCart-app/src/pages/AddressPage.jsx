@@ -135,9 +135,19 @@ const AddressPage = () => {
     const selectedIds = JSON.parse(sessionStorage.getItem('selectedCartItems') || '[]');
     setSelectedCartItemIds(selectedIds);
     
-    // Filter cart items to only include selected ones
-    const itemsToCheckout = cartItemsList.filter(item => selectedIds.includes(item._id));
-    setCheckoutItems(itemsToCheckout);
+    // First try to get full cart items data from sessionStorage
+    const storedCartItems = JSON.parse(sessionStorage.getItem('selectedCartItemsData') || '[]');
+    
+    if (storedCartItems && storedCartItems.length > 0) {
+      // Use the full data stored from BagPage if available
+      console.log("Using stored cart items data from BagPage:", storedCartItems);
+      setCheckoutItems(storedCartItems);
+    } else {
+      // Fallback to filtering from Redux store
+      console.log("Fallback: Filtering cart items from Redux store");
+      const itemsToCheckout = cartItemsList.filter(item => selectedIds.includes(item._id));
+      setCheckoutItems(itemsToCheckout);
+    }
   }, [cartItemsList]);
   
   // Function to calculate item pricing consistently
@@ -151,7 +161,15 @@ const AddressPage = () => {
     
     if (item.productId && item.productId._id) {
       productTitle = item.productId.name || 'Product';
-      originalPrice = item.productId.price || 0;
+      
+      // Check if there's a size-adjusted price first
+      if (item.sizeAdjustedPrice) {
+        originalPrice = Number(item.sizeAdjustedPrice) || 0;
+        console.log(`Using size-adjusted price for ${item.productId.name}: ₹${originalPrice} (Size: ${item.size})`);
+      } else {
+        originalPrice = Number(item.productId.price) || 0;
+      }
+      
       discount = item.productId.discount || 0;
       finalPrice = discount > 0 ? originalPrice * (1 - discount/100) : originalPrice;
       isBundle = false;
@@ -802,7 +820,14 @@ const AddressPage = () => {
                           </h3>
                           
                           <div className="flex flex-wrap text-xs sm:text-sm text-gray-600 mt-1 sm:mt-2">
-                            <span className="mr-3">Size: {size}</span>
+                            <span className="mr-3">
+                              Size: <span className="font-semibold">{size}</span>
+                              {item.sizeAdjustedPrice && item.sizeAdjustedPrice !== item.productId?.price && (
+                                <span className="ml-1 text-green-600 font-medium">
+                                  (Size-specific price: {DisplayPriceInRupees(item.sizeAdjustedPrice)})
+                                </span>
+                              )}
+                            </span>
                             <span>Qty: {pricing.quantity}</span>
                           </div>
                           

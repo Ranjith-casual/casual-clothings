@@ -99,9 +99,19 @@ const PaymentPage = () => {
     const selectedIds = JSON.parse(sessionStorage.getItem('selectedCartItems') || '[]');
     setSelectedCartItemIds(selectedIds);
     
-    // Filter cart items to only include selected ones
-    const itemsToCheckout = cartItemsList.filter(item => selectedIds.includes(item._id));
-    setCheckoutItems(itemsToCheckout);
+    // First try to get full cart items data from sessionStorage
+    const storedCartItems = JSON.parse(sessionStorage.getItem('selectedCartItemsData') || '[]');
+    
+    if (storedCartItems && storedCartItems.length > 0) {
+      // Use the full data stored from BagPage if available
+      console.log("PaymentPage: Using stored cart items data from BagPage:", storedCartItems);
+      setCheckoutItems(storedCartItems);
+    } else {
+      // Fallback to filtering from Redux store
+      console.log("PaymentPage: Fallback: Filtering cart items from Redux store");
+      const itemsToCheckout = cartItemsList.filter(item => selectedIds.includes(item._id));
+      setCheckoutItems(itemsToCheckout);
+    }
   }, [cartItemsList]);
 
   // Function to calculate item pricing consistently
@@ -289,6 +299,9 @@ const PaymentPage = () => {
 
       // Make sure items are properly formatted for the API
       const preparedItems = checkoutItems.map(item => {
+        // Calculate pricing for this item using our pricing function
+        const itemPricing = calculateItemPricing(item);
+        
         // Include complete product details for orders
         if (item.itemType === 'bundle') {
           return {
@@ -302,7 +315,12 @@ const PaymentPage = () => {
               bundlePrice: item.bundleId.bundlePrice
             } : undefined,
             itemType: 'bundle',
-            quantity: item.quantity || 1
+            quantity: item.quantity || 1,
+            // Include pricing information
+            price: itemPricing.finalPrice,
+            originalPrice: itemPricing.originalPrice,
+            discount: itemPricing.discount,
+            totalItemPrice: itemPricing.totalPrice
           };
         } else {
           return {
@@ -311,11 +329,20 @@ const PaymentPage = () => {
             productDetails: typeof item.productId === 'object' ? {
               name: item.productId.name,
               image: item.productId.image,
-              price: item.productId.price
+              price: itemPricing.finalPrice, // Use calculated price
+              originalPrice: itemPricing.originalPrice,
+              sizes: item.productId.sizes,
+              sizePricing: item.productId.sizePricing
             } : undefined,
             size: item.size, // Include size information for product items
+            sizeAdjustedPrice: item.sizeAdjustedPrice, // Include size-specific price if available
             itemType: 'product',
-            quantity: item.quantity || 1
+            quantity: item.quantity || 1,
+            // Include pricing information
+            price: itemPricing.finalPrice,
+            originalPrice: itemPricing.originalPrice,
+            discount: itemPricing.discount,
+            totalItemPrice: itemPricing.totalPrice
           };
         }
       });
@@ -582,7 +609,14 @@ const PaymentPage = () => {
                           </h3>
                           
                           <div className="flex flex-wrap text-xs text-gray-500 mt-1">
-                            <span className="mr-2">Size: {size}</span>
+                            <span className="mr-2">
+                              Size: <span className="font-semibold">{size}</span>
+                              {item.sizeAdjustedPrice && item.sizeAdjustedPrice !== item.productId?.price && (
+                                <span className="ml-1 text-green-600 font-medium">
+                                  (Size-specific price: {DisplayPriceInRupees(item.sizeAdjustedPrice)})
+                                </span>
+                              )}
+                            </span>
                             <span>Qty: {pricing.quantity}</span>
                           </div>
                           
