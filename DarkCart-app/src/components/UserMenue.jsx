@@ -169,6 +169,10 @@ function UserMenue({close}) {
                                 <span className="w-1 h-1 bg-gray-400 rounded-full"></span>
                                 <span className="text-sm font-medium">User Management</span>
                             </Link>
+                            <Link onClick={handleClose} to="/dashboard/stock-management" className='flex items-center gap-2 p-2 hover:bg-gray-50 transition-all rounded text-gray-600 hover:text-black'>
+                                <span className="w-1 h-1 bg-gray-400 rounded-full"></span>
+                                <span className="text-sm font-medium">Stock Management</span>
+                            </Link>
                             <Link onClick={handleClose} to="/dashboard/payment-management" className='flex items-center gap-2 p-2 hover:bg-gray-50 transition-all rounded text-gray-600 hover:text-black'>
                                 <span className="w-1 h-1 bg-gray-400 rounded-full"></span>
                                 <span className="text-sm font-medium">Payments & Transactions</span>
@@ -181,6 +185,7 @@ function UserMenue({close}) {
                                 <span className="w-1 h-1 bg-gray-400 rounded-full"></span>
                                 <span className="text-sm font-medium">Refund Management</span>
                             </Link>
+                          
                         </div>
                     )}
                 </div>

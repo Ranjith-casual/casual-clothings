@@ -73,21 +73,39 @@ export const validateStockAvailability = async (req, res, next) => {
 
                 // Check size-specific inventory if size is provided
                 if (item.size && product.sizes) {
-                    const sizeStock = product.sizes[item.size] || 0;
+                    // Convert size to uppercase for consistency
+                    const normalizedSize = item.size.toUpperCase();
+                    const sizeStock = product.sizes[normalizedSize] || 0;
+                    
+                    // Check if size exists in available sizes
+                    if (!product.availableSizes.includes(normalizedSize)) {
+                        return res.status(400).json({
+                            success: false,
+                            error: true,
+                            message: `Size ${normalizedSize} is not available for "${product.name}"`,
+                            productId: product._id,
+                            size: normalizedSize,
+                            availableSizes: product.availableSizes
+                        });
+                    }
+                    
+                    // Check if there's enough stock for the requested size
                     if (sizeStock < item.quantity) {
                         return res.status(400).json({
                             success: false,
                             error: true,
-                            message: `Insufficient stock for "${product.name}" in size ${item.size}. Available: ${sizeStock}, Requested: ${item.quantity}`,
+                            message: `Insufficient stock for "${product.name}" in size ${normalizedSize}. Available: ${sizeStock}, Requested: ${item.quantity}`,
                             productId: product._id,
-                            size: item.size,
+                            size: normalizedSize,
                             availableStock: sizeStock,
                             requestedQuantity: item.quantity
                         });
                     }
+                    
+                    console.log(`Size ${normalizedSize} validated for product ${product.name} - Available: ${sizeStock}, Requested: ${item.quantity}`);
                 }
-                // Fallback to legacy stock check
-                else if (product.stock < item.quantity) {
+                // Fallback to legacy stock check only if no size is specified
+                else if (!item.size && product.stock < item.quantity) {
                     return res.status(400).json({
                         success: false,
                         error: true,

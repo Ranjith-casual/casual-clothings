@@ -38,7 +38,7 @@ import Success from "../pages/Success";
 import Cancel from "../pages/Cancel";
 import OrderSuccessPage from "../pages/OrderSuccessPage";
 import PageNotFound from "../pages/PageNotFound"; // Add this import
-import AdminPermision from "../layout/AdminPermission";
+import AdminPermission from "../layout/AdminPermission";
 import DeliveryChargeCalculator from "../pages/test";
 import BundleOffers from "../pages/BundleOffers";
 import BundleDetail from "../pages/BundleDetail";
@@ -48,10 +48,12 @@ import AdminDashboard from "../pages/AdminDashboard";
 import UserManagement from "../pages/UserManagement";
 import PaymentManagement from "../pages/PaymentManagement";
 import CancellationManagementPage from "../pages/CancellationManagementPage";
+import StockManagementPage from "../pages/StockManagementPage";
 import CancellationPolicyPage from "../pages/CancellationPolicyPage";
 import RefundManagementPage from "../pages/RefundManagementPage";
 import BundleManagement from "../pages/BundleManagement";
 import InventoryManagement from "../pages/InventoryManagement";
+
 
 const router = createBrowserRouter([
     {
@@ -143,59 +145,63 @@ const router = createBrowserRouter([
                 },
                 {
                     path:"admin",
-                    element:<AdminPermision><AdminDashboard/></AdminPermision>
+                    element:<AdminPermission><AdminDashboard/></AdminPermission>
                 },
                 {
                     path:"category",
-                    element:<AdminPermision><CategoryPage/></AdminPermision>
+                    element:<AdminPermission><CategoryPage/></AdminPermission>
                 },
                 {
                     path:"upload-product",
-                    element:<AdminPermision><UploadProduct/></AdminPermision>
+                    element:<AdminPermission><UploadProduct/></AdminPermission>
                 },
                 {
                     path:"product",
-                    element:<AdminPermision><ProductAdmin/></AdminPermision>
+                    element:<AdminPermission><ProductAdmin/></AdminPermission>
                 },
                 {
                     path:"bundle-admin",
-                    element:<AdminPermision><BundleAdmin/></AdminPermision>
+                    element:<AdminPermission><BundleAdmin/></AdminPermission>
                 },
                 {
                     path:"orders-admin",
-                    element:<AdminPermision><AdminOrderDashboard/></AdminPermision>
+                    element:<AdminPermission><AdminOrderDashboard/></AdminPermission>
                 },
                 {
                     path:"user-management",
-                    element:<AdminPermision><UserManagement/></AdminPermision>
+                    element:<AdminPermission><UserManagement/></AdminPermission>
                 },
                 {
                     path:"payment-management",
-                    element:<AdminPermision><PaymentManagement/></AdminPermision>
+                    element:<AdminPermission><PaymentManagement/></AdminPermission>
                 },
                 {
                     path:"cancellation-management",
-                    element:<AdminPermision><CancellationManagementPage/></AdminPermision>
+                    element:<AdminPermission><CancellationManagementPage/></AdminPermission>
                 },
                 {
                     path:"cancellation-policy",
-                    element:<AdminPermision><CancellationPolicyPage/></AdminPermision>
+                    element:<AdminPermission><CancellationPolicyPage/></AdminPermission>
                 },
                 {
                     path:"bundle-management",
-                    element:<AdminPermision><BundleManagement/></AdminPermision>
+                    element:<AdminPermission><BundleManagement/></AdminPermission>
                 },
                 {
                     path:"refund-management",
-                    element:<AdminPermision><RefundManagementPage/></AdminPermision>
+                    element:<AdminPermission><RefundManagementPage/></AdminPermission>
+                },
+                {
+                    path:"stock-management",
+                    element:<AdminPermission><StockManagementPage/></AdminPermission>
                 },
                 {
                     path:"inventory/:productId",
-                    element:<AdminPermision><InventoryManagement/></AdminPermision>
+                    element:<AdminPermission><InventoryManagement/></AdminPermission>
                 },
                 {
                     path:"inventory-management/:productId",
-                    element:<AdminPermision><InventoryManagement/></AdminPermision>
+                    element:<AdminPermission><InventoryManagement/></AdminPermission>
                 },
 
                 // Add catch-all for dashboard subroutes

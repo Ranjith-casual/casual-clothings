@@ -12,6 +12,7 @@ import SummaryApi from '../common/SummaryApi.js';
 import AxiosTostError from '../utils/AxiosTostError';
 import successAlert from '../utils/SuccessAlert';
 import { useEffect } from 'react';
+import SizeInventoryManager from './SizeInventoryManager';
 
 const EditProductAdmin = ({ close, data: propsData, fetchProductData }) => {
   const [data, setData] = useState({
@@ -24,6 +25,15 @@ const EditProductAdmin = ({ close, data: propsData, fetchProductData }) => {
     discount: propsData.discount,
     description: propsData.description,
     more_details: propsData.more_details || {},
+    // Size-specific inventory
+    sizes: propsData.sizes || {
+      XS: 0,
+      S: 0,
+      M: 0,
+      L: 0,
+      XL: 0
+    },
+    availableSizes: propsData.availableSizes || []
   })
   const [imageLoading, setImageLoading] = useState(false)
   const [ViewImageURL, setViewImageURL] = useState("")
@@ -95,12 +105,23 @@ const EditProductAdmin = ({ close, data: propsData, fetchProductData }) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault()
-    console.log("data", data)
+    console.log("Submitting product data:", data)
 
     try {
+      // Calculate available sizes based on inventory before submission
+      const calculatedAvailableSizes = Object.entries(data.sizes)
+        .filter(([_, quantity]) => Number(quantity) > 0)
+        .map(([size]) => size);
+      
+      // Ensure data has the latest available sizes
+      const updatedData = {
+        ...data,
+        availableSizes: calculatedAvailableSizes
+      };
+
       const response = await Axios({
         ...SummaryApi.updateProductDetails,
-        data: data
+        data: updatedData
       })
       const { data: responseData } = response
 
@@ -119,6 +140,14 @@ const EditProductAdmin = ({ close, data: propsData, fetchProductData }) => {
           discount: "",
           description: "",
           more_details: {},
+          sizes: {
+            XS: 0,
+            S: 0,
+            M: 0,
+            L: 0,
+            XL: 0
+          },
+          availableSizes: []
         })
       }
     } catch (error) {
@@ -283,16 +312,33 @@ const EditProductAdmin = ({ close, data: propsData, fetchProductData }) => {
               </div>
 
               <div className='grid gap-1.5'>
-                <label htmlFor='stock' className='font-medium text-gray-700 tracking-wider text-xs sm:text-sm'>Number of Stock</label>
+                <label className='font-medium text-gray-700 tracking-wider text-xs sm:text-sm'>Size-Specific Inventory</label>
+                <div className="bg-gray-50 p-3 border border-gray-300 rounded-md shadow-sm">
+                  <SizeInventoryManager 
+                    value={data.sizes} 
+                    onChange={({ sizes, availableSizes, totalStock }) => {
+                      setData(prev => ({
+                        ...prev,
+                        sizes,
+                        availableSizes,
+                        stock: totalStock // Update legacy stock field for backward compatibility
+                      }));
+                    }} 
+                  />
+                </div>
+              </div>
+              
+              <div className='grid gap-1.5'>
+                <label htmlFor='stock' className='font-medium text-gray-700 tracking-wider text-xs sm:text-sm'>Total Stock (Auto-calculated)</label>
                 <input
                   id='stock'
                   type='number'
-                  placeholder='Enter product stock'
+                  placeholder='Total stock is calculated automatically'
                   name='stock'
                   value={data.stock}
-                  onChange={handleChange}
-                  required
-                  className='bg-gray-50 p-2 sm:p-3 border border-gray-300 focus:border-black focus:bg-white focus:ring-1 focus:ring-black outline-none rounded-md transition-all shadow-sm tracking-wide text-xs sm:text-sm'
+                  readOnly
+                  disabled
+                  className='bg-gray-100 p-2 sm:p-3 border border-gray-300 outline-none rounded-md shadow-sm tracking-wide text-xs sm:text-sm'
                 />
               </div>
 

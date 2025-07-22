@@ -270,10 +270,10 @@ export const getProductDetails = async (request, response) => {
     }
 };
 
-// Update product with gender validation
+// Update product with gender validation and size-specific inventory
 export const updateProductDetails = async (request, response) => {
     try {
-        const { _id, gender } = request.body;
+        const { _id, gender, sizes, availableSizes } = request.body;
 
         if (!_id) {
             return response.status(400).json({
@@ -294,10 +294,38 @@ export const updateProductDetails = async (request, response) => {
                 });
             }
         }
+        
+        // Process size inventory if provided
+        let updateData = { ...request.body };
+        
+        if (sizes) {
+            // Ensure all size values are numbers
+            const processedSizes = {
+                XS: Number(sizes.XS || 0),
+                S: Number(sizes.S || 0),
+                M: Number(sizes.M || 0),
+                L: Number(sizes.L || 0),
+                XL: Number(sizes.XL || 0)
+            };
+            
+            // Calculate total stock from size inventory
+            const totalStock = Object.values(processedSizes).reduce((sum, qty) => sum + qty, 0);
+            
+            // Calculate available sizes based on inventory
+            const calculatedAvailableSizes = Object.entries(processedSizes)
+                .filter(([_, quantity]) => quantity > 0)
+                .map(([size]) => size);
+            
+            // Update data with processed values
+            updateData = {
+                ...updateData,
+                sizes: processedSizes,
+                availableSizes: availableSizes || calculatedAvailableSizes,
+                stock: totalStock // Update legacy stock field for backward compatibility
+            };
+        }
 
-        const updateProduct = await ProductModel.updateOne({ _id: _id }, {
-            ...request.body
-        });
+        const updateProduct = await ProductModel.updateOne({ _id: _id }, updateData);
 
         return response.json({
             message: "updated successfully",
