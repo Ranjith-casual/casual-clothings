@@ -317,6 +317,31 @@ function PaymentManagement() {
                                                     <div className="text-sm text-gray-500">
                                                         Items: {payment.totalQuantity}
                                                     </div>
+                                                    {/* Display product sizes */}
+                                                    {payment.items && payment.items.length > 0 && (
+                                                        <div className="text-xs text-gray-600 mt-1">
+                                                            <span className="text-gray-500">Sizes: </span>
+                                                            {(() => {
+                                                                // Extract unique sizes from items
+                                                                const sizes = payment.items
+                                                                    .map(item => item.size)
+                                                                    .filter(size => size)
+                                                                    .filter((size, index, arr) => arr.indexOf(size) === index)
+                                                                    .slice(0, 3); // Limit to first 3 sizes
+                                                                
+                                                                if (sizes.length === 0) return 'N/A';
+                                                                
+                                                                return sizes.map((size, index) => (
+                                                                    <span key={index} className="inline-block bg-gray-100 text-gray-700 px-2 py-0.5 rounded text-xs mr-1">
+                                                                        {size}
+                                                                    </span>
+                                                                ));
+                                                            })()}
+                                                            {payment.items.map(item => item.size).filter(size => size).length > 3 && (
+                                                                <span className="text-gray-400 text-xs">+{payment.items.map(item => item.size).filter(size => size).length - 3} more</span>
+                                                            )}
+                                                        </div>
+                                                    )}
                                                     {payment.estimatedDeliveryDate && (
                                                         <div className="text-xs text-blue-600 mt-1">
                                                             Est. Delivery: {new Date(payment.estimatedDeliveryDate).toLocaleDateString('en-IN')}

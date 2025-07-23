@@ -514,6 +514,9 @@ function InvoiceModal({ payment: originalPayment, onClose }) {
                                             Item
                                         </th>
                                         <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b">
+                                            Size
+                                        </th>
+                                        <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b">
                                             Quantity
                                         </th>
                                         <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider border-b">
@@ -993,6 +996,15 @@ function InvoiceModal({ payment: originalPayment, onClose }) {
                                                         </div>
                                                     </td>
                                                     <td className="px-4 py-3 text-center text-gray-900">
+                                                        {item.size ? (
+                                                            <span className="inline-block bg-green-100 text-green-800 px-2 py-1 rounded-md text-xs font-semibold">
+                                                                {item.size}
+                                                            </span>
+                                                        ) : (
+                                                            <span className="text-gray-500 text-xs">N/A</span>
+                                                        )}
+                                                    </td>
+                                                    <td className="px-4 py-3 text-center text-gray-900">
                                                         {item.quantity}
                                                     </td>
                                                     <td className="px-4 py-3 text-right text-gray-900">
@@ -1014,6 +1026,15 @@ function InvoiceModal({ payment: originalPayment, onClose }) {
                                                     </p>
                                                     <p className="text-sm text-gray-500">Product</p>
                                                 </div>
+                                            </td>
+                                            <td className="px-4 py-3 text-center text-gray-900">
+                                                {payment.size || payment.productDetails?.size ? (
+                                                    <span className="inline-block bg-green-100 text-green-800 px-2 py-1 rounded-md text-xs font-semibold">
+                                                        {payment.size || payment.productDetails?.size}
+                                                    </span>
+                                                ) : (
+                                                    <span className="text-gray-500 text-xs">N/A</span>
+                                                )}
                                             </td>
                                             <td className="px-4 py-3 text-center text-gray-900">
                                                 {payment.orderQuantity || payment.totalQuantity || 1}

@@ -665,7 +665,7 @@ const AdminOrderDetails = ({ order, onClose }) => {
                             )}
                           </div>
                           
-                          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 sm:gap-5 text-sm mb-4">
+                          <div className="grid grid-cols-2 md:grid-cols-5 gap-4 sm:gap-5 text-sm mb-4">
                             <div className="bg-gray-50 p-2.5 rounded-md border border-gray-100">
                               <span className="text-gray-500 font-medium block mb-1">Quantity</span>
                               <p className="font-semibold text-gray-800">{item.quantity}</p>
@@ -677,6 +677,18 @@ const AdminOrderDetails = ({ order, onClose }) => {
                             <div className="bg-gray-50 p-2.5 rounded-md border border-gray-100">
                               <span className="text-gray-500 font-medium block mb-1">Item Total</span>
                               <p className="font-semibold text-gray-800">₹{itemTotal?.toFixed(2)}</p>
+                            </div>
+                            <div className="bg-gray-50 p-2.5 rounded-md border border-gray-100">
+                              <span className="text-gray-500 font-medium block mb-1">Size</span>
+                              <p className="font-semibold text-gray-800">
+                                {item.size ? (
+                                  <span className="inline-block bg-green-100 text-green-800 px-2 py-1 rounded-md text-xs font-semibold">
+                                    {item.size}
+                                  </span>
+                                ) : (
+                                  <span className="text-gray-500 text-xs">N/A</span>
+                                )}
+                              </p>
                             </div>
                             <div className="bg-gray-50 p-2.5 rounded-md border border-gray-100">
                               <span className="text-gray-500 font-medium block mb-1">{isBundle ? 'Bundle ID' : 'Product ID'}</span>
@@ -813,6 +825,18 @@ const AdminOrderDetails = ({ order, onClose }) => {
                       <div className="flex items-center">
                         <span className="text-sm text-gray-500 mr-2">Price:</span>
                         <span className="font-medium text-gray-800">₹{order.productDetails?.price?.toFixed(2)}</span>
+                      </div>
+                      <div className="flex items-center">
+                        <span className="text-sm text-gray-500 mr-2">Size:</span>
+                        <span className="font-medium text-gray-800">
+                          {order.size || order.productDetails?.size ? (
+                            <span className="inline-block bg-green-100 text-green-800 px-2 py-1 rounded-md text-xs font-semibold">
+                              {order.size || order.productDetails?.size}
+                            </span>
+                          ) : (
+                            <span className="text-gray-500 text-xs">N/A</span>
+                          )}
+                        </span>
                       </div>
                     </div>
                   </div>

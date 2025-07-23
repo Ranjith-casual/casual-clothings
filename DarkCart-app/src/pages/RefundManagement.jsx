@@ -885,7 +885,13 @@ const RefundManagement = () => {
                                                                                 {bundleItem.name || bundleItem.title || 'Bundle Item'}
                                                                             </div>
                                                                             <div className="text-xs text-gray-600">
-                                                                                Qty: {bundleItem.quantity || 1} • Price: {DisplayPriceInRupees(bundleItem.price || 0)}
+                                                                                Qty: {bundleItem.quantity || 1} • Size: {bundleItem.size ? (
+                                                                                    <span className="inline-block bg-green-100 text-green-800 px-1 py-0.5 rounded text-xs font-semibold">
+                                                                                        {bundleItem.size}
+                                                                                    </span>
+                                                                                ) : (
+                                                                                    <span className="text-gray-500">N/A</span>
+                                                                                )} • Price: {DisplayPriceInRupees(bundleItem.price || 0)}
                                                                             </div>
                                                                         </div>
                                                                     </div>
@@ -932,6 +938,14 @@ const RefundManagement = () => {
                                                             </div>
                                                             <div className="text-sm text-gray-600 mb-2">
                                                                 <span>Quantity: {item.quantity || 1}</span>
+                                                                <span className="mx-2">•</span>
+                                                                <span>Size: {item.size ? (
+                                                                    <span className="inline-block bg-green-100 text-green-800 px-2 py-0.5 rounded-md text-xs font-semibold ml-1">
+                                                                        {item.size}
+                                                                    </span>
+                                                                ) : (
+                                                                    <span className="text-gray-500 text-xs ml-1">N/A</span>
+                                                                )}</span>
                                                                 <span className="mx-2">•</span>
                                                                 <span>Price: {DisplayPriceInRupees(itemPrice)}</span>
                                                                 <span className="mx-2">•</span>
@@ -1195,6 +1209,25 @@ const RefundManagement = () => {
                                                 <div className="font-medium text-gray-900">
                                                     {refund.orderId?.orderId || 'N/A'}
                                                 </div>
+                                                {/* Product sizes */}
+                                                {refund.orderId?.items && refund.orderId.items.length > 0 && (
+                                                    <div className="text-xs text-gray-500 mt-1">
+                                                        {(() => {
+                                                            const sizes = refund.orderId.items
+                                                                .map(item => item.size)
+                                                                .filter(Boolean);
+                                                            const uniqueSizes = [...new Set(sizes)];
+                                                            if (uniqueSizes.length > 0) {
+                                                                return (
+                                                                    <span className="bg-gray-100 px-2 py-0.5 rounded text-xs">
+                                                                        Size: {uniqueSizes.slice(0, 2).join(', ')}{uniqueSizes.length > 2 ? '...' : ''}
+                                                                    </span>
+                                                                );
+                                                            }
+                                                            return null;
+                                                        })()}
+                                                    </div>
+                                                )}
                                                 {refund.deliveryContext && (
                                                     <div className="text-xs text-gray-500 mt-1">
                                                         {refund.deliveryContext.daysBetweenOrderAndCancellation} days after order

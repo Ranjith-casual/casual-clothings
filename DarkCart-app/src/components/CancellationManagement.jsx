@@ -603,6 +603,18 @@ function CancellationManagement() {
                                                                     <span className="font-medium text-gray-800 ml-2">₹{getUnitPrice().toFixed(2)}</span>
                                                                 </div>
                                                                 <div>
+                                                                    <span className="text-gray-600">Size:</span>
+                                                                    <span className="font-medium text-gray-800 ml-2">
+                                                                        {item.size ? (
+                                                                            <span className="inline-block bg-green-100 text-green-800 px-2 py-1 rounded-md text-xs font-semibold">
+                                                                                {item.size}
+                                                                            </span>
+                                                                        ) : (
+                                                                            <span className="text-gray-500 text-xs">N/A</span>
+                                                                        )}
+                                                                    </span>
+                                                                </div>
+                                                                <div>
                                                                     <span className="text-gray-600">Type:</span>
                                                                     <span className="font-medium text-gray-800 ml-2">{isBundle ? 'Bundle' : 'Product'}</span>
                                                                 </div>
