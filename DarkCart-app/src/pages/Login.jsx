@@ -82,6 +82,10 @@ function Login() {
         toast.success(response.data.message);
         localStorage.setItem("accessToken", response.data.data.accessToken);
         localStorage.setItem("refreshToken", response.data.data.refreshToken);
+        
+        // Generate new session ID for notification tracking
+        const sessionId = Date.now().toString() + Math.random().toString(36).substr(2, 9);
+        localStorage.setItem("userSession", sessionId);
 
         const userDetails = await FetchUserInfo()
         dispatch(setUserDetails(userDetails.data))
@@ -124,6 +128,10 @@ function Login() {
         toast.success(response.data.message);
         localStorage.setItem("accessToken", response.data.data.accessToken);
         localStorage.setItem("refreshToken", response.data.data.refreshToken);
+        
+        // Generate new session ID for notification tracking
+        const sessionId = Date.now().toString() + Math.random().toString(36).substr(2, 9);
+        localStorage.setItem("userSession", sessionId);
 
         const userDetails = await FetchUserInfo();
         dispatch(setUserDetails(userDetails.data));

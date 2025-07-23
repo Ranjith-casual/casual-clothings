@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import Search from "./Search";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { FaUserCircle, FaGift, FaPercentage, FaFire, FaLeaf, FaTshirt, FaFemale, FaChild, FaGem, FaRegHeart, FaRupeeSign, FaMapMarkerAlt } from "react-icons/fa";
@@ -21,6 +21,7 @@ import AxiosTostError from "../utils/AxiosTostError";
 import Axios from "../utils/Axios";
 import SummaryApi from "../common/SummaryApi";
 import toast from "react-hot-toast";
+import ProfileIncompleteNotification from "./ProfileIncompleteNotification";
 
 const FashionLogo = () => {
   return (
@@ -61,9 +62,34 @@ function Header() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [showPrimeDealsDropdown, setShowPrimeDealsDropdown] = useState(false);
   const [showFashionDropdown, setShowFashionDropdown] = useState(false);
+  const [showProfileNotification, setShowProfileNotification] = useState(false);
+  const [profileNotificationTimer, setProfileNotificationTimer] = useState(null);
   const cartItem = useSelector((state) => state.cartItem.cart);
   const user = useSelector((state) => state?.user);
   const { totalPrice, totalQty, openCartSection, setOpenCartSection } = useGlobalContext();
+  
+  // Memoized profile completeness check for better performance and state updates
+  const profileIncomplete = useMemo(() => {
+    if (!user || !user._id) return false;
+    
+    const requiredFields = ['name', 'email', 'mobile', 'avatar'];
+    
+    const incompleteFields = requiredFields.filter(field => {
+      const fieldValue = user[field];
+      let isEmpty;
+      
+      // Special handling for mobile field which can be string or number
+      if (field === 'mobile') {
+        isEmpty = !fieldValue || (typeof fieldValue === 'string' && fieldValue.trim() === '') || (typeof fieldValue === 'number' && fieldValue <= 0);
+      } else {
+        isEmpty = !fieldValue || typeof fieldValue !== 'string' || fieldValue.trim() === '';
+      }
+      
+      return isEmpty;
+    });
+    
+    return incompleteFields.length > 0;
+  }, [user?._id, user?.name, user?.email, user?.mobile, user?.avatar]);
   const userMenuRef = useRef(null);
   const userMenuButtonRef = useRef(null);
   const mobileMenuRef = useRef(null);
@@ -82,6 +108,11 @@ function Header() {
         !userMenuButtonRef.current.contains(event.target)
       ) {
         setShowUserMenue(false);
+      }
+
+      // Close profile notification when clicking outside
+      if (showProfileNotification && !event.target.closest('.profile-notification') && !event.target.closest('.account-menu-trigger')) {
+        setShowProfileNotification(false);
       }
     };
 
@@ -113,6 +144,34 @@ function Header() {
 
   const handleUserMenu = () => {
     setShowUserMenue(false);
+  };
+
+  // Effect to show/hide profile notification based on profile completeness
+  useEffect(() => {
+    // Always clear notification first
+    setShowProfileNotification(false);
+    
+    // Show notification automatically when profile is incomplete (after 2 seconds of page load)
+    if (user && user._id && profileIncomplete) {
+      const timer = setTimeout(() => {
+        setShowProfileNotification(true);
+      }, 2000);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [user, profileIncomplete]); // Use the memoized value
+
+  // Handle showing notification on profile button hover
+  const handleProfileHover = () => {
+    if (user && profileIncomplete && !showUserMenue) {
+      setShowProfileNotification(true);
+    }
+  };
+
+  const handleProfileLeave = () => {
+    if (!showUserMenue) {
+      setShowProfileNotification(false);
+    }
   };
 
   const handleLogout = async() => {
@@ -563,7 +622,7 @@ function Header() {
                       {user?.name ? (
                         <Link
                           to="/dashboard/profile"
-                          className="flex items-center text-gray-700 hover:text-black hover:bg-black/5 px-4 py-3 text-sm transition-all duration-300 rounded-md group"
+                          className="flex items-center text-gray-700 hover:text-black hover:bg-black/5 px-4 py-3 text-sm transition-all duration-300 rounded-md group relative"
                           onClick={() => setTimeout(() => setMobileMenuOpen(false), 200)}
                           style={{ 
                             fontFamily: "'Inter', sans-serif",
@@ -571,6 +630,12 @@ function Header() {
                             letterSpacing: '0.03em',
                           }}
                         >
+                          {/* Profile Incomplete Indicator - Mobile */}
+                          {profileIncomplete && (
+                            <div className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full animate-pulse">
+                              <div className="absolute inset-0 bg-red-500 rounded-full animate-ping opacity-75"></div>
+                            </div>
+                          )}
                           <div className="flex items-center gap-3 w-full">
                             {user?.avatar ? (
                               <img 
@@ -587,7 +652,13 @@ function Header() {
                             )}
                             <div className="flex flex-col">
                               <span className="tracking-wide">{user.name}</span>
-                              <span className="text-xs text-gray-500">My Profile</span>
+                              <span className="text-xs text-gray-500">
+                                {profileIncomplete ? (
+                                  <span className="text-red-500 font-medium">Complete Profile</span>
+                                ) : (
+                                  'My Profile'
+                                )}
+                              </span>
                             </div>
                           </div>
                         </Link>
@@ -896,9 +967,17 @@ function Header() {
                 {user?.name ? (
                   <div className="relative" ref={userMenuRef}>
                     <button
-                      className="flex items-center gap-3 xl:gap-4 select-none text-gray-800 hover:text-black px-4 xl:px-5 py-2 rounded-full bg-gradient-to-r from-gray-50 via-white to-gray-50 hover:from-gray-100 hover:to-gray-50 transition-all duration-300 border border-gray-200 hover:border-gray-300 shadow-sm hover:shadow-md account-menu-trigger group"
+                      className="flex items-center gap-3 xl:gap-4 select-none text-gray-800 hover:text-black px-4 xl:px-5 py-2 rounded-full bg-gradient-to-r from-gray-50 via-white to-gray-50 hover:from-gray-100 hover:to-gray-50 transition-all duration-300 border border-gray-200 hover:border-gray-300 shadow-sm hover:shadow-md account-menu-trigger group relative"
                       onClick={() => setShowUserMenue((prev) => !prev)}
+                      onMouseEnter={handleProfileHover}
+                      onMouseLeave={handleProfileLeave}
                     >
+                      {/* Profile Incomplete Indicator */}
+                      {profileIncomplete && (
+                        <div className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 border-2 border-white rounded-full animate-pulse z-10">
+                          <div className="absolute inset-0 bg-red-500 rounded-full animate-ping opacity-75"></div>
+                        </div>
+                      )}
                       <div className="flex-shrink-0 rounded-full overflow-hidden ring-2 ring-white shadow-md">
                         {user?.avatar ? (
                           <img 
@@ -945,6 +1024,14 @@ function Header() {
                           </div>
                         </div>
                       </div>
+                    )}
+                    
+                    {/* Profile Incomplete Notification */}
+                    {showProfileNotification && profileIncomplete && (
+                      <ProfileIncompleteNotification 
+                        user={user} 
+                        onClose={() => setShowProfileNotification(false)} 
+                      />
                     )}
                   </div>
                 ) : (
