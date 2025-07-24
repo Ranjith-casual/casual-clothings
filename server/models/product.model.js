@@ -9,10 +9,10 @@ const productSchema = mongoose.Schema({
         type: Array,
         default: []
     },
-    gender: {
+    gender: [{
         type: String,
-        enum: ['Men', 'Women', 'Kids']
-    },
+        enum: ['Men', 'Women', 'Kids', 'Unisex']
+    }],
     category: [{
         type: mongoose.Schema.ObjectId,
         ref: 'category',
@@ -83,7 +83,7 @@ const productSchema = mongoose.Schema({
     },
     countryOfOrigin: {
         type: String,
-        default: "Bangladesh"
+        default: "India"
     },
     customerCareAddress: {
         type: String,
@@ -104,14 +104,16 @@ productSchema.index({ name: 'text', description: 'text' });
 productSchema.index({ name: 1 });
 productSchema.index({ description: 1 });
 
-// Create compound indexes for better query performance
-productSchema.index({ gender: 1, publish: 1 });
-productSchema.index({ category: 1, publish: 1 });
-productSchema.index({ price: 1, publish: 1 });
+// Create individual indexes for array fields (cannot create compound indexes with parallel arrays)
+productSchema.index({ gender: 1 });
+productSchema.index({ category: 1 });
+productSchema.index({ publish: 1 });
+productSchema.index({ price: 1 });
 productSchema.index({ createdAt: -1 });
 
-// Compound index for filtered searches
-productSchema.index({ publish: 1, gender: 1, category: 1 });
+// Create compound indexes with non-array fields only
+productSchema.index({ publish: 1, price: 1 });
+productSchema.index({ publish: 1, createdAt: -1 });
 
 const ProductModel = mongoose.model('product', productSchema);
 

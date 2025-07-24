@@ -28,13 +28,22 @@ export const createProductController = async (req, res) => {
             });
         }
 
-        // Validate gender
-        const validGenders = ['Men', 'Women', 'Kids'];
-        if (gender && !validGenders.includes(gender)) {
+        // Validate gender array
+        const validGenders = ['Men', 'Women', 'Kids', 'Unisex'];
+        if (gender && Array.isArray(gender)) {
+            const invalidGenders = gender.filter(g => !validGenders.includes(g));
+            if (invalidGenders.length > 0) {
+                return res.status(400).json({
+                    success: false,
+                    error: true,
+                    message: `Invalid gender(s): ${invalidGenders.join(', ')}. Must be one of: Men, Women, Kids, Unisex`
+                });
+            }
+        } else if (gender && !Array.isArray(gender)) {
             return res.status(400).json({
                 success: false,
                 error: true,
-                message: "Invalid gender. Must be one of: Men, Women, Kids"
+                message: "Gender must be an array"
             });
         }
         
@@ -118,9 +127,9 @@ export const getProductController = async (req, res) => {
         
         // Gender filter with validation
         if (gender) {
-            const validGenders = ['Men', 'Women', 'Kids'];
+            const validGenders = ['Men', 'Women', 'Kids', 'Unisex'];
             if (validGenders.includes(gender)) {
-                filter.gender = gender;
+                filter.gender = { $in: [gender] };
             }
         }
         
@@ -285,10 +294,19 @@ export const updateProductDetails = async (request, response) => {
 
         // Validate gender if provided
         if (gender) {
-            const validGenders = ['Men', 'Women', 'Kids'];
-            if (!validGenders.includes(gender)) {
+            const validGenders = ['Men', 'Women', 'Kids', 'Unisex'];
+            if (Array.isArray(gender)) {
+                const invalidGenders = gender.filter(g => !validGenders.includes(g));
+                if (invalidGenders.length > 0) {
+                    return response.status(400).json({
+                        message: `Invalid gender(s): ${invalidGenders.join(', ')}. Must be one of: Men, Women, Kids, Unisex`,
+                        error: true,
+                        success: false
+                    });
+                }
+            } else {
                 return response.status(400).json({
-                    message: "Invalid gender. Must be one of: Men, Women, Kids",
+                    message: "Gender must be an array",
                     error: true,
                     success: false
                 });
