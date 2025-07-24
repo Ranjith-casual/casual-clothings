@@ -80,43 +80,44 @@ function PremiumCategoryWiseProductDisplay({ id, name }) {
       whileInView={{ opacity: 1 }}
       transition={{ duration: 0.5 }}
       viewport={{ once: true }}
-      className="py-4 md:py-6 lg:py-8"
+      className="pb-2 md:pb-3 lg:pb-4"
     >
-      <div className="container mx-auto px-2 md:px-3 lg:px-4">
+      <div className="container mx-auto px-4 md:px-6 lg:px-8">
         {/* Simplified Section Header */}
         <motion.div
           initial={{ opacity: 0 }}
           whileInView={{ opacity: 1 }}
           transition={{ duration: 0.4 }}
           viewport={{ once: true }}
-          className="flex flex-row items-center justify-between mb-3 md:mb-4"
+          className="flex flex-row items-center justify-between mb-2 md:mb-3 lg:mb-4"
         >
           <div className="relative">
             <h2 
-              className="text-lg sm:text-xl md:text-2xl font-medium uppercase text-black"
+              className="text-base sm:text-lg md:text-xl lg:text-2xl font-medium uppercase text-black"
               style={{ fontFamily: "'Inter', sans-serif" }}
             >
               {name}
             </h2>
-            <div className="w-10 h-0.5 bg-black rounded-full mt-1" />
+            <div className="w-8 md:w-12 lg:w-16 h-0.5 bg-black rounded-full mt-1" />
           </div>
           
           <Link
             to={`/category/${id}`}
-            className="border border-black/20 px-2 py-1 
+            className="border border-black/20 px-2 md:px-3 py-1 md:py-1.5 
                      text-xs tracking-wide uppercase
-                     bg-transparent text-black"
+                     bg-transparent text-black hover:bg-black hover:text-white
+                     transition-all duration-300 rounded"
           >
             View All
           </Link>
         </motion.div>
 
-        {/* Products Container - Simplified */}
-        <div className="relative px-1 sm:px-2 md:px-3 lg:px-4">
+        {/* Products Container - Compact */}
+        <div className="relative px-1 md:px-2 lg:px-4">
           {/* Scrollable Products Grid */}
           <div
             ref={containerRef}
-            className="flex gap-4 overflow-x-auto scroll-smooth premium-scroll pb-2 px-8"
+            className="flex gap-2 md:gap-3 lg:gap-4 overflow-x-auto scroll-smooth premium-scroll pb-2 px-2 md:px-4 lg:px-6"
             style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
           >
             {loading &&
@@ -126,13 +127,13 @@ function PremiumCategoryWiseProductDisplay({ id, name }) {
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   transition={{ duration: 0.3 }}
-                  className="flex-shrink-0 w-40 sm:w-48 md:w-52 lg:w-56 xl:w-64"
+                  className="flex-shrink-0 w-36 sm:w-44 md:w-48 lg:w-52 xl:w-56"
                 >
-                  <div className="bg-white rounded h-[260px] sm:h-[280px] md:h-[300px] lg:h-[320px] flex flex-col">
+                  <div className="bg-white rounded shadow-sm p-1 md:p-2 h-[220px] sm:h-[240px] md:h-[260px] lg:h-[280px] flex flex-col">
                     <div className="flex-grow">
                       <CardLoading />
                     </div>
-                    <div className="h-16 bg-white animate-pulse"></div>
+                    <div className="h-12 md:h-14 lg:h-16 bg-white animate-pulse rounded"></div>
                   </div>
                 </motion.div>
               ))}
@@ -145,25 +146,25 @@ function PremiumCategoryWiseProductDisplay({ id, name }) {
                   whileInView={{ opacity: 1 }}
                   transition={{ duration: 0.3 }}
                   viewport={{ once: true }}
-                  className="flex-shrink-0 w-40 sm:w-48 md:w-52 lg:w-56 xl:w-64"
+                  className="flex-shrink-0 w-36 sm:w-44 md:w-48 lg:w-52 xl:w-56"
                 >
-                  <div className="bg-white rounded overflow-hidden h-[260px] sm:h-[280px] md:h-[300px] lg:h-[320px] flex flex-col">
-                    <div className="overflow-hidden bg-white flex-grow relative">
+                  <div className="bg-white rounded shadow-sm overflow-hidden h-[220px] sm:h-[240px] md:h-[260px] lg:h-[280px] flex flex-col">
+                    <div className="overflow-hidden bg-white flex-grow relative p-1">
                       <CardProduct data={product} hideProductInfo={true} />
                     </div>
                     
-                    {/* Desktop: Simplified product details */}
-                    <div className="hidden md:block p-2 bg-white">
+                    {/* Desktop: Compact product details */}
+                    <div className="hidden md:block p-2 bg-white border-t border-gray-50">
                       <div className="space-y-1">
                         {/* Product Name */}
-                        <h3 className="text-xs font-medium text-black leading-tight line-clamp-1 min-h-[1.25rem] font-serif">
+                        <h3 className="text-xs md:text-sm font-medium text-black leading-tight line-clamp-1 min-h-[1.25rem] font-serif">
                           {product.name}
                         </h3>
 
                         {/* Product Description */}
-                        <p className="text-[10px] italic text-gray-500 line-clamp-1 font-serif">
+                        <p className="text-xs italic text-gray-500 line-clamp-1 font-serif">
                           {product.description ? 
-                            product.description.substring(0, 40) + (product.description.length > 40 ? '...' : '') 
+                            product.description.substring(0, 30) + (product.description.length > 30 ? '...' : '') 
                             : 'No description'}
                         </p>
                         
@@ -188,8 +189,8 @@ function PremiumCategoryWiseProductDisplay({ id, name }) {
                       </div>
                     </div>
 
-                    {/* Mobile: Simplified product details */}
-                    <div className="block md:hidden p-2 bg-white">
+                    {/* Mobile: Compact product details */}
+                    <div className="block md:hidden p-2 bg-white border-t border-gray-50">
                       <div className="space-y-1">
                         {/* Product Name */}
                         <h3 className="text-xs font-medium text-black leading-tight line-clamp-1 min-h-[1.25rem] font-serif">
@@ -197,13 +198,13 @@ function PremiumCategoryWiseProductDisplay({ id, name }) {
                         </h3>
                         
                         {/* Brief Description */}
-                        <p className="text-[10px] italic text-gray-500 line-clamp-1 font-serif">
+                        <p className="text-xs italic text-gray-500 line-clamp-1 font-serif">
                           {product.description ? 
-                            product.description.substring(0, 30) + (product.description.length > 30 ? '...' : '') 
+                            product.description.substring(0, 25) + (product.description.length > 25 ? '...' : '') 
                             : 'No description'}
                         </p>
                         
-                        {/* Simplified Price Section for Mobile */}
+                        {/* Compact Price Section for Mobile */}
                         <div>
                           {/* Main Price */}
                           <div className="flex items-center justify-between">
@@ -239,28 +240,28 @@ function PremiumCategoryWiseProductDisplay({ id, name }) {
             <button
               onClick={handleScrollLeft}
               disabled={scrollPosition <= 0}
-              className={`absolute left-2 top-1/2 -translate-y-1/2 z-10 ${
+              className={`absolute left-0 md:left-2 top-1/2 -translate-y-1/2 z-10 ${
                 scrollPosition <= 0
                   ? "opacity-20 cursor-not-allowed"
                   : "opacity-80 hover:opacity-100"
               }`}
             >
-              <div className="p-2 border border-gray-300 bg-white rounded-full shadow-md">
-                <ChevronLeft className="w-5 h-5 text-black" />
+              <div className="p-2 md:p-3 border border-gray-300 bg-white rounded-full shadow-lg hover:shadow-xl transition-all">
+                <ChevronLeft className="w-4 h-4 md:w-5 md:h-5 text-black" />
               </div>
             </button>
 
             <button
               onClick={handleScrollRight}
               disabled={scrollPosition >= maxScroll}
-              className={`absolute right-2 top-1/2 -translate-y-1/2 z-10 ${
+              className={`absolute right-0 md:right-2 top-1/2 -translate-y-1/2 z-10 ${
                 scrollPosition >= maxScroll
                   ? "opacity-20 cursor-not-allowed"
                   : "opacity-80 hover:opacity-100"
               }`}
             >
-              <div className="p-2 border border-gray-300 bg-white rounded-full shadow-md">
-                <ChevronRight className="w-5 h-5 text-black" />
+              <div className="p-2 md:p-3 border border-gray-300 bg-white rounded-full shadow-lg hover:shadow-xl transition-all">
+                <ChevronRight className="w-4 h-4 md:w-5 md:h-5 text-black" />
               </div>
             </button>
           </div>
