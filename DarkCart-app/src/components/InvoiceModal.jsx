@@ -8,6 +8,77 @@ function InvoiceModal({ payment: originalPayment, onClose }) {
     const [loadingBundles, setLoadingBundles] = useState(false)
     
     if (!originalPayment) return null
+
+    // Size-based price calculation utility function
+    const calculateSizeBasedPrice = (item, productInfo = null) => {
+        try {
+            const size = item?.size;
+            
+            // If no size, return original price
+            if (!size) {
+                return item?.itemTotal || 
+                       (productInfo?.price || productInfo?.bundlePrice || 0) * (item?.quantity || 1);
+            }
+
+            // Check if product has size-based pricing
+            const product = productInfo || item?.productId || item?.bundleId || item?.productDetails || item?.bundleDetails;
+            
+            if (product && product.sizePricing && typeof product.sizePricing === 'object') {
+                // Direct size-price mapping
+                const sizePrice = product.sizePricing[size] || product.sizePricing[size.toUpperCase()] || product.sizePricing[size.toLowerCase()];
+                if (sizePrice) {
+                    return sizePrice * (item?.quantity || 1);
+                }
+            }
+
+            // Check for size variants array
+            if (product && product.variants && Array.isArray(product.variants)) {
+                const sizeVariant = product.variants.find(variant => 
+                    variant.size === size || 
+                    variant.size === size.toUpperCase() || 
+                    variant.size === size.toLowerCase()
+                );
+                if (sizeVariant && sizeVariant.price) {
+                    return sizeVariant.price * (item?.quantity || 1);
+                }
+            }
+
+            // Check for size multipliers
+            const sizeMultipliers = {
+                'XS': 0.9,
+                'S': 1.0,
+                'M': 1.1,
+                'L': 1.2,
+                'XL': 1.3,
+                'XXL': 1.4,
+                '28': 0.9,
+                '30': 1.0,
+                '32': 1.1,
+                '34': 1.2,
+                '36': 1.3,
+                '38': 1.4,
+                '40': 1.5,
+                '42': 1.6
+            };
+
+            const basePrice = product?.price || product?.bundlePrice || 0;
+            const multiplier = sizeMultipliers[size] || sizeMultipliers[size.toUpperCase()] || 1.0;
+            
+            return (basePrice * multiplier) * (item?.quantity || 1);
+
+        } catch (error) {
+            console.error('Error calculating size-based price:', error);
+            // Fallback to original pricing
+            return item?.itemTotal || 
+                   (productInfo?.price || productInfo?.bundlePrice || 0) * (item?.quantity || 1);
+        }
+    };
+
+    // Get size-based unit price
+    const getSizeBasedUnitPrice = (item, productInfo = null) => {
+        const totalPrice = calculateSizeBasedPrice(item, productInfo);
+        return totalPrice / (item?.quantity || 1);
+    };
     
     // Enhanced bundle fetching logic
     useEffect(() => {
@@ -555,14 +626,22 @@ function InvoiceModal({ payment: originalPayment, onClose }) {
                                                 return isBundle ? 'Bundle Item' : 'Product Item';
                                             };
 
-                                            // Enhanced price calculation
-                                            const getUnitPrice = () => {
-                                                // For your requirement: unit price should equal total price
-                                                return item.itemTotal || 0;
+                                            // Enhanced price calculation with size-based pricing
+                                            const getProductInfo = () => {
+                                                if (item.productDetails) return item.productDetails;
+                                                if (item.bundleDetails) return item.bundleDetails;
+                                                if (item.productId && typeof item.productId === 'object') return item.productId;
+                                                if (item.bundleId && typeof item.bundleId === 'object') return item.bundleId;
+                                                return null;
                                             };
 
-                                            const unitPrice = getUnitPrice();
-                                            const itemTotal = unitPrice; // Unit price equals total price as requested
+                                            const productInfo = getProductInfo();
+                                            const sizeBasedUnitPrice = getSizeBasedUnitPrice(item, productInfo);
+                                            const sizeBasedTotalPrice = calculateSizeBasedPrice(item, productInfo);
+
+                                            // Use size-based pricing if available, otherwise fallback
+                                            const unitPrice = sizeBasedUnitPrice || item.itemTotal || 0;
+                                            const itemTotal = sizeBasedTotalPrice || item.itemTotal || unitPrice;
                                             
                                             // Enhanced bundle detection - check multiple sources
                                             const isBundle = item.itemType === 'bundle' || 
@@ -1040,10 +1119,32 @@ function InvoiceModal({ payment: originalPayment, onClose }) {
                                                 {payment.orderQuantity || payment.totalQuantity || 1}
                                             </td>
                                             <td className="px-4 py-3 text-right text-gray-900">
-                                                {formatCurrency(payment.productDetails?.price || (payment.subTotalAmt / (payment.orderQuantity || payment.totalQuantity || 1)))}
+                                                {(() => {
+                                                    // Calculate size-based price for legacy orders
+                                                    const legacyItem = {
+                                                        size: payment.size || payment.productDetails?.size,
+                                                        quantity: payment.orderQuantity || payment.totalQuantity || 1,
+                                                        itemTotal: payment.subTotalAmt
+                                                    };
+                                                    const legacyUnitPrice = getSizeBasedUnitPrice(legacyItem, payment.productDetails) || 
+                                                                          payment.productDetails?.price || 
+                                                                          (payment.subTotalAmt / (payment.orderQuantity || payment.totalQuantity || 1));
+                                                    return formatCurrency(legacyUnitPrice);
+                                                })()}
                                             </td>
                                             <td className="px-4 py-3 text-right font-medium text-gray-900">
-                                                {formatCurrency(payment.subTotalAmt || payment.totalAmt)}
+                                                {(() => {
+                                                    // Calculate size-based total for legacy orders
+                                                    const legacyItem = {
+                                                        size: payment.size || payment.productDetails?.size,
+                                                        quantity: payment.orderQuantity || payment.totalQuantity || 1,
+                                                        itemTotal: payment.subTotalAmt
+                                                    };
+                                                    const legacyTotalPrice = calculateSizeBasedPrice(legacyItem, payment.productDetails) || 
+                                                                           payment.subTotalAmt || 
+                                                                           payment.totalAmt;
+                                                    return formatCurrency(legacyTotalPrice);
+                                                })()}
                                             </td>
                                         </tr>
                                     )}

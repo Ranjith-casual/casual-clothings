@@ -16,6 +16,78 @@ const AdminOrderDetails = ({ order, onClose }) => {
   const [checkingPermission, setCheckingPermission] = useState(false);
   const { updateOrderStatus, checkOrderModificationPermission } = useGlobalContext();
 
+  // Size-based price calculation utility function - calculates base price with size adjustment, then applies discount
+  const calculateSizeBasedPrice = (item, productInfo = null) => {
+    try {
+      const size = item?.size;
+      const product = productInfo || item?.productId || item?.bundleId || item?.productDetails || item?.bundleDetails;
+      
+      // For bundles, use bundle pricing without size adjustments
+      if (item?.itemType === 'bundle') {
+        const bundlePrice = product?.bundlePrice || product?.price || 0;
+        const discount = product?.discount || 0;
+        const finalPrice = discount > 0 ? bundlePrice * (1 - discount/100) : bundlePrice;
+        return finalPrice * (item?.quantity || 1);
+      }
+
+      // Check if product has size-based pricing (direct size-price mapping)
+      if (product && product.sizePricing && typeof product.sizePricing === 'object') {
+        const sizePrice = product.sizePricing[size] || product.sizePricing[size?.toUpperCase()] || product.sizePricing[size?.toLowerCase()];
+        if (sizePrice) {
+          // Apply discount to size-specific price if available
+          const discount = product?.discount || 0;
+          const finalSizePrice = discount > 0 ? sizePrice * (1 - discount/100) : sizePrice;
+          return finalSizePrice * (item?.quantity || 1);
+        }
+      }
+
+      // Check for size variants array
+      if (product && product.variants && Array.isArray(product.variants)) {
+        const sizeVariant = product.variants.find(variant => 
+          variant.size === size || 
+          variant.size === size?.toUpperCase() || 
+          variant.size === size?.toLowerCase()
+        );
+        if (sizeVariant && sizeVariant.price) {
+          // Apply discount to variant price if available
+          const discount = product?.discount || 0;
+          const finalVariantPrice = discount > 0 ? sizeVariant.price * (1 - discount/100) : sizeVariant.price;
+          return finalVariantPrice * (item?.quantity || 1);
+        }
+      }
+
+      // Use size multipliers to adjust base price, then apply discount
+      const sizeMultipliers = {
+        'XS': 0.9, 'S': 1.0, 'M': 1.1, 'L': 1.2, 'XL': 1.3, 'XXL': 1.4,
+        '28': 0.9, '30': 1.0, '32': 1.1, '34': 1.2, '36': 1.3, '38': 1.4, '40': 1.5, '42': 1.6
+      };
+
+      const basePrice = product?.price || product?.bundlePrice || 0;
+      const multiplier = size ? (sizeMultipliers[size] || sizeMultipliers[size?.toUpperCase()] || 1.0) : 1.0;
+      const discount = product?.discount || 0;
+      
+      // Step 1: Apply size multiplier to base price
+      const sizeAdjustedPrice = basePrice * multiplier;
+      
+      // Step 2: Apply discount to size-adjusted price
+      const finalPrice = discount > 0 ? sizeAdjustedPrice * (1 - discount/100) : sizeAdjustedPrice;
+      
+      return finalPrice * (item?.quantity || 1);
+
+    } catch (error) {
+      console.error('Error calculating size-based price:', error);
+      // Fallback to original pricing
+      return item?.itemTotal || 
+             (productInfo?.price || productInfo?.bundlePrice || 0) * (item?.quantity || 1);
+    }
+  };
+
+  // Get size-based unit price with proper discount application
+  const getSizeBasedUnitPrice = (item, productInfo = null) => {
+    const totalPrice = calculateSizeBasedPrice(item, productInfo);
+    return totalPrice / (item?.quantity || 1);
+  };
+
   // Status options for dropdown
   const statusOptions = [
     { value: 'ORDER PLACED', label: 'Order Placed', icon: <FaBoxOpen className="text-blue-500" /> },
@@ -613,11 +685,13 @@ const AdminOrderDetails = ({ order, onClose }) => {
                       : item.productId;     // Otherwise, use the ID string
                   }
                   
-                  // Calculate item total if not available
-                  const itemTotal = item.itemTotal || (item.quantity * (productInfo?.price || productInfo?.bundlePrice || 0));
-                  const unitPrice = isBundle 
-                    ? (productInfo?.bundlePrice || productInfo?.price || (item.itemTotal / item.quantity) || 0)
-                    : (productInfo?.price || (item.itemTotal / item.quantity) || 0);
+                  // Calculate item total and unit price with size-based pricing
+                  const sizeBasedTotalPrice = calculateSizeBasedPrice(item, productInfo);
+                  const sizeBasedUnitPrice = getSizeBasedUnitPrice(item, productInfo);
+                  
+                  // Use size-based pricing for accurate calculations
+                  const itemTotal = sizeBasedTotalPrice;
+                  const unitPrice = sizeBasedUnitPrice;
                   
                   // Get bundle items if it's a bundle
                   const getBundleItems = () => {
@@ -670,14 +744,7 @@ const AdminOrderDetails = ({ order, onClose }) => {
                               <span className="text-gray-500 font-medium block mb-1">Quantity</span>
                               <p className="font-semibold text-gray-800">{item.quantity}</p>
                             </div>
-                            <div className="bg-gray-50 p-2.5 rounded-md border border-gray-100">
-                              <span className="text-gray-500 font-medium block mb-1">Unit Price</span>
-                              <p className="font-semibold text-gray-800">₹{unitPrice?.toFixed(2)}</p>
-                            </div>
-                            <div className="bg-gray-50 p-2.5 rounded-md border border-gray-100">
-                              <span className="text-gray-500 font-medium block mb-1">Item Total</span>
-                              <p className="font-semibold text-gray-800">₹{itemTotal?.toFixed(2)}</p>
-                            </div>
+                  
                             <div className="bg-gray-50 p-2.5 rounded-md border border-gray-100">
                               <span className="text-gray-500 font-medium block mb-1">Size</span>
                               <p className="font-semibold text-gray-800">
@@ -768,7 +835,7 @@ const AdminOrderDetails = ({ order, onClose }) => {
                                         {bundleItem.name || bundleItem.title || 'Bundle Item'}
                                       </div>
                                       <div className="text-xs text-blue-700">
-                                        Qty: {bundleItem.quantity || 1} • Price: ₹{(bundleItem.price || 0).toFixed(2)}
+                                        Qty: {bundleItem.quantity || 1} • Price: ₹{(getSizeBasedUnitPrice(bundleItem, bundleItem) || bundleItem.price || 0).toFixed(2)}
                                       </div>
                                     </div>
                                   </div>
@@ -804,44 +871,57 @@ const AdminOrderDetails = ({ order, onClose }) => {
               </div>
             ) : (
               // Fallback for old order structure with single product
-              <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
-                <div className="flex flex-col md:flex-row items-start p-4 gap-4">
-                  <div className="w-20 h-20 rounded-md overflow-hidden bg-gray-100 flex-shrink-0">
-                    {order.productDetails?.image && order.productDetails.image.length > 0 && (
-                      <img 
-                        src={order.productDetails.image[0]} 
-                        alt={order.productDetails?.name} 
-                        className="w-full h-full object-cover"
-                      />
-                    )}
-                  </div>
-                  <div className="flex-grow">
-                    <h4 className="font-medium text-gray-900 mb-1">{order.productDetails?.name}</h4>
-                    <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-8">
-                      <div className="flex items-center">
-                        <span className="text-sm text-gray-500 mr-2">Quantity:</span>
-                        <span className="font-medium text-gray-800">{order.orderQuantity}</span>
+              (() => {
+                // Create a mock item object for size-based pricing calculation
+                const mockItem = {
+                  size: order.size || order.productDetails?.size,
+                  quantity: order.orderQuantity || 1,
+                  itemType: 'product'
+                };
+                
+                const sizeBasedUnitPrice = getSizeBasedUnitPrice(mockItem, order.productDetails);
+                
+                return (
+                  <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+                    <div className="flex flex-col md:flex-row items-start p-4 gap-4">
+                      <div className="w-20 h-20 rounded-md overflow-hidden bg-gray-100 flex-shrink-0">
+                        {order.productDetails?.image && order.productDetails.image.length > 0 && (
+                          <img 
+                            src={order.productDetails.image[0]} 
+                            alt={order.productDetails?.name} 
+                            className="w-full h-full object-cover"
+                          />
+                        )}
                       </div>
-                      <div className="flex items-center">
-                        <span className="text-sm text-gray-500 mr-2">Price:</span>
-                        <span className="font-medium text-gray-800">₹{order.productDetails?.price?.toFixed(2)}</span>
-                      </div>
-                      <div className="flex items-center">
-                        <span className="text-sm text-gray-500 mr-2">Size:</span>
-                        <span className="font-medium text-gray-800">
-                          {order.size || order.productDetails?.size ? (
-                            <span className="inline-block bg-green-100 text-green-800 px-2 py-1 rounded-md text-xs font-semibold">
-                              {order.size || order.productDetails?.size}
+                      <div className="flex-grow">
+                        <h4 className="font-medium text-gray-900 mb-1">{order.productDetails?.name}</h4>
+                        <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-8">
+                          <div className="flex items-center">
+                            <span className="text-sm text-gray-500 mr-2">Quantity:</span>
+                            <span className="font-medium text-gray-800">{order.orderQuantity}</span>
+                          </div>
+                          <div className="flex items-center">
+                            <span className="text-sm text-gray-500 mr-2">Unit Price (Size-based):</span>
+                            <span className="font-medium text-gray-800">₹{sizeBasedUnitPrice?.toFixed(2)}</span>
+                          </div>
+                          <div className="flex items-center">
+                            <span className="text-sm text-gray-500 mr-2">Size:</span>
+                            <span className="font-medium text-gray-800">
+                              {order.size || order.productDetails?.size ? (
+                                <span className="inline-block bg-green-100 text-green-800 px-2 py-1 rounded-md text-xs font-semibold">
+                                  {order.size || order.productDetails?.size}
+                                </span>
+                              ) : (
+                                <span className="text-gray-500 text-xs">N/A</span>
+                              )}
                             </span>
-                          ) : (
-                            <span className="text-gray-500 text-xs">N/A</span>
-                          )}
-                        </span>
+                          </div>
+                        </div>
                       </div>
                     </div>
                   </div>
-                </div>
-              </div>
+                );
+              })()
             )}
           </div>
 

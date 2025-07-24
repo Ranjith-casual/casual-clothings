@@ -41,6 +41,77 @@ function MyOrders() {
   
   const { fetchOrders, refreshingOrders } = useGlobalContext();
   
+  // let originalPrice = 0;
+
+  // Size-based price calculation utility function - calculates base price with size adjustment, then applies discount
+  const calculateSizeBasedPrice = (item, productInfo = null) => {
+    try {
+      const size = item?.size;
+      const product = productInfo || item?.productId || item?.bundleId || item?.productDetails || item?.bundleDetails;
+      
+      // For bundles, use bundle pricing without size adjustments
+      if (item?.itemType === 'bundle') {
+        return (product?.bundlePrice || product?.price || 0) * (item?.quantity || 1);
+      }
+
+      // Check if product has size-based pricing (direct size-price mapping)
+      if (product && product.sizePricing && typeof product.sizePricing === 'object') {
+        const sizePrice = product.sizePricing[size] || product.sizePricing[size?.toUpperCase()] || product.sizePricing[size?.toLowerCase()];
+        if (sizePrice) {
+          // Apply discount to size-specific price if available
+          const discount = product?.discount || 0;
+          const finalSizePrice = discount > 0 ? sizePrice * (1 - discount/100) : sizePrice;
+          return finalSizePrice * (item?.quantity || 1);
+        }
+      }
+
+      // Check for size variants array
+      if (product && product.variants && Array.isArray(product.variants)) {
+        const sizeVariant = product.variants.find(variant => 
+          variant.size === size || 
+          variant.size === size?.toUpperCase() || 
+          variant.size === size?.toLowerCase()
+        );
+        if (sizeVariant && sizeVariant.price) {
+          // Apply discount to variant price if available
+          const discount = product?.discount || 0;
+          const finalVariantPrice = discount > 0 ? sizeVariant.price * (1 - discount/100) : sizeVariant.price;
+          return finalVariantPrice * (item?.quantity || 1);
+        }
+      }
+
+      // Use size multipliers to adjust base price, then apply discount
+      const sizeMultipliers = {
+        'XS': 0.9, 'S': 1.0, 'M': 1.1, 'L': 1.2, 'XL': 1.3, 'XXL': 1.4,
+        '28': 0.9, '30': 1.0, '32': 1.1, '34': 1.2, '36': 1.3, '38': 1.4, '40': 1.5, '42': 1.6
+      };
+
+      const basePrice = product?.price || 0;
+      const multiplier = size ? (sizeMultipliers[size] || sizeMultipliers[size?.toUpperCase()] || 1.0) : 1.0;
+      const discount = product?.discount || 0;
+      
+      // Step 1: Apply size multiplier to base price
+      const sizeAdjustedPrice = basePrice * multiplier;
+      
+      // Step 2: Apply discount to size-adjusted price
+      const finalPrice = discount > 0 ? sizeAdjustedPrice * (1 - discount/100) : sizeAdjustedPrice;
+      
+      return finalPrice * (item?.quantity || 1);
+
+    } catch (error) {
+      console.error('Error calculating size-based price:', error);
+      // Fallback to original pricing
+      return item?.itemTotal || 
+             (productInfo?.price || productInfo?.bundlePrice || 0) * (item?.quantity || 1);
+    }
+  };
+
+  // Get size-based unit price with proper discount application
+  const getSizeBasedUnitPrice = (item, productInfo = null) => {
+    const totalPrice = calculateSizeBasedPrice(item, productInfo);
+    return totalPrice / (item?.quantity || 1);
+  };
+  
   // Function to fetch current user's orders specifically (not all orders for admin)
   const fetchCurrentUserOrders = async () => {
     try {
@@ -741,17 +812,24 @@ function MyOrders() {
                                     }`}>
                                       Qty: {item?.quantity}
                                     </span>
-                                    {/* Price per unit indicator */}
+                                    {/* Price per unit indicator with size-based pricing */}
                                     {(() => {
                                       const isBundle = item?.itemType === 'bundle';
                                       let unitPrice = 0;
+                                      let priceLabel = '/unit';
                                       
                                       if (isBundle) {
                                         unitPrice = item?.bundleId?.bundlePrice || item?.bundleDetails?.bundlePrice || 0;
+                                        priceLabel = '/bundle';
                                       } else {
-                                        const productPrice = item?.productId?.price || item?.productDetails?.price || 0;
-                                        const discount = item?.productId?.discount || item?.productDetails?.discount || 0;
-                                        unitPrice = discount > 0 ? productPrice * (1 - discount/100) : productPrice;
+                                        // Use size-based pricing for products
+                                        const productInfo = item?.productId || item?.productDetails;
+                                        unitPrice = getSizeBasedUnitPrice(item, productInfo);
+                                        
+                                        // Add size info to label if size exists
+                                        if (item?.size) {
+                                          priceLabel = `/unit (${item.size})`;
+                                        }
                                       }
                                       
                                       return (
@@ -760,16 +838,15 @@ function MyOrders() {
                                             ? 'bg-red-100 text-red-700' 
                                             : 'bg-gray-100 text-gray-700'
                                         }`}>
-                                          ₹{unitPrice?.toFixed(2)}/unit
+                                          ₹{unitPrice?.toFixed(2)}{priceLabel}
                                         </span>
                                       );
                                     })()}
                                   </div>
                                 </div>
                                 <div className="text-right">
-                                  {/* Enhanced pricing display with original price, discounted price */}
+                                  {/* Enhanced pricing display with size-based pricing */}
                                   <div className="space-y-1">
-                                    {/* Original Price (if different from final price) */}
                                     {(() => {
                                       const isBundle = item?.itemType === 'bundle';
                                       let originalPrice = 0;
@@ -777,56 +854,145 @@ function MyOrders() {
                                       let hasDiscount = false;
                                       
                                       if (isBundle) {
-                                        // For bundles, get original price and bundle price
+                                        // For bundles, use original bundle pricing
                                         originalPrice = item?.bundleId?.originalPrice || item?.bundleDetails?.originalPrice || 0;
                                         finalPrice = item?.bundleId?.bundlePrice || item?.bundleDetails?.bundlePrice || 0;
                                         hasDiscount = originalPrice > finalPrice && originalPrice > 0;
                                       } else {
-                                        // For products, get product price and discount
-                                        const productPrice = item?.productId?.price || item?.productDetails?.price || 0;
-                                        const discount = item?.productId?.discount || item?.productDetails?.discount || 0;
-                                        originalPrice = productPrice;
-                                        finalPrice = discount > 0 ? productPrice * (1 - discount/100) : productPrice;
-                                        hasDiscount = discount > 0;
+                                        // For products, use size-based pricing
+                                        const productInfo = item?.productId || item?.productDetails;
+                                        finalPrice = getSizeBasedUnitPrice(item, productInfo);
+                                        
+                                        // Calculate original price with size adjustments
+                                        const basePrice = productInfo?.price || 0;
+                                        const discount = productInfo?.discount || 0;
+                                        const size = item?.size;
+                                        
+                                        // Apply size multiplier to original price
+                                        const sizeMultipliers = {
+                                          'XS': 0.9, 'S': 1.0, 'M': 1.1, 'L': 1.2, 'XL': 1.3, 'XXL': 1.4,
+                                          '28': 0.9, '30': 1.0, '32': 1.1, '34': 1.2, '36': 1.3, '38': 1.4, '40': 1.5, '42': 1.6
+                                        };
+                                        const multiplier = size ? (sizeMultipliers[size] || sizeMultipliers[size.toUpperCase()] || 1.0) : 1.0;
+                                        originalPrice = basePrice * multiplier;
+                                        
+                                        // Check if there's a difference between original and final (due to discount or size adjustment)
+                                        const baseDiscountedPrice = discount > 0 ? originalPrice * (1 - discount/100) : originalPrice;
+                                        hasDiscount = discount > 0 || Math.abs(baseDiscountedPrice - finalPrice) > 0.01;
                                       }
                                       
                                       return (
                                         <>
-                                          {/* Show original price if there's a discount */}
-                                          {hasDiscount && (
+                                          {/* Always show total amount without discount first */}
+                                          {/* <div className={`text-xs font-medium ${
+                                            isCancelled ? 'text-red-600' : 'text-gray-700'
+                                          }`}>
+                                            {!isBundle ? (
+                                              <>
+                                                Total (without discount): ₹{(originalPrice * item?.quantity)?.toFixed(2)}
+                                                {item?.size && (
+                                                  <span className="ml-1 text-purple-600">(Size: {item.size})</span>
+                                                )}
+                                              </>
+                                            ) : (
+                                              <>Bundle Total: ₹{(originalPrice * item?.quantity)?.toFixed(2)}</>
+                                            )}
+                                          </div> */}
+                                          
+                                          {/* Show original price per unit if there's a discount */}
+                                          {/* {hasDiscount && (
                                             <div className={`text-xs ${
                                               isCancelled ? 'text-red-500 line-through' : 'text-gray-500 line-through'
                                             }`}>
-                                              ₹{originalPrice?.toFixed(2)}
+                                              Unit Price: ₹{originalPrice?.toFixed(2)}
                                               {!isBundle && item?.productId?.discount && (
                                                 <span className="ml-1 text-orange-600">({item.productId.discount}% off)</span>
+                                              )}
+                                              {!isBundle && item?.size && (
+                                                <span className="ml-1 text-purple-600">(Size: {item.size})</span>
                                               )}
                                               {isBundle && (
                                                 <span className="ml-1 text-blue-600">(Bundle Savings)</span>
                                               )}
                                             </div>
+                                          )} */}
+                                          
+                                          {/* Show size info for products without discount but with size multiplier */}
+                                          {!hasDiscount && !isBundle && item?.size && (() => {
+                                            const sizeMultipliers = {
+                                              'XS': 0.9, 'S': 1.0, 'M': 1.1, 'L': 1.2, 'XL': 1.3, 'XXL': 1.4,
+                                              '28': 0.9, '30': 1.0, '32': 1.1, '34': 1.2, '36': 1.3, '38': 1.4, '40': 1.5, '42': 1.6
+                                            };
+                                            const multiplier = sizeMultipliers[item.size] || sizeMultipliers[item.size.toUpperCase()] || 1.0;
+                                            return multiplier !== 1.0;
+                                          })() && (
+                                            <div className={`text-xs ${
+                                              isCancelled ? 'text-red-600' : 'text-purple-600'
+                                            }`}>
+                                              Size {item.size} Adjusted Price
+                                            </div>
                                           )}
                                           
-                                          {/* Final/Discounted Price */}
+                                          {/* Final/Adjusted Price per unit */}
                                           <div className={`font-bold text-sm sm:text-base ${
                                             isCancelled ? 'text-red-800 line-through' : 'text-black'
                                           }`}>
-                                            ₹{finalPrice?.toFixed(2)}
-                                            {hasDiscount && (
+                                            Final Unit Price: ₹{finalPrice?.toFixed(2)}
+                                            {!isBundle && item?.size && (() => {
+                                              const sizeMultipliers = {
+                                                'XS': 0.9, 'S': 1.0, 'M': 1.1, 'L': 1.2, 'XL': 1.3, 'XXL': 1.4,
+                                                '28': 0.9, '30': 1.0, '32': 1.1, '34': 1.2, '36': 1.3, '38': 1.4, '40': 1.5, '42': 1.6
+                                              };
+                                              const multiplier = sizeMultipliers[item.size] || sizeMultipliers[item.size.toUpperCase()] || 1.0;
+                                              const hasDiscount = item?.productId?.discount && item.productId.discount > 0;
+                                              
+                                              if (hasDiscount && multiplier !== 1.0) {
+                                                return (
+                                                  <span className={`ml-1 text-xs font-normal ${
+                                                    isCancelled ? 'text-red-600' : 'text-green-600'
+                                                  }`}>
+                                                    (Size {item.size} + {item.productId.discount}% Off)
+                                                  </span>
+                                                );
+                                              } else if (hasDiscount) {
+                                                return (
+                                                  <span className={`ml-1 text-xs font-normal ${
+                                                    isCancelled ? 'text-red-600' : 'text-green-600'
+                                                  }`}>
+                                                    ({item.productId.discount}% Off)
+                                                  </span>
+                                                );
+                                              } else if (multiplier !== 1.0) {
+                                                return (
+                                                  <span className={`ml-1 text-xs font-normal ${
+                                                    isCancelled ? 'text-red-600' : 'text-purple-600'
+                                                  }`}>
+                                                    (Size {item.size})
+                                                  </span>
+                                                );
+                                              }
+                                              return null;
+                                            })()}
+                                            {isBundle && hasDiscount && (
                                               <span className={`ml-1 text-xs font-normal ${
                                                 isCancelled ? 'text-red-600' : 'text-green-600'
                                               }`}>
-                                                {isBundle ? 'Bundle Price' : 'Discounted'}
+                                                (Bundle Discount)
                                               </span>
                                             )}
                                           </div>
                                           
-                                          {/* Item Total */}
-                                          <div className={`text-xs ${
-                                            isCancelled ? 'text-red-600' : 'text-gray-500'
+                                          {/* Final Item Total after discount */}
+                                          {/* <div className={`text-xs font-semibold ${
+                                            isCancelled ? 'text-red-600' : 'text-green-700'
                                           }`}>
-                                            Total: ₹{(finalPrice * item?.quantity)?.toFixed(2)}
-                                          </div>
+                                            Final Total: ₹{(finalPrice * item?.quantity)?.toFixed(2)}
+                                            {hasDiscount && (
+                                              <span className="ml-1 text-green-600">
+                                                (After {!isBundle ? 'discount' : 'bundle savings'})
+                                              </span>
+                                            )}
+                                          </div> */}
                                         </>
                                       );
                                     })()}
@@ -843,18 +1009,18 @@ function MyOrders() {
                     <div className={`mt-3 p-2 sm:p-3 rounded-lg border ${
                       isCancelled ? 'bg-red-50 border-red-200' : 'bg-white border-gray-200'
                     }`}>
-                      <div className="p-2 sm:p-3 border-b">
+                      {/* <div className="p-2 sm:p-3 border-b">
                         <h2 className={`text-base font-medium tracking-tight uppercase ${
                           isCancelled ? 'text-red-700' : 'text-gray-800'
                         }`}>
                           Price Details ({order?.totalQuantity} {order?.totalQuantity === 1 ? 'Item' : 'Items'})
                         </h2>
-                      </div>
+                      </div> */}
                       
                       <div className="p-2 sm:p-3">
                         <div className="space-y-3">
-                          {/* Total MRP */}
-                          <div className="flex justify-between items-center">
+                          {/* Total MRP with size-based pricing */}
+                          {/* <div className="flex justify-between items-center">
                             <span className={`text-xs sm:text-sm ${
                               isCancelled ? 'text-red-700' : 'text-gray-700'
                             }`}>
@@ -864,40 +1030,76 @@ function MyOrders() {
                               isCancelled ? 'text-red-800' : 'text-gray-900'
                             }`}>
                               {(() => {
-                                // Calculate original price before discounts
-                                let originalTotal = 0;
+                                // Calculate total MRP using same logic as originalPrice in product details
+                                let totalMRP = 0;
                                 order?.items?.forEach(item => {
-                                  if (item?.itemType === 'bundle') {
-                                    originalTotal += (item?.bundleId?.originalPrice || item?.bundleDetails?.originalPrice || 0) * item.quantity;
+                                  const isBundle = item?.itemType === 'bundle';
+                                  let originalPrice = 0;
+                                  
+                                  if (isBundle) {
+                                    // For bundles, use original bundle pricing
+                                    originalPrice = item?.bundleId?.originalPrice || item?.bundleDetails?.originalPrice || 0;
                                   } else {
-                                    const basePrice = item?.productId?.price || item?.productDetails?.price || 0;
-                                    originalTotal += basePrice * item.quantity;
+                                    // For products, calculate original price with size adjustments
+                                    const productInfo = item?.productId || item?.productDetails;
+                                    const basePrice = productInfo?.price || 0;
+                                    const size = item?.size;
+                                    
+                                    // Apply size multiplier to base price
+                                    const sizeMultipliers = {
+                                      'XS': 0.9, 'S': 1.0, 'M': 1.1, 'L': 1.2, 'XL': 1.3, 'XXL': 1.4,
+                                      '28': 0.9, '30': 1.0, '32': 1.1, '34': 1.2, '36': 1.3, '38': 1.4, '40': 1.5, '42': 1.6
+                                    };
+                                    const multiplier = size ? (sizeMultipliers[size] || sizeMultipliers[size.toUpperCase()] || 1.0) : 1.0;
+                                    originalPrice = basePrice * multiplier;
                                   }
+                                  
+                                  totalMRP += originalPrice * item.quantity;
                                 });
-                                return `₹${originalTotal.toFixed(2)}`;
+                                return `₹${totalMRP.toFixed(2)}`;
                               })()}
                             </span>
-                          </div>
+                          </div> */}
                           
-                          {/* Discount on MRP */}
-                          {(() => {
-                            // Calculate total savings
-                            let totalSavings = 0;
-                            order?.items?.forEach(item => {
-                              if (item?.itemType === 'bundle') {
-                                const originalPrice = item?.bundleId?.originalPrice || item?.bundleDetails?.originalPrice || 0;
-                                const bundlePrice = item?.bundleId?.bundlePrice || item?.bundleDetails?.bundlePrice || 0;
-                                if (originalPrice > bundlePrice) {
-                                  totalSavings += (originalPrice - bundlePrice) * item.quantity;
-                                }
-                              } else {
-                                const basePrice = item?.productId?.price || item?.productDetails?.price || 0;
-                                const discount = item?.productId?.discount || item?.productDetails?.discount || 0;
-                                if (discount > 0) {
-                                  totalSavings += (basePrice * discount/100) * item.quantity;
-                                }
-                              }
-                            });
+                          {/* Discount on MRP with size-based pricing */}
+                          {/* {(() => {
+                            // Calculate total savings using same logic as originalPrice and finalPrice
+                            // let totalSavings = 0;
+                            // order?.items?.forEach(item => {
+                            //   const isBundle = item?.itemType === 'bundle';
+                            //   let originalPrice = 0;
+                            //   let finalPrice = 0;
+
+                            //   console.log('Calculating savings for item:', item);
+                              
+                            //   if (isBundle) {
+                            //     // For bundles, use original bundle pricing
+                            //     originalPrice = item?.bundleId?.originalPrice || item?.bundleDetails?.originalPrice || 0;
+                            //     finalPrice = item?.bundleId?.bundlePrice || item?.bundleDetails?.bundlePrice || 0;
+                            //   } else {
+                            //     // For products, calculate with same logic as product details
+                            //     const productInfo = item?.productId || item?.productDetails;
+                            //     const basePrice = productInfo?.price || 0;
+                            //     const discount = productInfo?.discount || 0;
+                            //     const size = item?.size;
+                                
+                            //     // Apply size multiplier to get original price
+                            //     const sizeMultipliers = {
+                            //       'XS': 0.9, 'S': 1.0, 'M': 1.1, 'L': 1.2, 'XL': 1.3, 'XXL': 1.4,
+                            //       '28': 0.9, '30': 1.0, '32': 1.1, '34': 1.2, '36': 1.3, '38': 1.4, '40': 1.5, '42': 1.6
+                            //     };
+                            //     const multiplier = size ? (sizeMultipliers[size] || sizeMultipliers[size.toUpperCase()] || 1.0) : 1.0;
+                            //     originalPrice = basePrice * multiplier;
+                                
+                            //     // Final price: size-adjusted price with discount applied
+                            //     finalPrice = discount > 0 ? originalPrice * (1 - discount/100) : originalPrice;
+                            //   }
+                              
+                            //   // Add savings if original price is higher than final price
+                            //   if (originalPrice > finalPrice) {
+                            //     totalSavings += (originalPrice - finalPrice) * item.quantity;
+                            //   }
+                            // });
                             
                             return totalSavings > 0 ? (
                               <div className="flex justify-between items-center">
@@ -913,10 +1115,10 @@ function MyOrders() {
                                 </span>
                               </div>
                             ) : null;
-                          })()}
+                          })()} */}
                           
                           {/* Platform Fee */}
-                          <div className="flex justify-between items-center">
+                          {/* <div className="flex justify-between items-center">
                             <span className={`text-xs sm:text-sm ${
                               isCancelled ? 'text-red-700' : 'text-gray-700'
                             }`}>
@@ -932,7 +1134,7 @@ function MyOrders() {
                                 FREE
                               </span>
                             </div>
-                          </div>
+                          </div> */}
                           
                           {/* Delivery Charge */}
                           <div className="flex justify-between items-center">
@@ -952,7 +1154,7 @@ function MyOrders() {
                             </span>
                           </div>
                           
-                          {/* Total Amount - with border separator */}
+                          {/* Total Amount - with size-based pricing calculation */}
                           <div className="border-t pt-3 mt-3">
                             <div className="flex justify-between items-center">
                               <span className={`font-semibold text-sm sm:text-base ${
@@ -963,7 +1165,29 @@ function MyOrders() {
                               <span className={`font-bold text-base ${
                                 isCancelled ? 'text-red-800 line-through' : 'text-black'
                               }`}>
-                                ₹{order?.totalAmt?.toFixed(2)}
+                                {(() => {
+                                  // Calculate total with size-based pricing
+                                  let calculatedTotal = 0;
+                                  order?.items?.forEach(item => {
+                                    if (item?.itemType === 'bundle') {
+                                      const bundlePrice = item?.bundleId?.bundlePrice || item?.bundleDetails?.bundlePrice || 0;
+                                      calculatedTotal += bundlePrice * item.quantity;
+                                    } else {
+                                      // Use size-based pricing for products
+                                      const productInfo = item?.productId || item?.productDetails;
+                                      const sizeBasedPrice = calculateSizeBasedPrice(item, productInfo);
+                                      calculatedTotal += sizeBasedPrice;
+                                    }
+                                  });
+                                  
+                                  // Add delivery charge if any
+                                  const deliveryCharge = (order?.totalAmt || 0) - (order?.subTotalAmt || order?.totalAmt - 50 || 0);
+                                  if (deliveryCharge > 0) {
+                                    calculatedTotal += deliveryCharge;
+                                  }
+                                  
+                                  return `₹${calculatedTotal.toFixed(2)}`;
+                                })()}
                               </span>
                             </div>
                           </div>
@@ -1026,25 +1250,25 @@ function MyOrders() {
                   )}
                   
                   {/* Customer Info - Responsive */}
-                  <div className={`rounded-lg p-2 sm:p-3 md:p-4 border ${
+                  {/* <div className={`rounded-lg p-2 sm:p-3 md:p-4 border ${
                     isCancelled 
                       ? 'bg-red-50 border-red-200' 
                       : 'bg-gray-50 border-gray-200'
-                  }`}>
-                    <h4 className={`font-semibold mb-2 sm:mb-3 flex items-center gap-2 text-sm sm:text-base ${
+                  }`}> */}
+                    {/* <h4 className={`font-semibold mb-2 sm:mb-3 flex items-center gap-2 text-sm sm:text-base ${
                       isCancelled ? 'text-red-800' : 'text-black'
                     }`}>
                       <FaUser className={`text-xs sm:text-sm ${isCancelled ? 'text-red-600' : 'text-black'}`} />
                       Customer Information
-                    </h4>
+                    </h4> */}
                     <div className='space-y-1 sm:space-y-2 ml-4 sm:ml-6'>
-                      <div className='flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2'>
+                      {/* <div className='flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2'>
                         <span className={`font-medium text-xs sm:text-sm ${isCancelled ? 'text-red-700' : 'text-gray-700'}`}>Name:</span>
                         <span className={`font-semibold text-xs sm:text-sm break-words ${isCancelled ? 'text-red-800' : 'text-black'}`}>
                           {order?.userId?.name}
                         </span>
-                      </div>
-                      <div className='flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2'>
+                      </div> */}
+                      {/* <div className='flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2'>
                         <div className='flex items-center gap-1 sm:gap-2'>
                           <FaEnvelope className={`text-xs ${isCancelled ? 'text-red-600' : 'text-black'}`} />
                           <span className={`font-medium text-xs sm:text-sm ${isCancelled ? 'text-red-700' : 'text-gray-700'}`}>Email:</span>
@@ -1052,8 +1276,8 @@ function MyOrders() {
                         <span className={`text-xs sm:text-sm break-all ${isCancelled ? 'text-red-600' : 'text-gray-600'}`}>
                           {order?.userId?.email}
                         </span>
-                      </div>
-                      <div className='flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2'>
+                      </div> */}
+                      {/* <div className='flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2'>
                         <div className='flex items-center gap-1 sm:gap-2'>
                           <FaCalendar className={`text-xs ${isCancelled ? 'text-red-600' : 'text-black'}`} />
                           <span className={`font-medium text-xs sm:text-sm ${isCancelled ? 'text-red-700' : 'text-gray-700'}`}>Order Date:</span>
@@ -1061,10 +1285,10 @@ function MyOrders() {
                         <span className={`font-semibold text-xs sm:text-sm break-words ${isCancelled ? 'text-red-800' : 'text-black'}`}>
                           {new Date(order?.orderDate).toLocaleString()}
                         </span>
-                      </div>
+                      </div> */}
                       
                       {/* Delivery Date Information */}
-                      {order?.estimatedDeliveryDate && (
+                      {/* {order?.estimatedDeliveryDate && (
                         <div className='flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2'>
                           <div className='flex items-center gap-1 sm:gap-2'>
                             <FaTruck className={`text-xs ${isCancelled ? 'text-red-600' : 'text-green-600'}`} />
@@ -1082,10 +1306,10 @@ function MyOrders() {
                             }
                           </span>
                         </div>
-                      )}
+                      )} */}
                       
                       {/* Delivery Notes */}
-                      {order?.deliveryNotes && (
+                      {/* {order?.deliveryNotes && (
                         <div className='flex flex-col sm:flex-row sm:items-start gap-1 sm:gap-2'>
                           <div className='flex items-center gap-1 sm:gap-2'>
                             <FaInfoCircle className={`text-xs ${isCancelled ? 'text-red-600' : 'text-blue-600'}`} />
@@ -1095,9 +1319,9 @@ function MyOrders() {
                             {order.deliveryNotes}
                           </span>
                         </div>
-                      )}
+                      )} */}
                     </div>
-                  </div>
+                  {/* </div> */}
                   
                   {/* Delivery Address - Enhanced Responsive */}
                   <div className={`rounded-lg p-2 sm:p-3 md:p-4 border ${
