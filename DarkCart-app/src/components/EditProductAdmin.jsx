@@ -19,6 +19,7 @@ const EditProductAdmin = ({ close, data: propsData, fetchProductData }) => {
     _id: propsData._id,
     name: propsData.name,
     image: propsData.image,
+    gender: propsData.gender || [],
     category: propsData.category,
     stock: propsData.stock,
     price: propsData.price,
@@ -39,8 +40,16 @@ const EditProductAdmin = ({ close, data: propsData, fetchProductData }) => {
   const [ViewImageURL, setViewImageURL] = useState("")
   const allCategory = useSelector(state => state.product.allCategory)
   const [selectCategory, setSelectCategory] = useState("")
+  const [selectGender, setSelectGender] = useState("")
   const [openAddField, setOpenAddField] = useState(false)
   const [fieldName, setFieldName] = useState("")
+
+  const genderOptions = [
+    { value: "Men", label: "Men" },
+    { value: "Women", label: "Women" },
+    { value: "Kids", label: "Kids" },
+    { value: "Unisex", label: "Unisex" }
+  ];
 
   const handleChange = (e) => {
     const { name, value } = e.target
@@ -89,6 +98,15 @@ const EditProductAdmin = ({ close, data: propsData, fetchProductData }) => {
     })
   }
 
+  const handleRemoveGender = async (index) => {
+    data.gender.splice(index, 1)
+    setData((preve) => {
+      return {
+        ...preve
+      }
+    })
+  }
+
   const handleAddField = () => {
     setData((preve) => {
       return {
@@ -113,15 +131,16 @@ const EditProductAdmin = ({ close, data: propsData, fetchProductData }) => {
         .filter(([_, quantity]) => Number(quantity) > 0)
         .map(([size]) => size);
       
-      // Ensure data has the latest available sizes
-      const updatedData = {
+      // Transform gender array to just values for backend
+      const submitData = {
         ...data,
-        availableSizes: calculatedAvailableSizes
+        availableSizes: calculatedAvailableSizes,
+        gender: data.gender.map(g => g.value || g)
       };
 
       const response = await Axios({
         ...SummaryApi.updateProductDetails,
-        data: updatedData
+        data: submitData
       })
       const { data: responseData } = response
 
@@ -134,6 +153,7 @@ const EditProductAdmin = ({ close, data: propsData, fetchProductData }) => {
         setData({
           name: "",
           image: [],
+          gender: [],
           category: [],
           stock: "",
           price: "",
@@ -180,6 +200,32 @@ const EditProductAdmin = ({ close, data: propsData, fetchProductData }) => {
       document.head.removeChild(styleEl);
     };
   }, []);
+
+  // Normalize gender data when component loads
+  useEffect(() => {
+    if (propsData.gender) {
+      let normalizedGender = [];
+      
+      if (Array.isArray(propsData.gender)) {
+        // If it's already an array, check if items are strings or objects
+        normalizedGender = propsData.gender.map(g => {
+          if (typeof g === 'string') {
+            return genderOptions.find(option => option.value === g) || { value: g, label: g };
+          }
+          return g;
+        });
+      } else if (typeof propsData.gender === 'string') {
+        // If it's a string, convert to array of objects
+        const genderOption = genderOptions.find(option => option.value === propsData.gender);
+        normalizedGender = genderOption ? [genderOption] : [{ value: propsData.gender, label: propsData.gender }];
+      }
+      
+      setData(prev => ({
+        ...prev,
+        gender: normalizedGender
+      }));
+    }
+  }, [propsData.gender]);
   
   return (
     <section className='fixed top-0 right-0 left-0 bottom-0 bg-black/70 backdrop-blur-sm z-50 p-2 sm:p-4 font-sans' style={{ animation: 'fadeIn 0.3s ease-out' }}>
@@ -301,6 +347,56 @@ const EditProductAdmin = ({ close, data: propsData, fetchProductData }) => {
                           <div key={c._id + index + "productsection"} className='text-xs sm:text-sm flex items-center gap-1.5 sm:gap-2 bg-gray-100 border border-gray-300 mt-1.5 p-1.5 sm:p-2 rounded-md tracking-wide shadow-sm'>
                             <p>{c.name}</p>
                             <div className='hover:text-red-500 cursor-pointer transition-colors' onClick={() => handleRemoveCategory(index)}>
+                              <IoClose size={16} />
+                            </div>
+                          </div>
+                        )
+                      })
+                    }
+                  </div>
+                </div>
+              </div>
+
+              <div className='grid gap-1.5'>
+                <label className='font-medium text-gray-700 tracking-wider text-xs sm:text-sm'>Gender</label>
+                <div>
+                  <select
+                    className='bg-gray-50 border border-gray-300 w-full p-2 sm:p-3 rounded-md focus:border-black focus:ring-1 focus:ring-black focus:bg-white transition-all shadow-sm outline-none tracking-wide text-xs sm:text-sm'
+                    value={selectGender}
+                    onChange={(e) => {
+                      const value = e.target.value
+                      const genderOption = genderOptions.find(option => option.value === value)
+                      
+                      // Check if gender is already selected
+                      const isAlreadySelected = data.gender.some(g => g.value === value || g === value)
+                      
+                      if (!isAlreadySelected && genderOption) {
+                        setData((preve) => {
+                          return {
+                            ...preve,
+                            gender: [...preve.gender, genderOption],
+                          }
+                        })
+                      }
+                      setSelectGender("")
+                    }}
+                  >
+                    <option value={""}>Select Gender</option>
+                    {
+                      genderOptions.map((option, index) => {
+                        return (
+                          <option key={option.value + index} value={option.value}>{option.label}</option>
+                        )
+                      })
+                    }
+                  </select>
+                  <div className='flex flex-wrap gap-2 sm:gap-3 mt-2'>
+                    {
+                      data.gender.map((g, index) => {
+                        return (
+                          <div key={(g.value || g) + index + "gendersection"} className='text-xs sm:text-sm flex items-center gap-1.5 sm:gap-2 bg-gray-100 border border-gray-300 mt-1.5 p-1.5 sm:p-2 rounded-md tracking-wide shadow-sm'>
+                            <p>{g.label || g}</p>
+                            <div className='hover:text-red-500 cursor-pointer transition-colors' onClick={() => handleRemoveGender(index)}>
                               <IoClose size={16} />
                             </div>
                           </div>

@@ -242,12 +242,13 @@ const ProductDisplayPage = () => {
       }
       
       // If we have a product with a specific gender, try to find products with the same gender
-      if (data.gender) {
-        console.log("Trying to fetch products with same gender:", data.gender);
+      if (data.gender && data.gender.length > 0) {
+        const primaryGender = Array.isArray(data.gender) ? data.gender[0] : data.gender;
+        console.log("Trying to fetch products with same gender:", primaryGender);
         const response = await Axios({
           ...SummaryApi.getProduct,
           data: {
-            gender: data.gender,
+            gender: primaryGender,
             limit: 8
           }
         });

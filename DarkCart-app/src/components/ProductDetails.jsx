@@ -46,12 +46,7 @@ const ProductDetails = ({ data, className = "" }) => {
       
             </div>
             
-            <div className="flex">
-              <div className="font-medium text-gray-600 w-32 font-['Poppins']">Marketed By</div>
-              <div className="text-gray-800 font-['Poppins']">
-                : {data.marketedBy || "Casual Clothings (India) Pvt. Ltd."}
-              </div>
-            </div>
+         
             
             <div className="flex">
               <div className="font-medium text-gray-600 w-32 font-['Poppins']">Imported By</div>

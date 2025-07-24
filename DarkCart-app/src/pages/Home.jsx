@@ -92,25 +92,17 @@ function Home() {
             className="text-center max-w-5xl mx-auto"
           >
             {/* Welcome Badge */}
-            <motion.div
-              initial={{ opacity: 0, scale: 0.8 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ duration: 0.6, delay: 0.2 }}
-              className="inline-flex items-center gap-2 bg-white/20 backdrop-blur-sm border border-white/30 rounded-full px-6 py-2 mb-8 shadow-lg"
-            >
-              <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></span>
-              <span className="text-sm font-medium text-white tracking-wide uppercase">Welcome to Our Store</span>
-            </motion.div>
+          
 
             {/* Main Title */}
             <motion.h1
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.8, delay: 0.4 }}
-              className="text-4xl md:text-5xl lg:text-6xl font-bold mb-6 leading-tight text-white"
+              className="text-4xl md:text-5xl lg:text-6xl font-bold mb-6 leading-tight text-white font-serif"
             >
               Find Your
-              <span className="block bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">
+              <span className="block bg-gradient-to-r from-gray-100 via-white to-gray-200 bg-clip-text text-transparent">
                 Perfect Look
               </span>
             </motion.h1>
@@ -120,7 +112,7 @@ function Home() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.8, delay: 0.6 }}
-              className="text-lg md:text-xl text-gray-200 mb-10 max-w-3xl mx-auto leading-relaxed"
+              className="text-lg md:text-xl text-gray-200 mb-10 max-w-3xl mx-auto leading-relaxed font-sans"
             >
               Discover premium fashion pieces curated for your lifestyle. From casual wear to formal attire, 
               find quality clothing that defines your unique style.
@@ -165,13 +157,11 @@ function Home() {
                     window.location.reload();
                   }
                 }}
-                className="group bg-white text-black px-8 py-4 rounded-lg font-medium text-lg transition-all duration-300 hover:bg-gray-100 shadow-lg hover:shadow-xl"
+                className="group bg-white text-black px-8 py-4 rounded-lg font-medium text-lg transition-all duration-300 hover:bg-gray-100 shadow-lg hover:shadow-xl font-sans"
               >
                 <span className="flex items-center gap-2">
                   Shop Collection
-                  <svg className="w-5 h-5 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4m0 0L7 13m0 0l-1.5 6M7 13l-1.5 6m0 0h9M16 19a2 2 0 100 4 2 2 0 000-4zm-8 0a2 2 0 100 4 2 2 0 000-4z" />
-                  </svg>
+                
                 </span>
               </motion.button>
               
@@ -201,13 +191,11 @@ function Home() {
                     }, 800);
                   }
                 }}
-                className="group border-2 border-white/40 text-white px-8 py-4 rounded-lg font-medium text-lg transition-all duration-300 hover:bg-white/10 hover:border-white/60 bg-white/10 backdrop-blur-sm"
+                className="group border-2 border-white/40 text-white px-8 py-4 rounded-lg font-medium text-lg transition-all duration-300 hover:bg-white/10 hover:border-white/60 bg-white/10 backdrop-blur-sm font-sans"
               >
                 <span className="flex items-center gap-2">
                   Browse Categories
-                  <svg className="w-5 h-5 group-hover:rotate-12 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
-                  </svg>
+                 
                 </span>
               </motion.button>
             </motion.div>
@@ -244,65 +232,110 @@ function Home() {
           <motion.div
             animate={{ y: [0, 6, 0] }}
             transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut" }}
-            className="flex flex-col items-center text-white/60"
+            className="flex flex-col items-center text-white/60 cursor-pointer"
+            onClick={() => {
+              const categoriesSection = document.querySelector('.grid.grid-cols-3');
+              if (categoriesSection) {
+                categoriesSection.scrollIntoView({ 
+                  behavior: 'smooth',
+                  block: 'start'
+                });
+              }
+            }}
           >
-            <span className="text-xs uppercase tracking-wider mb-2">Explore Products</span>
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
-            </svg>
+            <span className="text-xs uppercase tracking-wider mb-2 font-sans">Explore Products</span>
+            
+            {/* Desktop Scroll Indicator */}
+            <div className="hidden md:block">
+              <svg 
+                width="24" 
+                height="36" 
+                viewBox="0 0 24 36" 
+                fill="none" 
+                xmlns="http://www.w3.org/2000/svg"
+                className="text-white/60"
+              >
+                {/* Mouse outline */}
+                <rect 
+                  x="6" 
+                  y="2" 
+                  width="12" 
+                  height="20" 
+                  rx="6" 
+                  stroke="currentColor" 
+                  strokeWidth="1.5" 
+                  fill="none"
+                />
+                {/* Scroll wheel */}
+                <motion.circle
+                  cx="12"
+                  cy="8"
+                  r="1.5"
+                  fill="currentColor"
+                  animate={{ y: [0, 4, 0] }}
+                  transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut" }}
+                />
+                {/* Arrow pointing down */}
+                <motion.path
+                  d="M12 26L8 22M12 26L16 22M12 26V30"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  animate={{ opacity: [0.4, 1, 0.4] }}
+                  transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut" }}
+                />
+              </svg>
+            </div>
+
+            {/* Mobile Scroll Indicator */}
+            <div className="md:hidden">
+              <svg 
+                width="20" 
+                height="32" 
+                viewBox="0 0 20 32" 
+                fill="none" 
+                xmlns="http://www.w3.org/2000/svg"
+                className="text-white/60"
+              >
+                {/* Phone outline */}
+                <rect 
+                  x="4" 
+                  y="2" 
+                  width="12" 
+                  height="18" 
+                  rx="3" 
+                  stroke="currentColor" 
+                  strokeWidth="1.5" 
+                  fill="none"
+                />
+                {/* Touch indicator */}
+                <motion.circle
+                  cx="10"
+                  cy="8"
+                  r="1"
+                  fill="currentColor"
+                  animate={{ y: [0, 6, 0] }}
+                  transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut" }}
+                />
+                {/* Swipe arrow */}
+                <motion.path
+                  d="M10 24L7 21M10 24L13 21M10 24V28"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  animate={{ opacity: [0.4, 1, 0.4] }}
+                  transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut" }}
+                />
+              </svg>
+            </div>
           </motion.div>
         </motion.div>
       </div>
 
       {/* Features Section - Light Theme */}
-      <div className="bg-white py-12 md:py-16">
-        <div className="container mx-auto px-4 md:px-6 lg:px-8">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.8 }}
-            className="grid grid-cols-2 md:grid-cols-4 gap-6 max-w-4xl mx-auto"
-          >
-            <div className="text-center">
-              <div className="w-12 h-12 mx-auto mb-3 bg-blue-100 rounded-lg flex items-center justify-center">
-                <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              </div>
-              <div className="text-lg font-semibold text-gray-900 mb-1">Fast Delivery</div>
-              <div className="text-sm text-gray-500">2-3 Days Shipping</div>
-            </div>
-            <div className="text-center">
-              <div className="w-12 h-12 mx-auto mb-3 bg-green-100 rounded-lg flex items-center justify-center">
-                <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              </div>
-              <div className="text-lg font-semibold text-gray-900 mb-1">Quality Assured</div>
-              <div className="text-sm text-gray-500">Premium Materials</div>
-            </div>
-            <div className="text-center">
-              <div className="w-12 h-12 mx-auto mb-3 bg-purple-100 rounded-lg flex items-center justify-center">
-                <svg className="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
-                </svg>
-              </div>
-              <div className="text-lg font-semibold text-gray-900 mb-1">Easy Returns</div>
-              <div className="text-sm text-gray-500">30 Day Policy</div>
-            </div>
-            <div className="text-center">
-              <div className="w-12 h-12 mx-auto mb-3 bg-orange-100 rounded-lg flex items-center justify-center">
-                <svg className="w-6 h-6 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 5.636l-3.536 3.536m0 5.656l3.536 3.536M9.172 9.172L5.636 5.636m3.536 9.192L5.636 18.364M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-5 0a4 4 0 11-8 0 4 4 0 018 0z" />
-                </svg>
-              </div>
-              <div className="text-lg font-semibold text-gray-900 mb-1">24/7 Support</div>
-              <div className="text-sm text-gray-500">Always Here</div>
-            </div>
-          </motion.div>
-        </div>
-      </div>
+    
 
       {/* Collection Showcase - Compact Layout */}
       <div className="container mx-auto pt-2 md:pt-3 lg:pt-4 pb-1 md:pb-2 lg:pb-2 px-4 md:px-6 lg:px-8">
@@ -312,9 +345,9 @@ function Home() {
           transition={{ duration: 0.4 }}
           className="text-center mb-2 md:mb-3"
         >
-          <h2 className="font-light text-xs uppercase tracking-[0.15em] text-gray-500 mb-1">DISCOVER</h2>
-          <h1 className="text-xl md:text-2xl lg:text-3xl font-medium text-gray-900 mb-1 md:mb-2">Curated Collections</h1>
-          <p className="max-w-xl mx-auto text-gray-600 text-xs md:text-sm font-light leading-relaxed px-4">
+          <h2 className="font-light text-xs uppercase tracking-[0.15em] text-gray-500 mb-1 font-sans">DISCOVER</h2>
+          <h1 className="text-xl md:text-2xl lg:text-3xl font-medium text-gray-900 mb-1 md:mb-2 font-serif">Curated Collections</h1>
+          <p className="max-w-xl mx-auto text-gray-600 text-xs md:text-sm font-light leading-relaxed px-4 font-sans">
             Browse our selection of premium products for the modern lifestyle
           </p>
         </motion.div>
@@ -356,7 +389,7 @@ function Home() {
                       />
                     </div>
                     <div className="p-1 md:p-2 bg-white">
-                      <h3 className="text-xs font-medium text-gray-800 text-center truncate">
+                      <h3 className="text-xs font-medium text-gray-800 text-center truncate font-sans">
                         {category.name}
                       </h3>
                     </div>

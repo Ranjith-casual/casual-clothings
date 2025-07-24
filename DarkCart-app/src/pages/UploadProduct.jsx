@@ -16,7 +16,7 @@ function UploadProduct() {
   const [data, setData] = useState({
     name: "",
     image: [],
-    gender: "",
+    gender: [],
     category: [],
     stock: "",
     price: "",
@@ -43,16 +43,17 @@ function UploadProduct() {
   });
   const [ViewImageURL, setViewImageURL] = useState("");
   const [selectCategory, setSelectCategory] = useState("");
+  const [selectGender, setSelectGender] = useState("");
   const [imageLoading, setImageLoading] = useState(false);
   const allCategory = useSelector(state => state.product.allCategory);
   const [openAddField, setOpenAddField] = useState(false);
   const [fieldName, setFieldName] = useState("");
 
   const genderOptions = [
-    { value: "", label: "Select Gender" },
     { value: "Men", label: "Men" },
     { value: "Women", label: "Women" },
-    { value: "Kids", label: "Kids" }
+    { value: "Kids", label: "Kids" },
+    { value: "Unisex", label: "Unisex" }
   ];
 
   const handleChange = (e) => {
@@ -88,6 +89,11 @@ function UploadProduct() {
     setData(prev => ({ ...prev }));
   };
 
+  const handleRemoveGender = async (index) => {
+    data.gender.splice(index, 1);
+    setData(prev => ({ ...prev }));
+  };
+
   const handleAddField = () => {
     setData(prev => ({
       ...prev,
@@ -103,9 +109,15 @@ function UploadProduct() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
+      // Transform gender array to just values for backend
+      const submitData = {
+        ...data,
+        gender: data.gender.map(g => g.value)
+      };
+
       const response = await Axios({
         ...SummaryApi.createProduct,
-        data: data
+        data: submitData
       });
 
       const { data: responseData } = response;
@@ -116,6 +128,7 @@ function UploadProduct() {
         setData({
           name: "",
           image: [],
+          gender: [],
           category: [],
           stock: "",
           price: "",
@@ -222,18 +235,41 @@ function UploadProduct() {
             <label className='font-medium'>Gender</label>
             <div>
               <select
-                name="gender"
-                value={data.gender}
-                onChange={handleChange}
                 className='bg-gray-50 border border-gray-300 w-full p-2 rounded focus:outline-none focus:border-primary-200'
-                required
+                value={selectGender}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  const genderOption = genderOptions.find(option => option.value === value);
+                  
+                  // Check if gender is already selected
+                  const isAlreadySelected = data.gender.some(g => g.value === value);
+                  
+                  if (!isAlreadySelected && genderOption) {
+                    setData(prev => ({
+                      ...prev,
+                      gender: [...prev.gender, genderOption],
+                    }));
+                  }
+                  setSelectGender("");
+                }}
               >
-                {genderOptions.map(option => (
-                  <option key={option.value} value={option.value}>
+                <option value={""}>Select Gender</option>
+                {genderOptions.map((option, index) => (
+                  <option key={option.value + index} value={option.value}>
                     {option.label}
                   </option>
                 ))}
               </select>
+              <div className='flex flex-wrap gap-2 mt-3'>
+                {data.gender.map((g, index) => (
+                  <div key={g.value + index + "gendersection"} className='text-sm flex items-center gap-1 bg-gray-100 p-1 rounded'>
+                    <p>{g.label}</p>
+                    <div className='hover:text-red-500 cursor-pointer' onClick={() => handleRemoveGender(index)}>
+                      <IoClose size={16} />
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
 
