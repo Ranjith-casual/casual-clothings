@@ -77,7 +77,7 @@ function Home() {
                         className="w-full h-full object-scale-down"
                       />
                     </div>
-                    <div className="p-1 border-t border-gray-50 bg-white">
+                    <div className="p-1 bg-white">
                       <h3 className="text-xs font-medium text-gray-800 text-center truncate">
                         {category.name}
                       </h3>
@@ -98,7 +98,7 @@ function Home() {
               viewport={{ once: true }}
               transition={{ duration: 0.5 }}
               key={c._id + "CategorywiseProductDisplay"}
-              className="mb-4 md:mb-6 last:mb-0"
+              className="mb-2 md:mb-3 last:mb-0"
             >
               <PremiumCategoryWiseProductDisplay
                 id={c._id}

@@ -153,7 +153,7 @@ function PremiumCategoryWiseProductDisplay({ id, name }) {
                     </div>
                     
                     {/* Desktop: Simplified product details */}
-                    <div className="hidden md:block p-2 border-t border-gray-100 bg-white">
+                    <div className="hidden md:block p-2 bg-white">
                       <div className="space-y-1">
                         {/* Product Name */}
                         <h3 className="text-xs font-medium text-black leading-tight line-clamp-1 min-h-[1.25rem] font-serif">
@@ -189,7 +189,7 @@ function PremiumCategoryWiseProductDisplay({ id, name }) {
                     </div>
 
                     {/* Mobile: Simplified product details */}
-                    <div className="block md:hidden p-2 border-t border-gray-100 bg-white">
+                    <div className="block md:hidden p-2 bg-white">
                       <div className="space-y-1">
                         {/* Product Name */}
                         <h3 className="text-xs font-medium text-black leading-tight line-clamp-1 min-h-[1.25rem] font-serif">
