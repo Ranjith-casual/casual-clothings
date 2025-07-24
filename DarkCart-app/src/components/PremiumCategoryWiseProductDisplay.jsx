@@ -80,7 +80,7 @@ function PremiumCategoryWiseProductDisplay({ id, name }) {
       whileInView={{ opacity: 1 }}
       transition={{ duration: 0.5 }}
       viewport={{ once: true }}
-      className="py-4 md:py-6 lg:py-8 bg-white"
+      className="py-4 md:py-6 lg:py-8"
     >
       <div className="container mx-auto px-2 md:px-3 lg:px-4">
         {/* Simplified Section Header */}

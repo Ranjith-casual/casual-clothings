@@ -848,7 +848,7 @@ const PremiumHeroCarousel = () => {
           </div>
         </div>
         {/* Mobile Content Cards - Optimized */}
-        <div className="bg-white py-8">
+        <div className="py-8">
           {/* Mobile CTA - Optimized */}
           <div className="px-4 mt-8">
             <motion.button
