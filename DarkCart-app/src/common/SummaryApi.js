@@ -368,6 +368,57 @@ const SummaryApi = {
         url: '/api/custom-tshirt/admin/bulk-update',
         method: 'put'
     },
+    
+    // Return Product APIs
+    getEligibleReturnItems: {
+        url: '/api/return-product/eligible-items',
+        method: 'get'
+    },
+    createReturnRequest: {
+        url: '/api/return-product/create',
+        method: 'post'
+    },
+    getUserReturnRequests: {
+        url: '/api/return-product/user/my-returns',
+        method: 'get'
+    },
+    getReturnRequestDetails: {
+        url: '/api/return-product',
+        method: 'get'
+    },
+    updateReturnRequest: {
+        url: '/api/return-product/update',
+        method: 'put'
+    },
+    cancelReturnRequest: {
+        url: '/api/return-product/cancel',
+        method: 'put'
+    },
+    // Admin Return Product APIs
+    getAllReturnRequests: {
+        url: '/api/return-product/admin/all',
+        method: 'post'
+    },
+    processReturnRequest: {
+        url: '/api/return-product/admin/process/:returnId',
+        method: 'put'
+    },
+    confirmProductReceived: {
+        url: '/api/return-product/admin/confirm-received',
+        method: 'put'
+    },
+    processRefund: {
+        url: '/api/return-product/admin/process-refund/:returnId',
+        method: 'put'
+    },
+    updateRefundStatus: {
+        url: '/api/return-product/admin/update-refund-status/:returnId',
+        method: 'put'
+    },
+    getReturnDashboardStats: {
+        url: '/api/return-product/admin/dashboard/stats',
+        method: 'get'
+    },
 }
 
 export default SummaryApi;

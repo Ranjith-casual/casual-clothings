@@ -21,6 +21,7 @@ import Dashboard from "../layout/Dashboard";
 import Profile from "../pages/Profile";
 import MyOrders from "../pages/MyOrders";
 import MyRefunds from "../pages/MyRefunds";
+import ReturnProduct from "../pages/ReturnProduct";
 import Address from "../pages/Address";
 import WishlistPage from "../pages/WishlistPage";
 import CategoryPage from "../pages/CategoryPage";
@@ -48,6 +49,7 @@ import AdminDashboard from "../pages/AdminDashboard";
 import UserManagement from "../pages/UserManagement";
 import PaymentManagement from "../pages/PaymentManagement";
 import CancellationManagementPage from "../pages/CancellationManagementPage";
+import AdminReturnManagement from "../pages/AdminReturnManagement";
 import CustomTshirtRequest from "../pages/CustomTshirtRequest";
 import MyCustomTshirts from "../pages/MyCustomTshirts";
 import CustomTshirtRequestsAdmin from "../pages/CustomTshirtRequestsAdmin";
@@ -112,6 +114,10 @@ const router = createBrowserRouter([
                 element : <CustomTshirtRequest/>
             },
             {
+                path:"/return-product",
+                element : <ReturnProduct/>
+            },
+            {
                 path:"/login",
                 element : <Login/>
             },{
@@ -143,6 +149,9 @@ const router = createBrowserRouter([
                 },{
                     path:"myrefunds",
                     element:<MyRefunds/>
+                },{
+                    path:"return-product",
+                    element:<ReturnProduct/>
                 },{
                     path:"address",
                     element:<Address/>
@@ -189,6 +198,10 @@ const router = createBrowserRouter([
                 {
                     path:"cancellation-management",
                     element:<AdminPermission><CancellationManagementPage/></AdminPermission>
+                },
+                {
+                    path:"return-management",
+                    element:<AdminPermission><AdminReturnManagement/></AdminPermission>
                 },
                 {
                     path:"custom-tshirt-admin",

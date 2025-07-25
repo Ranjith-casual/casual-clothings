@@ -21,6 +21,7 @@ import orderCancellationRouter from './route/orderCancellation.route.js' // Impo
 import emailRouter from './route/email.route.js' // Import email routes
 import configRouter from './route/config.route.js' // Import config routes for sizes management
 import customTshirtRequestRouter from './route/customTshirtRequest.route.js' // Import custom t-shirt request routes
+import returnProductRouter from './route/returnProduct.route.js' // Import return product routes
 
 
 
@@ -99,6 +100,7 @@ app.use('/api/order-cancellation', orderCancellationRouter) // Use order cancell
 app.use('/api/email', emailRouter) // Use email routes
 app.use('/api/config', configRouter) // Use config routes for sizes management
 app.use('/api/custom-tshirt', customTshirtRequestRouter) // Use custom t-shirt request routes
+app.use('/api/return-product', returnProductRouter) // Use return product routes
 
 
 connectDB().then(
