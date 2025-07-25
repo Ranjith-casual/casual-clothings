@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { useSelector, useDispatch } from 'react-redux'
-import { FaMapMarkerAlt, FaCity, FaFlag, FaMailBulk, FaBox, FaUser, FaEnvelope, FaCalendar, FaTimes, FaExclamationTriangle, FaBan, FaRedo, FaInfoCircle, FaCheck, FaSpinner, FaCreditCard, FaCog, FaTruck, FaDownload, FaFilePdf } from 'react-icons/fa'
+import { useNavigate } from 'react-router-dom'
+import { FaMapMarkerAlt, FaCity, FaFlag, FaMailBulk, FaBox, FaUser, FaEnvelope, FaCalendar, FaTimes, FaExclamationTriangle, FaBan, FaRedo, FaInfoCircle, FaCheck, FaSpinner, FaCreditCard, FaCog, FaTruck, FaDownload, FaFilePdf, FaUndo } from 'react-icons/fa'
 import AnimatedImage from '../components/NoData';
 import toast from 'react-hot-toast';
 import SummaryApi from '../common/SummaryApi';
@@ -20,6 +21,7 @@ function MyOrders() {
   // Get current user information
   const user = useSelector((state) => state.user);
   const dispatch = useDispatch();
+  const navigate = useNavigate();
   const [cancellingOrderId, setCancellingOrderId] = useState(null);
   const [showCancellationModal, setShowCancellationModal] = useState(false);
   const [orderToCancel, setOrderToCancel] = useState(null);
@@ -41,8 +43,6 @@ function MyOrders() {
   
   const { fetchOrders, refreshingOrders } = useGlobalContext();
   
-  // let originalPrice = 0;
-
   // Size-based price calculation utility function - calculates base price with size adjustment, then applies discount
   const calculateSizeBasedPrice = (item, productInfo = null) => {
     try {
@@ -51,7 +51,10 @@ function MyOrders() {
       
       // For bundles, use bundle pricing without size adjustments
       if (item?.itemType === 'bundle') {
-        return (product?.bundlePrice || product?.price || 0) * (item?.quantity || 1);
+        const bundlePrice = product?.bundlePrice || product?.price || 0;
+        const discount = product?.discount || 0;
+        const finalPrice = discount > 0 ? bundlePrice * (1 - discount/100) : bundlePrice;
+        return finalPrice * (item?.quantity || 1);
       }
 
       // Check if product has size-based pricing (direct size-price mapping)
@@ -812,7 +815,7 @@ function MyOrders() {
                                     }`}>
                                       Qty: {item?.quantity}
                                     </span>
-                                    {/* Price per unit indicator with size-based pricing */}
+                                    {/* Size-based price per unit display */}
                                     {(() => {
                                       const isBundle = item?.itemType === 'bundle';
                                       let unitPrice = 0;
@@ -883,28 +886,12 @@ function MyOrders() {
                                       
                                       return (
                                         <>
-                                          {/* Always show total amount without discount first */}
-                                          {/* <div className={`text-xs font-medium ${
-                                            isCancelled ? 'text-red-600' : 'text-gray-700'
-                                          }`}>
-                                            {!isBundle ? (
-                                              <>
-                                                Total (without discount): ₹{(originalPrice * item?.quantity)?.toFixed(2)}
-                                                {item?.size && (
-                                                  <span className="ml-1 text-purple-600">(Size: {item.size})</span>
-                                                )}
-                                              </>
-                                            ) : (
-                                              <>Bundle Total: ₹{(originalPrice * item?.quantity)?.toFixed(2)}</>
-                                            )}
-                                          </div> */}
-                                          
                                           {/* Show original price per unit if there's a discount */}
-                                          {/* {hasDiscount && (
+                                          {hasDiscount && (
                                             <div className={`text-xs ${
                                               isCancelled ? 'text-red-500 line-through' : 'text-gray-500 line-through'
                                             }`}>
-                                              Unit Price: ₹{originalPrice?.toFixed(2)}
+                                              Original: ₹{originalPrice?.toFixed(2)}
                                               {!isBundle && item?.productId?.discount && (
                                                 <span className="ml-1 text-orange-600">({item.productId.discount}% off)</span>
                                               )}
@@ -915,7 +902,7 @@ function MyOrders() {
                                                 <span className="ml-1 text-blue-600">(Bundle Savings)</span>
                                               )}
                                             </div>
-                                          )} */}
+                                          )}
                                           
                                           {/* Show size info for products without discount but with size multiplier */}
                                           {!hasDiscount && !isBundle && item?.size && (() => {
@@ -937,7 +924,7 @@ function MyOrders() {
                                           <div className={`font-bold text-sm sm:text-base ${
                                             isCancelled ? 'text-red-800 line-through' : 'text-black'
                                           }`}>
-                                            Final Unit Price: ₹{finalPrice?.toFixed(2)}
+                                            Unit Price: ₹{finalPrice?.toFixed(2)}
                                             {!isBundle && item?.size && (() => {
                                               const sizeMultipliers = {
                                                 'XS': 0.9, 'S': 1.0, 'M': 1.1, 'L': 1.2, 'XL': 1.3, 'XXL': 1.4,
@@ -981,18 +968,6 @@ function MyOrders() {
                                               </span>
                                             )}
                                           </div>
-                                          
-                                          {/* Final Item Total after discount */}
-                                          {/* <div className={`text-xs font-semibold ${
-                                            isCancelled ? 'text-red-600' : 'text-green-700'
-                                          }`}>
-                                            Final Total: ₹{(finalPrice * item?.quantity)?.toFixed(2)}
-                                            {hasDiscount && (
-                                              <span className="ml-1 text-green-600">
-                                                (After {!isBundle ? 'discount' : 'bundle savings'})
-                                              </span>
-                                            )}
-                                          </div> */}
                                         </>
                                       );
                                     })()}
@@ -1009,133 +984,8 @@ function MyOrders() {
                     <div className={`mt-3 p-2 sm:p-3 rounded-lg border ${
                       isCancelled ? 'bg-red-50 border-red-200' : 'bg-white border-gray-200'
                     }`}>
-                      {/* <div className="p-2 sm:p-3 border-b">
-                        <h2 className={`text-base font-medium tracking-tight uppercase ${
-                          isCancelled ? 'text-red-700' : 'text-gray-800'
-                        }`}>
-                          Price Details ({order?.totalQuantity} {order?.totalQuantity === 1 ? 'Item' : 'Items'})
-                        </h2>
-                      </div> */}
-                      
                       <div className="p-2 sm:p-3">
                         <div className="space-y-3">
-                          {/* Total MRP with size-based pricing */}
-                          {/* <div className="flex justify-between items-center">
-                            <span className={`text-xs sm:text-sm ${
-                              isCancelled ? 'text-red-700' : 'text-gray-700'
-                            }`}>
-                              Total MRP
-                            </span>
-                            <span className={`font-medium text-sm ${
-                              isCancelled ? 'text-red-800' : 'text-gray-900'
-                            }`}>
-                              {(() => {
-                                // Calculate total MRP using same logic as originalPrice in product details
-                                let totalMRP = 0;
-                                order?.items?.forEach(item => {
-                                  const isBundle = item?.itemType === 'bundle';
-                                  let originalPrice = 0;
-                                  
-                                  if (isBundle) {
-                                    // For bundles, use original bundle pricing
-                                    originalPrice = item?.bundleId?.originalPrice || item?.bundleDetails?.originalPrice || 0;
-                                  } else {
-                                    // For products, calculate original price with size adjustments
-                                    const productInfo = item?.productId || item?.productDetails;
-                                    const basePrice = productInfo?.price || 0;
-                                    const size = item?.size;
-                                    
-                                    // Apply size multiplier to base price
-                                    const sizeMultipliers = {
-                                      'XS': 0.9, 'S': 1.0, 'M': 1.1, 'L': 1.2, 'XL': 1.3, 'XXL': 1.4,
-                                      '28': 0.9, '30': 1.0, '32': 1.1, '34': 1.2, '36': 1.3, '38': 1.4, '40': 1.5, '42': 1.6
-                                    };
-                                    const multiplier = size ? (sizeMultipliers[size] || sizeMultipliers[size.toUpperCase()] || 1.0) : 1.0;
-                                    originalPrice = basePrice * multiplier;
-                                  }
-                                  
-                                  totalMRP += originalPrice * item.quantity;
-                                });
-                                return `₹${totalMRP.toFixed(2)}`;
-                              })()}
-                            </span>
-                          </div> */}
-                          
-                          {/* Discount on MRP with size-based pricing */}
-                          {/* {(() => {
-                            // Calculate total savings using same logic as originalPrice and finalPrice
-                            // let totalSavings = 0;
-                            // order?.items?.forEach(item => {
-                            //   const isBundle = item?.itemType === 'bundle';
-                            //   let originalPrice = 0;
-                            //   let finalPrice = 0;
-
-                            //   console.log('Calculating savings for item:', item);
-                              
-                            //   if (isBundle) {
-                            //     // For bundles, use original bundle pricing
-                            //     originalPrice = item?.bundleId?.originalPrice || item?.bundleDetails?.originalPrice || 0;
-                            //     finalPrice = item?.bundleId?.bundlePrice || item?.bundleDetails?.bundlePrice || 0;
-                            //   } else {
-                            //     // For products, calculate with same logic as product details
-                            //     const productInfo = item?.productId || item?.productDetails;
-                            //     const basePrice = productInfo?.price || 0;
-                            //     const discount = productInfo?.discount || 0;
-                            //     const size = item?.size;
-                                
-                            //     // Apply size multiplier to get original price
-                            //     const sizeMultipliers = {
-                            //       'XS': 0.9, 'S': 1.0, 'M': 1.1, 'L': 1.2, 'XL': 1.3, 'XXL': 1.4,
-                            //       '28': 0.9, '30': 1.0, '32': 1.1, '34': 1.2, '36': 1.3, '38': 1.4, '40': 1.5, '42': 1.6
-                            //     };
-                            //     const multiplier = size ? (sizeMultipliers[size] || sizeMultipliers[size.toUpperCase()] || 1.0) : 1.0;
-                            //     originalPrice = basePrice * multiplier;
-                                
-                            //     // Final price: size-adjusted price with discount applied
-                            //     finalPrice = discount > 0 ? originalPrice * (1 - discount/100) : originalPrice;
-                            //   }
-                              
-                            //   // Add savings if original price is higher than final price
-                            //   if (originalPrice > finalPrice) {
-                            //     totalSavings += (originalPrice - finalPrice) * item.quantity;
-                            //   }
-                            // });
-                            
-                            return totalSavings > 0 ? (
-                              <div className="flex justify-between items-center">
-                                <span className={`text-xs sm:text-sm ${
-                                  isCancelled ? 'text-red-700' : 'text-gray-700'
-                                }`}>
-                                  Discount on MRP
-                                </span>
-                                <span className={`font-medium text-sm ${
-                                  isCancelled ? 'text-red-700' : 'text-green-600'
-                                }`}>
-                                  -₹{totalSavings.toFixed(2)}
-                                </span>
-                              </div>
-                            ) : null;
-                          })()} */}
-                          
-                          {/* Platform Fee */}
-                          {/* <div className="flex justify-between items-center">
-                            <span className={`text-xs sm:text-sm ${
-                              isCancelled ? 'text-red-700' : 'text-gray-700'
-                            }`}>
-                              Platform Fee
-                            </span>
-                            <div className="flex items-center">
-                              <span className={`line-through text-xs mr-1 ${
-                                isCancelled ? 'text-red-400' : 'text-gray-500'
-                              }`}>₹99</span>
-                              <span className={`font-medium text-sm ${
-                                isCancelled ? 'text-red-700' : 'text-gray-900'
-                              }`}>
-                                FREE
-                              </span>
-                            </div>
-                          </div> */}
-                          
                           {/* Delivery Charge */}
                           <div className="flex justify-between items-center">
                             <span className={`text-xs sm:text-sm ${
@@ -1470,6 +1320,17 @@ function MyOrders() {
                           </>
                         )}
                       </button>
+                      
+                      {/* Return Product Button - Only show for delivered orders */}
+                      {order.orderStatus === 'DELIVERED' && (
+                        <button
+                          onClick={() => navigate('/return-product')}
+                          className="flex items-center gap-2 px-4 py-2 rounded-md text-sm font-semibold transition-colors bg-orange-50 text-orange-700 border border-orange-200 hover:bg-orange-100"
+                        >
+                          <FaUndo className='w-4 h-4' />
+                          <span>Return Products</span>
+                        </button>
+                      )}
                       
                       {/* Invoice Type Indicator */}
                       <div className="text-xs text-gray-500 flex items-center gap-1">
