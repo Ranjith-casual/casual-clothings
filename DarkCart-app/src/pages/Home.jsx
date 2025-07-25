@@ -465,7 +465,7 @@ function Home() {
             
             <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
               <Link
-                to="/custom-tshirt-request"
+                to="/custom-tshirt"
                 className="bg-white text-black px-8 py-4 rounded-full font-semibold text-lg hover:bg-gray-100 transition-all duration-300 transform hover:scale-105 shadow-lg flex items-center gap-3"
               >
                 <FaTshirt className="text-xl" />
