@@ -141,8 +141,28 @@ const CustomTshirtRequestsAdmin = () => {
   };
 
   const openWhatsApp = (phone, name) => {
+    // Clean the phone number by removing all non-digit characters
+    let cleanPhone = phone.replace(/\D/g, '');
+    
+    // Handle Indian phone numbers
+    if (cleanPhone.length === 10) {
+      // If it's a 10-digit number, add Indian country code
+      cleanPhone = '91' + cleanPhone;
+    } else if (cleanPhone.length === 12 && cleanPhone.startsWith('91')) {
+      // Already has Indian country code, keep as is
+      cleanPhone = cleanPhone;
+    } else if (cleanPhone.length > 10) {
+      // Remove any country code and add Indian country code
+      cleanPhone = '91' + cleanPhone.slice(-10);
+    }
+    
     const message = `Hi ${name}, regarding your custom t-shirt request. How can we help you?`;
-    const whatsappUrl = `https://wa.me/${phone.replace(/\D/g, '')}?text=${encodeURIComponent(message)}`;
+    const whatsappUrl = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`;
+    
+    console.log('Original phone:', phone);
+    console.log('Cleaned phone:', cleanPhone);
+    console.log('WhatsApp URL:', whatsappUrl);
+    
     window.open(whatsappUrl, '_blank');
   };
 
@@ -158,36 +178,68 @@ const CustomTshirtRequestsAdmin = () => {
   };
 
   const exportToCSV = () => {
+    // Helper function to properly escape CSV values
+    const escapeCSVValue = (value) => {
+      if (value == null || value === undefined) return '';
+      
+      const stringValue = String(value);
+      
+      // If the value contains comma, quote, or newline, wrap in quotes and escape existing quotes
+      if (stringValue.includes(',') || stringValue.includes('"') || stringValue.includes('\n') || stringValue.includes('\r')) {
+        return `"${stringValue.replace(/"/g, '""')}"`;
+      }
+      
+      return stringValue;
+    };
+
     const headers = [
-      'Name', 'Email', 'Phone', 'T-Shirt Type', 'Color', 'Size', 
-      'Genders', 'Status', 'Created At', 'Delivery Date', 'Estimated Price', 
-      'Has General Image', 'Gender Images Count', 'Admin Notes'
+      'ID', 'Name', 'Email', 'Phone', 'T-Shirt Type', 'Color', 'Size', 
+      'Genders', 'Status', 'Design Description', 'Created At', 'Delivery Date', 
+      'Estimated Price', 'Has General Image', 'Gender Images Count', 'Admin Notes', 
+      'Rejection Reason'
     ];
+    
     const csvData = requests.map(req => [
-      req.name,
-      req.email,
-      req.phone,
-      req.tshirtType,
-      req.color,
-      req.size,
-      req.genders ? req.genders.join(', ') : '',
-      req.status,
-      format(new Date(req.createdAt), 'dd/MM/yyyy'),
-      format(new Date(req.preferredDeliveryDate), 'dd/MM/yyyy'),
-      req.estimatedPrice || 0,
-      req.uploadedImage ? 'Yes' : 'No',
-      req.genderImages ? Object.keys(req.genderImages).filter(key => req.genderImages[key]).length : 0,
-      req.adminNotes || ''
+      escapeCSVValue(req._id),
+      escapeCSVValue(req.name || ''),
+      escapeCSVValue(req.email || ''),
+      escapeCSVValue(req.phone || ''),
+      escapeCSVValue(req.tshirtType || ''),
+      escapeCSVValue(req.color || ''),
+      escapeCSVValue(req.size || ''),
+      escapeCSVValue(req.genders ? req.genders.join(', ') : ''),
+      escapeCSVValue(req.status || ''),
+      escapeCSVValue(req.designDescription || ''),
+      escapeCSVValue(format(new Date(req.createdAt), 'dd/MM/yyyy HH:mm')),
+      escapeCSVValue(format(new Date(req.preferredDeliveryDate), 'dd/MM/yyyy')),
+      escapeCSVValue(req.estimatedPrice || 0),
+      escapeCSVValue(req.uploadedImage ? 'Yes' : 'No'),
+      escapeCSVValue(req.genderImages ? Object.keys(req.genderImages).filter(key => req.genderImages[key]).length : 0),
+      escapeCSVValue(req.adminNotes || ''),
+      escapeCSVValue(req.rejectionReason || '')
     ]);
 
-    const csvContent = [headers, ...csvData].map(row => row.join(',')).join('\n');
-    const blob = new Blob([csvContent], { type: 'text/csv' });
+    // Create CSV content with proper formatting
+    const csvContent = [
+      headers.map(header => escapeCSVValue(header)).join(','),
+      ...csvData.map(row => row.join(','))
+    ].join('\n');
+
+    // Add BOM for proper UTF-8 encoding in Excel
+    const BOM = '\uFEFF';
+    const blob = new Blob([BOM + csvContent], { type: 'text/csv;charset=utf-8;' });
+    
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
     a.download = `custom-tshirt-requests-${format(new Date(), 'yyyy-MM-dd')}.csv`;
+    a.style.display = 'none';
+    document.body.appendChild(a);
     a.click();
+    document.body.removeChild(a);
     window.URL.revokeObjectURL(url);
+    
+    toast.success(`Exported ${requests.length} requests to CSV`);
   };
 
   return (
@@ -640,10 +692,12 @@ const CustomTshirtRequestsAdmin = () => {
                   </button>
                   <button
                     onClick={() => openWhatsApp(selectedRequest.phone, selectedRequest.name)}
-                    className="flex items-center gap-2 bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600"
+                    className="flex items-center gap-2 bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600 transition-colors"
+                    title={`Contact ${selectedRequest.name} via WhatsApp: ${selectedRequest.phone}`}
                   >
                     <FaWhatsapp />
-                    WhatsApp
+                    <span className="hidden sm:inline">Contact via WhatsApp</span>
+                    <span className="sm:hidden">WhatsApp</span>
                   </button>
                 </div>
               </div>

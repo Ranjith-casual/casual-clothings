@@ -121,17 +121,17 @@ const MyCustomTshirts = () => {
     <div className="min-h-screen bg-gray-50 py-8">
       <div className="container mx-auto px-4 max-w-6xl">
         {/* Header */}
-        <div className="mb-8">
-          <div className="flex items-center justify-between">
+        <div className="mb-6 sm:mb-8">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
-              <h1 className="text-3xl font-bold text-gray-900 mb-2">My Custom T-Shirts</h1>
-              <p className="text-gray-600">Track your custom t-shirt requests and their status</p>
+              <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-1 sm:mb-2">My Custom T-Shirts</h1>
+              <p className="text-sm sm:text-base text-gray-600">Track your custom t-shirt requests and their status</p>
             </div>
             <Link
-              to="/custom-tshirt-request"
-              className="bg-black text-white px-6 py-3 rounded-lg hover:bg-gray-800 transition-colors flex items-center gap-2"
+              to="/custom-tshirt"
+              className="bg-black text-white px-4 sm:px-6 py-2.5 sm:py-3 rounded-lg hover:bg-gray-800 transition-colors flex items-center justify-center sm:justify-start gap-2 text-sm sm:text-base w-full sm:w-auto"
             >
-              <FaPlus className="text-sm" />
+              <FaPlus className="text-xs sm:text-sm" />
               New Request
             </Link>
           </div>
@@ -139,20 +139,20 @@ const MyCustomTshirts = () => {
 
         {/* Requests Grid */}
         {requests.length === 0 ? (
-          <div className="text-center py-16">
-            <FaTshirt className="text-6xl text-gray-300 mx-auto mb-6" />
-            <h3 className="text-xl font-semibold text-gray-600 mb-4">No Custom T-Shirt Requests</h3>
-            <p className="text-gray-500 mb-8">You haven't made any custom t-shirt requests yet.</p>
+          <div className="text-center py-12 sm:py-16">
+            <FaTshirt className="text-4xl sm:text-6xl text-gray-300 mx-auto mb-4 sm:mb-6" />
+            <h3 className="text-lg sm:text-xl font-semibold text-gray-600 mb-3 sm:mb-4 px-4">No Custom T-Shirt Requests</h3>
+            <p className="text-gray-500 mb-6 sm:mb-8 px-4">You haven't made any custom t-shirt requests yet.</p>
             <Link
-              to="/custom-tshirt-request"
-              className="bg-black text-white px-8 py-3 rounded-lg hover:bg-gray-800 transition-colors inline-flex items-center gap-2"
+              to="/custom-tshirt"
+              className="bg-black text-white px-6 sm:px-8 py-2.5 sm:py-3 rounded-lg hover:bg-gray-800 transition-colors inline-flex items-center gap-2 text-sm sm:text-base"
             >
-              <FaPlus className="text-sm" />
+              <FaPlus className="text-xs sm:text-sm" />
               Create Your First Request
             </Link>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-6">
             {requests.map((request, index) => (
               <motion.div
                 key={request._id}
@@ -162,22 +162,22 @@ const MyCustomTshirts = () => {
                 className="bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow duration-300 overflow-hidden"
               >
                 {/* Request Header */}
-                <div className="p-6">
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="flex items-center gap-2">
-                      <FaTshirt className="text-gray-600" />
-                      <span className="font-medium text-gray-900">Request #{request._id?.slice(-6)}</span>
+                <div className="p-4 sm:p-6">
+                  <div className="flex items-center justify-between mb-3 sm:mb-4">
+                    <div className="flex items-center gap-2 min-w-0 flex-1">
+                      <FaTshirt className="text-gray-600 flex-shrink-0" />
+                      <span className="font-medium text-gray-900 text-sm sm:text-base truncate">Request #{request._id?.slice(-6)}</span>
                     </div>
-                    <span className={`px-3 py-1 rounded-full text-xs font-medium border ${getStatusColor(request.status)}`}>
+                    <span className={`px-2 sm:px-3 py-1 rounded-full text-xs font-medium border flex-shrink-0 ${getStatusColor(request.status)}`}>
                       {formatStatus(request.status)}
                     </span>
                   </div>
 
                   {/* Request Details Preview */}
-                  <div className="space-y-3">
+                  <div className="space-y-2 sm:space-y-3">
                     <div className="flex items-center gap-2 text-sm text-gray-600">
                       <FaUser className="text-xs" />
-                      <span>Gender: {Array.isArray(request.gender) ? request.gender.join(', ') : request.gender}</span>
+                      <span>Gender: {Array.isArray(request.genders) ? request.genders.join(', ') : request.genders}</span>
                     </div>
                     
                     <div className="flex items-center gap-2 text-sm text-gray-600">
@@ -204,18 +204,44 @@ const MyCustomTshirts = () => {
                     )}
 
                     {/* Images Preview */}
-                    {request.images && Object.keys(request.images).length > 0 && (
-                      <div className="flex items-center gap-2 text-sm text-gray-600">
-                        <FaImages className="text-xs" />
-                        <span>{Object.keys(request.images).length} image(s) uploaded</span>
+                    {request.genderImages && Object.keys(request.genderImages).length > 0 && (
+                      <div className="mt-4">
+                        <div className="flex items-center gap-2 text-sm text-gray-600 mb-3">
+                          <FaImages className="text-xs" />
+                          <span className="hidden sm:inline">Uploaded Images ({Object.keys(request.genderImages).length})</span>
+                          <span className="sm:hidden">Images ({Object.keys(request.genderImages).length})</span>
+                        </div>
+                        <div className="grid grid-cols-1 xs:grid-cols-2 gap-2 sm:gap-3">
+                          {Object.entries(request.genderImages).map(([gender, imageUrl]) => (
+                            <div key={gender} className="relative">
+                              <div className="aspect-square rounded-md sm:rounded-lg overflow-hidden bg-gray-100 border border-gray-200 hover:border-gray-300 transition-colors">
+                                <img
+                                  src={imageUrl}
+                                  alt={`${gender} design`}
+                                  className="w-full h-full object-cover hover:scale-105 transition-transform duration-200"
+                                  onError={(e) => {
+                                    e.target.style.display = 'none';
+                                    e.target.nextSibling.style.display = 'flex';
+                                  }}
+                                />
+                                <div className="hidden w-full h-full items-center justify-center">
+                                  <FaImages className="text-gray-400 text-lg sm:text-xl" />
+                                </div>
+                              </div>
+                              <div className="absolute bottom-1 left-1 bg-black bg-opacity-75 text-white text-xs px-1.5 py-0.5 sm:px-2 sm:py-1 rounded text-center min-w-0 max-w-full overflow-hidden">
+                                <span className="block truncate">{gender}</span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
                       </div>
                     )}
                   </div>
 
                   {/* Special Instructions Preview */}
                   {request.specialInstructions && (
-                    <div className="mt-4 p-3 bg-gray-50 rounded-lg">
-                      <p className="text-sm text-gray-700 line-clamp-2">
+                    <div className="mt-3 sm:mt-4 p-2.5 sm:p-3 bg-gray-50 rounded-lg">
+                      <p className="text-xs sm:text-sm text-gray-700 line-clamp-2">
                         {request.specialInstructions}
                       </p>
                     </div>
@@ -224,9 +250,9 @@ const MyCustomTshirts = () => {
                   {/* View Details Button */}
                   <button
                     onClick={() => handleViewDetails(request)}
-                    className="mt-4 w-full bg-gray-900 text-white py-2 px-4 rounded-lg hover:bg-gray-800 transition-colors flex items-center justify-center gap-2"
+                    className="mt-3 sm:mt-4 w-full bg-gray-900 text-white py-2 sm:py-2.5 px-3 sm:px-4 rounded-lg hover:bg-gray-800 transition-colors flex items-center justify-center gap-2 text-sm sm:text-base"
                   >
-                    <FaEye className="text-sm" />
+                    <FaEye className="text-xs sm:text-sm" />
                     View Details
                   </button>
                 </div>
@@ -242,26 +268,26 @@ const MyCustomTshirts = () => {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50"
+              className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-2 sm:p-4 z-50"
               onClick={closeModal}
             >
               <motion.div
                 initial={{ scale: 0.95, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
                 exit={{ scale: 0.95, opacity: 0 }}
-                className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto"
+                className="bg-white rounded-lg max-w-4xl w-full max-h-[95vh] sm:max-h-[90vh] overflow-y-auto"
                 onClick={(e) => e.stopPropagation()}
               >
                 {/* Modal Header */}
-                <div className="p-6 border-b border-gray-200">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h2 className="text-2xl font-bold text-gray-900">Request Details</h2>
-                      <p className="text-gray-600">Request ID: #{selectedRequest._id}</p>
+                <div className="p-4 sm:p-6 border-b border-gray-200">
+                  <div className="flex items-start sm:items-center justify-between gap-4">
+                    <div className="min-w-0 flex-1">
+                      <h2 className="text-xl sm:text-2xl font-bold text-gray-900 mb-1">Request Details</h2>
+                      <p className="text-sm sm:text-base text-gray-600 truncate">Request ID: #{selectedRequest._id}</p>
                     </div>
                     <button
                       onClick={closeModal}
-                      className="text-gray-400 hover:text-gray-600 text-2xl"
+                      className="text-gray-400 hover:text-gray-600 text-2xl sm:text-3xl flex-shrink-0 p-1"
                     >
                       ×
                     </button>
@@ -269,8 +295,8 @@ const MyCustomTshirts = () => {
                 </div>
 
                 {/* Modal Content */}
-                <div className="p-6">
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <div className="p-4 sm:p-6">
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-8">
                     {/* Request Information */}
                     <div>
                       <h3 className="text-lg font-semibold text-gray-900 mb-4">Request Information</h3>
@@ -285,7 +311,7 @@ const MyCustomTshirts = () => {
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-1">Gender</label>
                           <p className="text-gray-900">
-                            {Array.isArray(selectedRequest.gender) ? selectedRequest.gender.join(', ') : selectedRequest.gender}
+                            {Array.isArray(selectedRequest.genders) ? selectedRequest.genders.join(', ') : selectedRequest.genders}
                           </p>
                         </div>
 
@@ -326,31 +352,39 @@ const MyCustomTshirts = () => {
 
                     {/* Images */}
                     <div>
-                      <h3 className="text-lg font-semibold text-gray-900 mb-4">Uploaded Images</h3>
-                      {selectedRequest.images && Object.keys(selectedRequest.images).length > 0 ? (
-                        <div className="space-y-4">
-                          {Object.entries(selectedRequest.images).map(([gender, imageUrl]) => (
-                            <div key={gender} className="border border-gray-200 rounded-lg p-4">
-                              <h4 className="text-sm font-medium text-gray-700 mb-2 capitalize">{gender}</h4>
-                              <img
-                                src={imageUrl}
-                                alt={`${gender} design`}
-                                className="w-full h-48 object-cover rounded-lg border border-gray-200"
-                                onError={(e) => {
-                                  e.target.style.display = 'none';
-                                  e.target.nextSibling.style.display = 'flex';
-                                }}
-                              />
-                              <div className="hidden w-full h-48 bg-gray-100 rounded-lg border border-gray-200 items-center justify-center">
-                                <span className="text-gray-400">Image not available</span>
+                      <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-3 sm:mb-4">Uploaded Images</h3>
+                      {selectedRequest.genderImages && Object.keys(selectedRequest.genderImages).length > 0 ? (
+                        <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
+                          {Object.entries(selectedRequest.genderImages).map(([gender, imageUrl]) => (
+                            <div key={gender} className="relative group">
+                              <div className="aspect-square rounded-lg overflow-hidden bg-gray-100 border border-gray-200 shadow-sm hover:shadow-md transition-all duration-300">
+                                <img
+                                  src={imageUrl}
+                                  alt={`${gender} design`}
+                                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                                  onError={(e) => {
+                                    e.target.style.display = 'none';
+                                    e.target.nextSibling.style.display = 'flex';
+                                  }}
+                                />
+                                <div className="hidden w-full h-full items-center justify-center bg-gray-100">
+                                  <div className="text-center">
+                                    <FaImages className="text-gray-400 text-2xl sm:text-3xl mx-auto mb-2" />
+                                    <span className="text-gray-400 text-xs sm:text-sm">Image not available</span>
+                                  </div>
+                                </div>
+                              </div>
+                              <div className="absolute top-2 left-2 bg-black bg-opacity-75 text-white text-xs sm:text-sm px-2 sm:px-3 py-1 rounded-full capitalize font-medium">
+                                {gender}
                               </div>
                             </div>
                           ))}
                         </div>
                       ) : (
-                        <div className="text-center py-8 bg-gray-50 rounded-lg">
-                          <FaImages className="text-4xl text-gray-300 mx-auto mb-2" />
-                          <p className="text-gray-500">No images uploaded</p>
+                        <div className="text-center py-8 sm:py-12 bg-gray-50 rounded-lg border-2 border-dashed border-gray-200">
+                          <FaImages className="text-3xl sm:text-4xl text-gray-300 mx-auto mb-3 sm:mb-4" />
+                          <p className="text-gray-500 font-medium text-sm sm:text-base">No images uploaded</p>
+                          <p className="text-gray-400 text-xs sm:text-sm mt-1">Images will appear here once uploaded</p>
                         </div>
                       )}
                     </div>
@@ -358,9 +392,9 @@ const MyCustomTshirts = () => {
 
                   {/* Admin Notes */}
                   {selectedRequest.adminNotes && (
-                    <div className="mt-8 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                    <div className="mt-6 sm:mt-8 p-3 sm:p-4 bg-blue-50 border border-blue-200 rounded-lg">
                       <h4 className="text-sm font-medium text-blue-900 mb-2">Admin Notes</h4>
-                      <p className="text-blue-800">{selectedRequest.adminNotes}</p>
+                      <p className="text-blue-800 text-sm sm:text-base">{selectedRequest.adminNotes}</p>
                     </div>
                   )}
                 </div>

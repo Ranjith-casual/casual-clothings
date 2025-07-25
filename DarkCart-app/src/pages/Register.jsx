@@ -9,6 +9,8 @@ import SummaryApi from "../common/SummaryApi";
 import Axios from "../utils/Axios";
 import AxiosTostError from "../utils/AxiosTostError";
 import { Link, useNavigate } from "react-router-dom";
+import { validatePassword } from "../utils/passwordValidation";
+import PasswordStrengthIndicator from "../components/PasswordStrengthIndicator";
 
 function Register() {
   const [userInfo, setUserInfo] = useState({
@@ -19,16 +21,19 @@ function Register() {
   });
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [passwordValidation, setPasswordValidation] = useState(null);
   const navigate = useNavigate();
 
   // Remove AOS useEffect since we're using Framer Motion instead
 
   const checkAllFields = () => {
+    const isPasswordValid = passwordValidation?.isValid || false;
     return (
       userInfo.name !== "" &&
       userInfo.email !== "" &&
       userInfo.password !== "" &&
-      userInfo.confirmPassword !== ""
+      userInfo.confirmPassword !== "" &&
+      isPasswordValid
     );
   };
 
@@ -46,10 +51,22 @@ function Register() {
       ...prev,
       [name]: value,
     }));
+
+    // Validate password in real-time
+    if (name === 'password') {
+      const validation = validatePassword(value);
+      setPasswordValidation(validation);
+    }
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    // Validate password strength
+    if (!passwordValidation?.isValid) {
+      toast.error("Please meet all password requirements");
+      return;
+    }
 
     if (userInfo.password !== userInfo.confirmPassword) {
       toast.error("Password and Confirm Password should be same");
@@ -240,6 +257,14 @@ function Register() {
                   {showPassword ? <FaRegEyeSlash /> : <FaRegEye />}
                 </div>
               </div>
+              
+              {/* Password Strength Indicator */}
+              {userInfo.password && passwordValidation && (
+                <PasswordStrengthIndicator 
+                  password={userInfo.password}
+                  validation={passwordValidation}
+                />
+              )}
             </motion.div>
 
             <motion.div className="grid gap-2" variants={inputVariants}>

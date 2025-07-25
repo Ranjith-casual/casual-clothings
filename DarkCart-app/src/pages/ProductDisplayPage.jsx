@@ -489,7 +489,7 @@ const ProductDisplayPage = () => {
               <div className="flex items-center text-sm text-gray-500 mb-6 font-['Poppins']">
               <Link to="/" className="hover:text-black transition-colors font-medium tracking-wide">Home</Link>
               <span className="mx-2">/</span>
-              <Link to="/products" className="hover:text-black transition-colors font-medium tracking-wide">Shop</Link>
+              <Link to="/" className="hover:text-black transition-colors font-medium tracking-wide">Shop</Link>
               <span className="mx-2">/</span>
               <span className="text-gray-800 truncate max-w-[200px] font-medium">
                 {data.name}

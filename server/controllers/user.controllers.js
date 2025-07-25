@@ -252,6 +252,17 @@ export async function updateUserDetails(request,response){
       let hashPassword = ""
 
       if(password){
+          // Validate password strength if password is being updated
+          const strongPasswordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
+          
+          if (!strongPasswordRegex.test(password)) {
+              return response.status(400).json({
+                  message: "Password must contain at least 8 characters with uppercase, lowercase, number and special character (@$!%*?&)",
+                  error: true,
+                  success: false
+              });
+          }
+
           const salt = await bcryptjs.genSalt(10)
           hashPassword = await bcryptjs.hash(password,salt)
       }

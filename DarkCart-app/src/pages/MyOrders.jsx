@@ -1443,8 +1443,7 @@ function MyOrders() {
                           </>
                         ) : (
                           <>
-                            <FaDownload className='w-4 h-4' />
-                            <span>Download Invoice</span>
+                          
                           </>
                         )}
                       </button>
