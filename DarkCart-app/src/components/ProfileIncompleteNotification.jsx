@@ -102,119 +102,98 @@ const ProfileIncompleteNotification = ({ user, onClose, autoClose = true }) => {
   return (
     <AnimatePresence>
       <motion.div
-        initial={{ opacity: 0, scale: 0.8, y: -20 }}
+        initial={{ opacity: 0, scale: 0.9, y: -10 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
-        exit={{ opacity: 0, scale: 0.8, y: -20 }}
+        exit={{ opacity: 0, scale: 0.9, y: -10 }}
         transition={{ 
           type: "spring", 
-          stiffness: 300, 
-          damping: 20,
-          duration: 0.3 
+          stiffness: 400, 
+          damping: 25,
+          duration: 0.2 
         }}
-        className="absolute top-full right-0 mt-2 w-80 bg-white border border-red-200 rounded-lg shadow-xl z-50 overflow-hidden profile-notification"
+        className="absolute top-full right-0 mt-2 w-72 bg-white border border-gray-200 rounded-xl shadow-lg z-50 overflow-hidden profile-notification"
         style={{ 
           fontFamily: "'Inter', sans-serif",
-          backdropFilter: 'blur(10px)',
         }}
       >
-        {/* Header */}
-        <div className="bg-gradient-to-r from-red-50 to-orange-50 px-4 py-3 border-b border-red-100">
+        {/* Compact Header */}
+        <div className="bg-gray-50 px-4 py-2.5 border-b border-gray-100">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <div className="w-8 h-8 bg-red-100 rounded-full flex items-center justify-center">
-                <FaExclamationTriangle className="w-4 h-4 text-red-600" />
+              <div className="w-6 h-6 bg-orange-100 rounded-lg flex items-center justify-center">
+                <FaExclamationTriangle className="w-3 h-3 text-orange-600" />
               </div>
               <div>
-                <h3 className="font-semibold text-gray-900 text-sm">Incomplete Profile</h3>
-                <p className="text-xs text-gray-600">Complete your profile for better experience</p>
+                <h3 className="font-medium text-gray-900 text-xs">Profile Incomplete</h3>
               </div>
             </div>
             <div className="flex items-center gap-2">
               {autoClose && (
-                <div className="text-xs text-gray-500 bg-white px-2 py-1 rounded border">
+                <div className="text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded-md text-[10px]">
                   {formatTime(timeLeft)}
                 </div>
               )}
               <button
                 onClick={handleClose}
-                className="p-1 hover:bg-red-100 rounded-full transition-colors"
+                className="p-1.5 hover:bg-gray-200 rounded-lg transition-colors touch-manipulation"
                 aria-label="Close notification"
               >
-                <FaTimes className="w-3 h-3 text-gray-500" />
+                <FaTimes className="w-3 h-3 text-gray-400" />
               </button>
             </div>
           </div>
         </div>
 
-        {/* Missing Fields */}
-        <div className="p-4">
-          <p className="text-sm text-gray-600 mb-3">
-            {missingFields.length} field{missingFields.length > 1 ? 's' : ''} need{missingFields.length === 1 ? 's' : ''} your attention:
+        {/* Compact Content */}
+        <div className="p-3">
+          <p className="text-xs text-gray-500 mb-2">
+            {missingFields.length} field{missingFields.length > 1 ? 's' : ''} missing:
           </p>
           
-          <div className="space-y-2 mb-4">
-            {missingFields.map((field, index) => (
+          {/* Compact Missing Fields - Only show icons */}
+          <div className="flex items-center gap-1 mb-3">
+            {missingFields.slice(0, 4).map((field, index) => (
               <motion.div
                 key={field.field}
-                initial={{ opacity: 0, x: -10 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: index * 0.1 }}
-                className="flex items-center gap-3 p-2 bg-red-50 rounded-md border border-red-100"
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ delay: index * 0.05 }}
+                className="w-6 h-6 bg-gray-100 rounded-lg flex items-center justify-center"
+                title={field.label}
               >
-                <div className="text-red-500 text-sm">
+                <div className="text-gray-600 text-xs">
                   {field.icon}
                 </div>
-                <span className="text-sm text-gray-700 font-medium">
-                  {field.label}
-                </span>
               </motion.div>
             ))}
+            {missingFields.length > 4 && (
+              <div className="w-6 h-6 bg-gray-100 rounded-lg flex items-center justify-center">
+                <span className="text-xs text-gray-600 font-medium">+{missingFields.length - 4}</span>
+              </div>
+            )}
           </div>
 
-          {/* Action Button */}
+          {/* Compact Action Button */}
           <Link
             to="/dashboard/profile"
             onClick={handleCompleteProfile}
-            className="w-full bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white px-4 py-2.5 rounded-md font-medium text-sm transition-all duration-300 flex items-center justify-center gap-2 shadow-md hover:shadow-lg group"
+            className="w-full bg-black hover:bg-gray-800 text-white px-3 py-2 rounded-lg font-medium text-xs transition-all duration-200 flex items-center justify-center gap-2 touch-manipulation active:scale-95"
           >
-            <FaUser className="w-4 h-4 group-hover:scale-110 transition-transform" />
-            Complete Profile Now
+            <FaUser className="w-3 h-3" />
+            Complete Profile
           </Link>
         </div>
 
-        {/* Progress Indicator */}
-        <div className="px-4 pb-3">
-          <div className="flex items-center justify-between text-xs text-gray-500 mb-1">
-            <span>Profile Progress</span>
-            <span>{Math.round(((4 - missingFields.length) / 4) * 100)}%</span>
-          </div>
-          <div className="w-full bg-gray-200 rounded-full h-1.5">
+        {/* Mini Progress Bar */}
+        <div className="px-3 pb-2">
+          <div className="w-full bg-gray-100 rounded-full h-1">
             <motion.div
               initial={{ width: 0 }}
               animate={{ width: `${((4 - missingFields.length) / 4) * 100}%` }}
-              transition={{ duration: 0.8, ease: "easeOut" }}
-              className="bg-gradient-to-r from-red-500 to-orange-500 h-1.5 rounded-full"
+              transition={{ duration: 0.6, ease: "easeOut" }}
+              className="bg-black h-1 rounded-full"
             />
           </div>
-        </div>
-
-        {/* Subtle Animation */}
-        <div className="absolute top-0 left-0 w-full h-full pointer-events-none overflow-hidden rounded-lg">
-          <motion.div
-            animate={{ 
-              backgroundPosition: ['0% 0%', '100% 100%'],
-              opacity: [0.3, 0.1, 0.3]
-            }}
-            transition={{ 
-              duration: 3, 
-              repeat: Infinity, 
-              ease: "linear" 
-            }}
-            className="absolute inset-0 bg-gradient-to-br from-red-100/20 via-transparent to-orange-100/20"
-            style={{
-              backgroundSize: '200% 200%'
-            }}
-          />
         </div>
       </motion.div>
     </AnimatePresence>
