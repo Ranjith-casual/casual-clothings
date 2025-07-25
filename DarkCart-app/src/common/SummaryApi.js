@@ -330,6 +330,44 @@ const SummaryApi = {
         url: '/api/payment/stats/delivery',
         method: 'get'
     },
+    
+    // Custom T-Shirt Request APIs
+    createCustomTshirtRequest: {
+        url: '/api/custom-tshirt/create',
+        method: 'post'
+    },
+    getAllCustomTshirtRequests: {
+        url: '/api/custom-tshirt/admin/all',
+        method: 'post'
+    },
+    updateCustomTshirtRequestStatus: {
+        url: '/api/custom-tshirt/admin/update-status',
+        method: 'put'
+    },
+    getCustomTshirtRequest: {
+        url: '/api/custom-tshirt',
+        method: 'get'
+    },
+    getUserCustomTshirtRequests: {
+        url: '/api/custom-tshirt/user/my-requests',
+        method: 'get'
+    },
+    deleteCustomTshirtRequest: {
+        url: '/api/custom-tshirt/admin',
+        method: 'delete'
+    },
+    getCustomTshirtDashboardStats: {
+        url: '/api/custom-tshirt/admin/dashboard/stats',
+        method: 'get'
+    },
+    exportCustomTshirtRequests: {
+        url: '/api/custom-tshirt/admin/export',
+        method: 'get'
+    },
+    bulkUpdateCustomTshirtRequests: {
+        url: '/api/custom-tshirt/admin/bulk-update',
+        method: 'put'
+    },
 }
 
 export default SummaryApi;

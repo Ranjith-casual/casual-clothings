@@ -9,7 +9,9 @@ import {
     FaUsers, 
     FaCreditCard,
     FaTimes,
-    FaMoneyBillWave
+    FaMoneyBillWave,
+    FaTshirt,
+    FaWarehouse
 } from 'react-icons/fa'
 
 function AdminDashboard() {
@@ -32,6 +34,7 @@ function AdminDashboard() {
             path: "/dashboard/upload-product",
             icon: <FaPlus className="theme-text-secondary" />
         },
+        
         {
             title: "Orders Management",
             description: "Manage customer orders",
@@ -73,6 +76,17 @@ function AdminDashboard() {
             description: "Process and track refunds for cancelled orders",
             path: "/dashboard/refund-management",
             icon: <FaMoneyBillWave className="text-green-600" />
+        },{
+            title: "Custom T-Shirt Requests",
+            description: "Manage custom t-shirt design requests from users",
+            path: "/dashboard/custom-tshirt-admin",
+            icon: <FaTshirt className="text-blue-600" />
+        },
+        {
+            title: "Stock Management",
+            description: "Monitor and manage product inventory levels",
+            path: "/dashboard/stock-management",
+            icon: <FaWarehouse className="text-purple-600" />
         }
     ]
 
@@ -119,7 +133,7 @@ function AdminDashboard() {
                 <div className="mt-8">
                     <h2 className="text-xl font-semibold text-gray-900 mb-4">Quick Actions</h2>
                     <div className="bg-white rounded-lg shadow-md p-6">
-                        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                        <div className="grid grid-cols-1 md:grid-cols-4 lg:grid-cols-5 gap-4">
                             <Link 
                                 to="/dashboard/upload-product"
                                 className="bg-black text-white px-4 py-3 rounded-md hover:bg-gray-800 transition-colors text-center font-medium"
@@ -137,6 +151,12 @@ function AdminDashboard() {
                                 className="bg-gray-100 text-gray-800 px-4 py-3 rounded-md hover:bg-gray-200 transition-colors text-center font-medium"
                             >
                                 Manage Categories
+                            </Link>
+                            <Link 
+                                to="/dashboard/stock-management"
+                                className="bg-purple-100 text-purple-800 px-4 py-3 rounded-md hover:bg-purple-200 transition-colors text-center font-medium"
+                            >
+                                Stock Management
                             </Link>
                             <Link 
                                 to="/dashboard/payment-management"

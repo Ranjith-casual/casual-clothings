@@ -4,6 +4,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { validURLConvert } from "../utils/validURLConvert";
 import PremiumCategoryWiseProductDisplay from "../components/PremiumCategoryWiseProductDisplay";
 import { motion } from "framer-motion";
+import { FaTshirt, FaArrowRight } from "react-icons/fa";
 
 function Home() {
   const loadingCategory = useSelector((state) => state.product.loadingCategory);
@@ -399,6 +400,9 @@ function Home() {
         </div>
       </div>
 
+      {/* Custom T-Shirt Request CTA Section */}
+     
+
       {/* Display category products with ultra compact spacing */}
       <div className="py-1 md:py-2">
         {categoryData?.map((c, index) => {
@@ -415,9 +419,76 @@ function Home() {
                 id={c._id}
                 name={c.name}
               />
+              
             </motion.div>
+            
           );
         })}
+      </div>
+       <div className="container mx-auto px-4 md:px-6 lg:px-8 py-12 md:py-16">
+        <motion.div
+          initial={{ opacity: 0, y: 30 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.8 }}
+          className="bg-gradient-to-r from-black via-gray-900 to-black rounded-2xl p-8 md:p-12 text-center text-white shadow-2xl relative overflow-hidden"
+        >
+          {/* Background Pattern */}
+          <div className="absolute inset-0 opacity-10">
+            <div className="absolute inset-0 bg-black bg-opacity-5"></div>
+          </div>
+          
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.6, delay: 0.2 }}
+            className="relative z-10"
+          >
+            <div className="flex justify-center mb-6">
+              <div className="bg-white/10 backdrop-blur-sm rounded-full p-4">
+                <FaTshirt className="text-4xl md:text-5xl text-white" />
+              </div>
+            </div>
+            
+            <h2 className="text-2xl md:text-3xl lg:text-4xl font-bold mb-4 font-serif">
+              Create Your Perfect
+              <span className="block text-gray-200">
+                Custom T-Shirt
+              </span>
+            </h2>
+            
+            <p className="text-gray-300 text-base md:text-lg max-w-2xl mx-auto mb-8 leading-relaxed font-sans">
+              Bring your ideas to life! Submit your custom design request and our expert team will create 
+              a unique t-shirt just for you. From concept to creation, we make it happen.
+            </p>
+            
+            <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
+              <Link
+                to="/custom-tshirt-request"
+                className="bg-white text-black px-8 py-4 rounded-full font-semibold text-lg hover:bg-gray-100 transition-all duration-300 transform hover:scale-105 shadow-lg flex items-center gap-3"
+              >
+                <FaTshirt className="text-xl" />
+                Request Custom Design
+                <FaArrowRight className="text-sm" />
+              </Link>
+              
+              <motion.div
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                className="text-gray-300 text-sm flex items-center gap-2 cursor-pointer font-sans"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                </svg>
+                <span>Professional design team • Fast turnaround</span>
+              </motion.div>
+            </div>
+            
+            {/* Features */}
+          
+          </motion.div>
+        </motion.div>
       </div>
     </section>
   );

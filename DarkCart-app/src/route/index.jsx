@@ -48,6 +48,9 @@ import AdminDashboard from "../pages/AdminDashboard";
 import UserManagement from "../pages/UserManagement";
 import PaymentManagement from "../pages/PaymentManagement";
 import CancellationManagementPage from "../pages/CancellationManagementPage";
+import CustomTshirtRequest from "../pages/CustomTshirtRequest";
+import MyCustomTshirts from "../pages/MyCustomTshirts";
+import CustomTshirtRequestsAdmin from "../pages/CustomTshirtRequestsAdmin";
 import StockManagementPage from "../pages/StockManagementPage";
 import CancellationPolicyPage from "../pages/CancellationPolicyPage";
 import RefundManagementPage from "../pages/RefundManagementPage";
@@ -105,6 +108,10 @@ const router = createBrowserRouter([
                 element : <Sustainability/>
             },
             {
+                path:"/custom-tshirt",
+                element : <CustomTshirtRequest/>
+            },
+            {
                 path:"/login",
                 element : <Login/>
             },{
@@ -144,6 +151,10 @@ const router = createBrowserRouter([
                     element:<WishlistPage/>
                 },
                 {
+                    path:"my-custom-tshirts",
+                    element:<MyCustomTshirts/>
+                },
+                {
                     path:"admin",
                     element:<AdminPermission><AdminDashboard/></AdminPermission>
                 },
@@ -178,6 +189,10 @@ const router = createBrowserRouter([
                 {
                     path:"cancellation-management",
                     element:<AdminPermission><CancellationManagementPage/></AdminPermission>
+                },
+                {
+                    path:"custom-tshirt-admin",
+                    element:<AdminPermission><CustomTshirtRequestsAdmin/></AdminPermission>
                 },
                 {
                     path:"cancellation-policy",

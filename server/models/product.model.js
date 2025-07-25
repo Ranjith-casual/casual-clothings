@@ -11,7 +11,7 @@ const productSchema = mongoose.Schema({
     },
     gender: [{
         type: String,
-        enum: ['Men', 'Women', 'Kids', 'Unisex']
+        enum: ['Men', 'Women', 'Kids', 'Unisex', "Boys", "Girls"]
     }],
     category: [{
         type: mongoose.Schema.ObjectId,
@@ -67,7 +67,7 @@ const productSchema = mongoose.Schema({
     },
     sizeModel: {
         type: String,
-        default: "32"
+        default: "XS,S,M,L,XL,XXL,XXXL"
     },
     fabric: {
         type: String,
@@ -75,11 +75,11 @@ const productSchema = mongoose.Schema({
     },
     marketedBy: {
         type: String,
-        default: "casualclothings Trading (India) Pvt. Ltd."
+        default: "casualclothings Fashion (India) Pvt. Ltd."
     },
     importedBy: {
         type: String,
-        default: "casualclothings Trading (India) Pvt. Ltd."
+        default: "casualclothings Fashion (India) Pvt. Ltd."
     },
     countryOfOrigin: {
         type: String,
@@ -87,7 +87,7 @@ const productSchema = mongoose.Schema({
     },
     customerCareAddress: {
         type: String,
-        default: "Tower-B, 7th Floor, casualclothings Office, Knowledge Park, Main Road, Bengaluru, Karnataka - 560029"
+        default: "Sivsakthi Nagar, 5th Street, Tirupur, Tamil Nadu - 641604"
     },
     publish: {
         type: Boolean,

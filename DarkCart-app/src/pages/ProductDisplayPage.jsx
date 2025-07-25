@@ -10,6 +10,7 @@ import Divider from '../components/Divider'
 import { pricewithDiscount } from '../utils/PriceWithDiscount'
 import AddToCartButton from '../components/AddToCartButton.jsx'
 import SizeSelector from '../components/SizeSelector.jsx'
+import CustomTshirtButton from '../components/CustomTshirtButton.jsx'
 import { useSelector } from 'react-redux'
 import { useGlobalContext } from '../provider/GlobalProvider'
 import toast from 'react-hot-toast'
@@ -785,6 +786,20 @@ const ProductDisplayPage = () => {
                     </button>
                   </div>
                 )}
+
+                {/* Custom T-Shirt Design Section - Black & White Aesthetic */}
+                <div className="mb-8 p-6 bg-white border-2 border-black rounded-md shadow-lg">
+                  <div className="text-center mb-4">
+                    <h3 className="text-lg font-bold text-black mb-2 font-['Poppins']">Want Something Unique?</h3>
+                    <p className="text-sm text-gray-700 font-['Poppins']">Create your own custom t-shirt design with our design studio</p>
+                  </div>
+                  <CustomTshirtButton 
+                    variant="outline" 
+                    size="medium"
+                    className="w-full justify-center"
+                    text="Design Your Own T-Shirt"
+                  />
+                </div>
 
                 {/* Product details section - Mobile view */}
                 <ProductDetailsComponent data={data} className="lg:hidden" />

@@ -9,12 +9,14 @@ import { clearCart } from '../store/cartProduct'
 import toast from 'react-hot-toast'
 import AxiosTostError from '../utils/AxiosTostError'
 import isAdmin from '../utils/isAdmin'
+import { useCustomTshirtRequests } from '../hooks/useCustomTshirtRequests'
 
 function UserMenue({close}) {
     const user = useSelector((state)=> state?.user)
     const dispatch = useDispatch()
     const navigate = useNavigate()
     const [showAdminOptions, setShowAdminOptions] = useState(false)
+    const { hasCustomRequests } = useCustomTshirtRequests()
     
     // Add Inter and Playfair Display fonts
     useEffect(() => {
@@ -96,6 +98,17 @@ function UserMenue({close}) {
                         <path fillRule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566a1 1 0 01.61-1.276z" clipRule="evenodd" />
                     </svg>
                     <span className="text-sm font-medium group-hover:text-black font-['Inter']">Cancellations & Refunds</span>
+                </Link>
+
+                <Link onClick={handleClose} to="/dashboard/my-custom-tshirts" className='flex items-center gap-3 p-3 hover:bg-gray-50 rounded transition-all group w-full'>
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-gray-500 group-hover:text-black" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M8.5 8.5L16 16" />
+                        <path d="M16 8.5L8.5 16" />
+                        <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+                        <path d="M7 7h.01" />
+                        <path d="M17 17h.01" />
+                    </svg>
+                    <span className="text-sm font-medium group-hover:text-black font-['Inter']">My Custom T-Shirts</span>
                 </Link>
              
                 <Link onClick={handleClose} to="/dashboard/address" className='flex items-center gap-3 p-3 hover:bg-gray-50 rounded transition-all group w-full'>

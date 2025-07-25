@@ -732,6 +732,22 @@ function Header() {
                         </Link>
 
                         <Link
+                          to="/dashboard/my-custom-tshirts"
+                          className="flex items-center text-gray-700 hover:text-black hover:bg-black/5 px-4 py-3 text-sm transition-all duration-300 rounded-md group"
+                          onClick={() => setTimeout(() => setMobileMenuOpen(false), 200)}
+                          style={{ 
+                            fontFamily: "'Inter', sans-serif",
+                            fontWeight: '300',
+                            letterSpacing: '0.03em',
+                          }}
+                        >
+                          <div className="flex items-center gap-3 w-full">
+                            {/* <FaTshirt className="w-5 h-5 text-gray-800 group-hover:scale-110 transition-transform duration-300" /> */}
+                            <span className="tracking-wide">My Custom T-Shirts</span>
+                          </div>
+                        </Link>
+
+                        <Link
                           to="/dashboard/address"
                           className="flex items-center text-gray-700 hover:text-black hover:bg-black/5 px-4 py-3 text-sm transition-all duration-300 rounded-md group"
                           onClick={() => setTimeout(() => setMobileMenuOpen(false), 200)}
