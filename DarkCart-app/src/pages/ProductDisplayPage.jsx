@@ -478,7 +478,7 @@ const ProductDisplayPage = () => {
 
   return (
     <section className='bg-gradient-to-b from-gray-50 to-white min-h-screen py-8'>
-      <div className='container mx-auto px-4 lg:px-10'>
+      <div className='container mx-auto px-4 lg:px-10' style={{ position: 'relative', minHeight: '100vh' }}>
         {loading ? (
           <div className='flex justify-center items-center min-h-[60vh]'>
             <div className='animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-black'></div>
@@ -499,13 +499,13 @@ const ProductDisplayPage = () => {
               <h2 className="font-light text-sm uppercase tracking-[0.2em] text-gray-500 mb-2 font-['Poppins']">PRODUCT DETAILS</h2>
             </div>
         
-            <div className='grid lg:grid-cols-2 gap-6 lg:gap-10 mb-10'>
-              {/* Left Side - Product Image Gallery */}
-              <div className='space-y-4'>
+            <div className='grid lg:grid-cols-2 gap-6 lg:gap-10 mb-10 items-start'>
+              {/* Left Side - Product Image Gallery - Fixed sticky positioning */}
+              <div className='sticky-wrapper'>
                 {/* Main Product Image */}
-                <div className='relative'>
+                <div className='relative mb-4 lg:sticky-image' style={{ maxHeight: 'calc(100vh - 100px)' }}>
                   {/* Thumbnail gallery on the left side */}
-                  <div className='hidden lg:flex flex-col gap-3 absolute left-0 top-0 h-full pr-3 overflow-auto max-h-[450px] hide-scrollbar'>
+                  <div className='hidden lg:flex flex-col gap-3 absolute left-0 top-0 h-full pr-3 overflow-auto max-h-[450px] hide-scrollbar' style={{ zIndex: 10 }}>
                     {data.image && data.image.map((img, idx) => (
                       <div 
                         key={`thumb-${idx}`}
@@ -525,6 +525,7 @@ const ProductDisplayPage = () => {
                   <div 
                     className='bg-white overflow-hidden relative ml-0 lg:ml-20 group cursor-pointer'
                     onClick={() => openImageModal(image)}
+                    style={{ maxHeight: '550px', display: 'flex', justifyContent: 'center', alignItems: 'center' }}
                   >
                     {!imageLoaded && loading && (
                       <div className="absolute inset-0 flex items-center justify-center bg-gray-100 animate-pulse">
@@ -595,7 +596,7 @@ const ProductDisplayPage = () => {
                 </div>
 
                 {/* Desktop product details */}
-                <ProductDetailsComponent data={data} className="hidden lg:grid" />
+                <ProductDetailsComponent data={data} className="hidden lg:grid mt-4 relative" style={{ zIndex: 5 }} />
               </div>
 
               {/* Right Side - Product Information */}
@@ -921,6 +922,26 @@ const ProductDisplayPage = () => {
         .text-xxs {
           font-size: 0.625rem; /* 10px */
           line-height: 0.75rem; /* 12px */
+        }
+        
+        @media (min-width: 1024px) {
+          /* Enhanced sticky positioning that works across browsers */
+          .sticky-wrapper {
+            position: relative;
+            height: fit-content;
+          }
+          
+          .lg\\:sticky-image {
+            position: -webkit-sticky;
+            position: sticky;
+            top: 20px;
+            z-index: 10;
+          }
+          
+          /* Ensure thumbnail column stays in position */
+          .lg\\:sticky-image .absolute {
+            z-index: 20;
+          }
         }
       `}</style>
     </section>

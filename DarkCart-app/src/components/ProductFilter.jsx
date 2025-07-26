@@ -10,7 +10,7 @@ const ProductFilter = ({ filters, onFilterChange, showGenderFilter = true, initi
     ];
 
     return (
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 sticky top-20 max-h-[calc(100vh-80px)] overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
             <div className="flex items-center gap-2 mb-6">
                 <FaFilter className="w-5 h-5 text-gray-700" />
                 <h3 className="font-bold text-gray-900 text-lg">Filters</h3>

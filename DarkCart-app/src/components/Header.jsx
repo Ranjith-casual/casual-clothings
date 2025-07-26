@@ -518,6 +518,7 @@ function Header() {
               </div>
       
             </div>
+           
             
             {/* Desktop Search - Innovative Glass Effect with Animation - Only on xl screens */}
             <div 
