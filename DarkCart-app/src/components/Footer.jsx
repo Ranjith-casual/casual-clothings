@@ -118,7 +118,7 @@ function Footer() {
               <span className="mx-2 text-gray-300">|</span>
               <span className="flex items-center">
                 <span className="mr-1">Made with</span>
-                <FaHeart className="text-xs text-gray-400 mx-1" />
+        
                 <span>in Tirupur</span>
               </span>
             </div>

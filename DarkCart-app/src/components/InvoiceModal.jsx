@@ -273,10 +273,10 @@ function InvoiceModal({ payment: originalPayment, onClose }) {
                             <h1 className="text-3xl font-bold text-black">casualclothings</h1>
                             <p className="text-gray-600 mt-1">Fashion & Lifestyle Store</p>
                             <div className="mt-4 text-sm text-gray-600">
-                                <p>123 Fashion Street</p>
-                                <p>Tirupur, Tamil Nadu 641601</p>
-                                <p>Phone: +91 98765 43210</p>
-                                <p>Email: orders@casualclothings.com</p>
+                                <p>Sivsakthi Nagar, 5th Street </p>
+                                <p>Tirupur, Tamil Nadu - 641604   </p>
+                                <p>Phone: +91  9442955929 </p>
+                                <p>Email: casualclothing787@gmail.com</p>
                                 <p>GST: 33ABCDE1234F1Z5</p>
                             </div>
                         </div>
@@ -1188,7 +1188,7 @@ function InvoiceModal({ payment: originalPayment, onClose }) {
                     <div className="mt-8 pt-6 border-t border-gray-200">
                         <div className="text-center text-sm text-gray-600">
                             <p className="mb-2"><strong>Thank you for shopping with casualclothings!</strong></p>
-                            <p>For any queries, contact us at orders@casualclothings.com or call +91 98765 43210</p>
+                            <p>For any queries, contact us at casualclothing787@gmail.com or call +91 9442955929</p>
                             <p className="mt-2">This is a computer generated invoice and does not require signature.</p>
                         </div>
                     </div>

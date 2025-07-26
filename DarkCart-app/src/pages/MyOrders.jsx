@@ -1277,26 +1277,7 @@ function MyOrders() {
                     {/* Action Buttons - Download Invoice & View Details */}
                     <div className="flex items-center flex-wrap gap-2">
                       {/* Download Invoice Button */}
-                      <button
-                        onClick={() => handleDownloadInvoice(order)}
-                        disabled={downloadingInvoices.has(order.orderId)}
-                        className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-semibold transition-colors ${
-                          downloadingInvoices.has(order.orderId)
-                            ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                            : 'bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100'
-                        }`}
-                      >
-                        {downloadingInvoices.has(order.orderId) ? (
-                          <>
-                            <div className='w-4 h-4 border-2 border-blue-400 border-t-transparent rounded-full animate-spin'></div>
-                            <span>Downloading...</span>
-                          </>
-                        ) : (
-                          <>
-                          
-                          </>
-                        )}
-                      </button>
+                
                       
                       {/* View Comprehensive Details Button */}
                       <button
@@ -1334,10 +1315,10 @@ function MyOrders() {
                       
                       {/* Invoice Type Indicator */}
                       <div className="text-xs text-gray-500 flex items-center gap-1">
-                        <FaFilePdf className="text-red-500" />
+                 
                         <span>
                           {order.orderStatus === 'DELIVERED' 
-                            ? 'Delivery Invoice' 
+                            ? '' 
                             : order.orderStatus === 'CANCELLED' 
                             ? 'Cancelled Order Invoice' 
                             : 'Order Invoice'

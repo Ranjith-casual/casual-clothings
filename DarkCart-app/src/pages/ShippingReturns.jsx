@@ -5,12 +5,12 @@ function ShippingReturns() {
   return (
     <div className="bg-gray-50 min-h-screen">
       {/* Header */}
-      <div className='bg-white shadow-sm p-4 mb-6 flex items-center justify-between border-b border-gray-200'>
-        <h1 className='text-xl font-bold text-gray-900 font-["Playfair_Display"]'>Shipping & Returns Policy</h1>
+      <div className='bg-white shadow-sm p-3 sm:p-4 mb-6 flex items-center justify-between border-b border-gray-200'>
+        <h1 className='text-lg sm:text-xl font-bold text-gray-900 font-["Playfair_Display"]'>Shipping & Returns Policy</h1>
       </div>
 
       {/* Main Content */}
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+      <div className="max-w-4xl mx-auto px-3 sm:px-4 lg:px-8 py-4 sm:py-6">
         {/* Page Navigation */}
         <div className="bg-white rounded-lg shadow-sm mb-8 overflow-hidden">
           <div className="p-5 bg-gray-50 border-b border-gray-200">
@@ -54,32 +54,34 @@ function ShippingReturns() {
 
               <h3 className="text-md font-bold mb-2">Shipping Options</h3>
               <p className="mb-2">We offer the following shipping methods:</p>
-              <table className="min-w-full border-collapse mb-4">
-                <thead>
-                  <tr className="bg-gray-100">
-                    <th className="border border-gray-300 px-4 py-2 text-left">Method</th>
-                    <th className="border border-gray-300 px-4 py-2 text-left">Estimated Delivery</th>
-                    <th className="border border-gray-300 px-4 py-2 text-left">Cost</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr>
-                    <td className="border border-gray-300 px-4 py-2">Standard Shipping</td>
-                    <td className="border border-gray-300 px-4 py-2">3-5 business days</td>
-                    <td className="border border-gray-300 px-4 py-2">Free on orders over $50<br />$5.99 for orders under $50</td>
-                  </tr>
-                  <tr>
-                    <td className="border border-gray-300 px-4 py-2">Expedited Shipping</td>
-                    <td className="border border-gray-300 px-4 py-2">2-3 business days</td>
-                    <td className="border border-gray-300 px-4 py-2">$9.99</td>
-                  </tr>
-                  <tr>
-                    <td className="border border-gray-300 px-4 py-2">Express Shipping</td>
-                    <td className="border border-gray-300 px-4 py-2">1-2 business days</td>
-                    <td className="border border-gray-300 px-4 py-2">$14.99</td>
-                  </tr>
-                </tbody>
-              </table>
+              <div className="overflow-x-auto mb-4">
+                <table className="min-w-full border-collapse">
+                  <thead>
+                    <tr className="bg-gray-100">
+                      <th className="border border-gray-300 px-2 sm:px-4 py-2 text-left text-sm sm:text-base">Method</th>
+                      <th className="border border-gray-300 px-2 sm:px-4 py-2 text-left text-sm sm:text-base">Estimated Delivery</th>
+                      <th className="border border-gray-300 px-2 sm:px-4 py-2 text-left text-sm sm:text-base">Cost</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td className="border border-gray-300 px-2 sm:px-4 py-2 text-sm sm:text-base">Standard Shipping</td>
+                      <td className="border border-gray-300 px-2 sm:px-4 py-2 text-sm sm:text-base">3-5 business days</td>
+                      <td className="border border-gray-300 px-2 sm:px-4 py-2 text-sm sm:text-base">Free on orders over ₹4,000<br />₹499 for orders under ₹4,000</td>
+                    </tr>
+                    <tr>
+                      <td className="border border-gray-300 px-2 sm:px-4 py-2 text-sm sm:text-base">Expedited Shipping</td>
+                      <td className="border border-gray-300 px-2 sm:px-4 py-2 text-sm sm:text-base">2-3 business days</td>
+                      <td className="border border-gray-300 px-2 sm:px-4 py-2 text-sm sm:text-base">₹799</td>
+                    </tr>
+                    <tr>
+                      <td className="border border-gray-300 px-2 sm:px-4 py-2 text-sm sm:text-base">Express Shipping</td>
+                      <td className="border border-gray-300 px-2 sm:px-4 py-2 text-sm sm:text-base">1-2 business days</td>
+                      <td className="border border-gray-300 px-2 sm:px-4 py-2 text-sm sm:text-base">₹1,199</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
 
               <h3 className="text-md font-bold mb-2">Tracking Information</h3>
               <p className="mb-4">
@@ -241,24 +243,24 @@ function ShippingReturns() {
         </section>
 
         {/* Need Help Box */}
-        <div className="bg-black/5 rounded-lg p-6 mb-8 flex flex-col md:flex-row items-center justify-between">
-          <div className="mb-4 md:mb-0">
-            <h3 className="text-lg font-medium text-gray-900 mb-1">Need help with your order?</h3>
-            <p className="text-gray-600">Our customer service team is here to help.</p>
+        <div className="bg-black/5 rounded-lg p-4 sm:p-6 mb-8 flex flex-col md:flex-row items-center justify-between">
+          <div className="mb-4 md:mb-0 text-center md:text-left">
+            <h3 className="text-base sm:text-lg font-medium text-gray-900 mb-1">Need help with your order?</h3>
+            <p className="text-sm sm:text-base text-gray-600">Our customer service team is here to help.</p>
           </div>
-          <div className="flex space-x-4">
-            <Link to="/contact" className="inline-flex items-center justify-center px-5 py-2 border border-transparent text-base font-medium rounded-md text-white bg-black hover:bg-black/90">
+          <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-4 w-full md:w-auto">
+            <Link to="/about" className="inline-flex items-center justify-center px-4 sm:px-5 py-2 border border-transparent text-sm sm:text-base font-medium rounded-md text-white bg-black hover:bg-black/90 w-full sm:w-auto">
               Contact Us
             </Link>
-            <Link to="/faq" className="inline-flex items-center justify-center px-5 py-2 border border-gray-300 text-base font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
+            <Link to="/faq" className="inline-flex items-center justify-center px-4 sm:px-5 py-2 border border-gray-300 text-sm sm:text-base font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 w-full sm:w-auto">
               View FAQs
             </Link>
           </div>
         </div>
 
         {/* Last Updated */}
-        <div className="text-center text-sm text-gray-500">
-          <p>Last updated: July 1, 2025</p>
+        <div className="text-center text-xs sm:text-sm text-gray-500">
+          <p>Last updated: July 26, 2025</p>
         </div>
       </div>
     </div>

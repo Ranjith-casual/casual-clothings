@@ -956,21 +956,6 @@ function Header() {
                       </div>
                     </div>
 
-                    <Link
-                      to="/about"
-                      className="flex items-center text-gray-700 hover:text-black hover:bg-black/5 px-5 py-3 text-sm transition-all duration-300"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setTimeout(() => setMobileMenuOpen(false), 200);
-                      }}
-                      style={{ 
-                        fontFamily: "'Inter', sans-serif",
-                        fontWeight: '300',
-                        letterSpacing: '0.05em',
-                      }}
-                    >
-                      ABOUT
-                    </Link>
                   </div>
                 </div>
                 

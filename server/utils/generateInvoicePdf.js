@@ -44,8 +44,8 @@ export const generateInvoicePdf = async (data, type = 'delivery') => {
 
             // Header with logo & company info
             doc.fontSize(20).font('Helvetica-Bold').text('Casual Clothing Fashion', { align: 'center' });
-            doc.fontSize(12).font('Helvetica').text('123 Fashion Street, Tirupur, Tamil Nadu 641601', { align: 'center' });
-            doc.text('Phone: +91 98765 43210 | Email: orders@casualclothings.com', { align: 'center' });
+            doc.fontSize(12).font('Helvetica').text('Sivsakthi Nagar, 5th Street, Tirupur, Tamil Nadu - 641604', { align: 'center' });
+            doc.text('Phone: +91 9442955929 | Email: casualclothing787@gmail.com', { align: 'center' });
             doc.text('GST: 33ABCDE1234F1Z5', { align: 'center' });
             
             doc.moveDown(2);

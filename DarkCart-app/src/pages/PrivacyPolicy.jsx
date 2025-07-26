@@ -5,15 +5,15 @@ function PrivacyPolicy() {
   return (
     <div className="bg-gray-50 min-h-screen">
       {/* Header - Updated with Playfair_Display font */}
-      <div className='bg-white shadow-sm p-4 mb-6 flex items-center justify-between border-b border-gray-200'>
-        <h1 className='text-xl font-bold text-gray-900 font-["Playfair_Display"]'>Privacy Policy</h1>
+      <div className='bg-white shadow-sm p-3 sm:p-4 mb-6 flex items-center justify-between border-b border-gray-200'>
+        <h1 className='text-lg sm:text-xl font-bold text-gray-900 font-["Playfair_Display"]'>Privacy Policy</h1>
       </div>
 
       {/* Main Content */}
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+      <div className="max-w-4xl mx-auto px-3 sm:px-4 lg:px-8 py-4 sm:py-6">
         {/* Last Updated - Updated with Poppins font */}
-        <div className="mb-6 text-gray-500 text-sm font-['Poppins']">
-          <p>Last Updated: July 1, 2025</p>
+        <div className="mb-6 text-gray-500 text-xs sm:text-sm font-['Poppins']">
+          <p>Last Updated: July 26, 2025</p>
         </div>
 
         {/* Introduction */}
@@ -233,7 +233,7 @@ function PrivacyPolicy() {
               <p className="mb-4">
                 If you have any questions or concerns about this Privacy Policy or our privacy practices, please contact us at:
               </p>
-              <p className="mb-1"><strong>Email:</strong> casulclothings2024@gmail.com</p>
+              <p className="mb-1"><strong>Email:</strong> casualclothing787@gmail.com</p>
               <p className="mb-1"><strong>Phone:</strong> +91 9442955929</p>
               <p className="mb-4"><strong>Address:</strong> Sivsakthi Nagar, 5th Street, Tirupur, Tamil Nadu - 641604</p>
               <p>
@@ -244,16 +244,16 @@ function PrivacyPolicy() {
         </section>
 
         {/* Related Policies */}
-        <div className="bg-black/5 rounded-lg p-6 mb-8">
-          <h3 className="text-lg font-medium text-gray-900 mb-4 font-['Playfair_Display']">Related Policies</h3>
-          <div className="flex flex-wrap gap-3">
-            <Link to="/terms-conditions" className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md bg-white text-gray-700 hover:bg-gray-50 font-['Poppins']">
+        <div className="bg-black/5 rounded-lg p-4 sm:p-6 mb-8">
+          <h3 className="text-base sm:text-lg font-medium text-gray-900 mb-4 font-['Playfair_Display']">Related Policies</h3>
+          <div className="flex flex-col sm:flex-row flex-wrap gap-3">
+            <Link to="/terms-conditions" className="inline-flex items-center justify-center px-3 sm:px-4 py-2 border border-gray-300 rounded-md bg-white text-gray-700 hover:bg-gray-50 font-['Poppins'] text-sm sm:text-base">
               Terms & Conditions
             </Link>
-            <Link to="/shipping-returns" className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md bg-white text-gray-700 hover:bg-gray-50 font-['Poppins']">
+            <Link to="/shipping-returns" className="inline-flex items-center justify-center px-3 sm:px-4 py-2 border border-gray-300 rounded-md bg-white text-gray-700 hover:bg-gray-50 font-['Poppins'] text-sm sm:text-base">
               Shipping & Returns
             </Link>
-            <Link to="/cookie-policy" className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md bg-white text-gray-700 hover:bg-gray-50 font-['Poppins']">
+            <Link to="/cookie-policy" className="inline-flex items-center justify-center px-3 sm:px-4 py-2 border border-gray-300 rounded-md bg-white text-gray-700 hover:bg-gray-50 font-['Poppins'] text-sm sm:text-base">
               Cookie Policy
             </Link>
           </div>
@@ -263,9 +263,9 @@ function PrivacyPolicy() {
         <div className="text-center mb-8">
           <button 
             onClick={() => window.print()} 
-            className="inline-flex items-center px-4 py-2 text-sm text-gray-600 hover:text-gray-900 font-['Poppins']"
+            className="inline-flex items-center px-3 sm:px-4 py-2 text-xs sm:text-sm text-gray-600 hover:text-gray-900 font-['Poppins']"
           >
-            <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <svg className="w-3 h-3 sm:w-4 sm:h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
             </svg>
             Print this Policy

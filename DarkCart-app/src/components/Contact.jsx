@@ -372,10 +372,10 @@ function Contact() {
                     <div>
                       <h4 className="font-medium text-base font-['Playfair_Display']">Email</h4>
                       <a 
-                        href="mailto:casulclothings2024@gmail.com" 
+                        href="mailto:casualclothing787@gmail.com" 
                         className="text-gray-600 hover:text-gray-900 transition-colors inline-flex items-center gap-1 font-['Poppins']"
                       >
-                        casulclothings2024@gmail.com
+                      casualclothing787@gmail.com
                       </a>
                     </div>
                   </div>

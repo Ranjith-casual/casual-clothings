@@ -13,6 +13,7 @@ import GlobalProvider, { useGlobalContext } from './provider/GlobalProvider';
 import CartMobileLink from './components/CartMobile';
 import DisplayCartItem from './components/DisplayCartItem';
 import ScrollToTop from './components/ScrollToTop';
+import ScrollToTopButton from './components/ScrollToTopButton';
 
 function AppContent() {
   const location = useLocation();
@@ -28,11 +29,8 @@ function AppContent() {
       </main>
       <Footer/>
       <Toaster/>
-      {
-        location.pathname !== '/checkout' && (
-          <CartMobileLink/>
-        )
-      }
+      <CartMobileLink/>
+      <ScrollToTopButton/>
       {/* Cart Sidebar */}
       {openCartSection && user?._id && (
         <DisplayCartItem close={() => setOpenCartSection(false)} />

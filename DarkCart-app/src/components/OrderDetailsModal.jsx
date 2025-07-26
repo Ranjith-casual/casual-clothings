@@ -72,8 +72,8 @@ const OrderDetailsModal = ({ order, onClose, isLoading }) => {
         {/* Header styled like the invoice */}
         <div className="text-center mb-6">
           <h1 className="text-2xl font-bold">Casual Clothing Fashion</h1>
-          <p className="text-sm text-gray-600">123 Fashion Street, Tirupur, Tamil Nadu 641601</p>
-          <p className="text-sm text-gray-600">Phone: +91 98765 43210 | Email: orders@casualclothings.com</p>
+          <p className="text-sm text-gray-600">Sivsakthi Nagar, 5th Street, Tirupur, Tamil Nadu - 641604</p>
+          <p className="text-sm text-gray-600">Phone: +91 9442955929 | Email: casualclothing787@gmail.com</p>
           <p className="text-sm text-gray-600">GST: 33ABCDE1234F1Z5</p>
           
           <div className="mt-6 border-b border-gray-200 pb-2">

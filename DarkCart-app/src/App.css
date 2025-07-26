@@ -297,6 +297,18 @@
   color: white;
 }
 
+/* Checkout page specific cart button styles */
+@media (max-width: 767px) {
+  .checkout-cart-button {
+    transform: scale(0.85);
+    transition: all 0.2s ease;
+  }
+  
+  .checkout-cart-button:hover {
+    transform: scale(0.9);
+  }
+}
+
 /* Further responsive tweaks */
 @media (max-width: 360px) {
   .header-logo-text {

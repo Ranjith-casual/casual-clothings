@@ -4,7 +4,7 @@ import Home from "../pages/Home";
 import SearchPage from "../pages/SearchPage";
 import About from "../pages/About";
 import Blog from "../pages/Blog";
-import SizeGuide from "../pages/SizeGuide";
+import SizeGuide from "../pages/SizeGuide"; 
 import FAQ from "../pages/FAQ";
 import ShippingReturns from "../pages/ShippingReturns";
 import PrivacyPolicy from "../pages/PrivacyPolicy";
@@ -43,7 +43,7 @@ import AdminPermission from "../layout/AdminPermission";
 import DeliveryChargeCalculator from "../pages/test";
 import BundleOffers from "../pages/BundleOffers";
 import BundleDetail from "../pages/BundleDetail";
-import SeasonalSale from "../pages/SeasonalSale";
+
 import BundleAdmin from "../pages/BundleAdmin";
 import AdminDashboard from "../pages/AdminDashboard";
 import UserManagement from "../pages/UserManagement";
@@ -58,7 +58,7 @@ import CancellationPolicyPage from "../pages/CancellationPolicyPage";
 import RefundManagementPage from "../pages/RefundManagementPage";
 import BundleManagement from "../pages/BundleManagement";
 import InventoryManagement from "../pages/InventoryManagement";
-
+import Sitemap from "../pages/Sitemap";
 
 const router = createBrowserRouter([
     {
@@ -100,6 +100,10 @@ const router = createBrowserRouter([
             {
                 path:"/terms-conditions",
                 element : <TermsConditions/>
+            },
+            {
+                path:"/sitemap",
+                element : <Sitemap/>
             },
             {
                 path:"/lookbook",
@@ -290,10 +294,7 @@ const router = createBrowserRouter([
                 path:"bundle/:bundleId",
                 element : <BundleDetail/>
             },
-            {
-                path:"seasonal-sale",
-                element : <SeasonalSale/>
-            },
+          
             // Add catch-all route for any invalid URLs - THIS MUST BE LAST
             {
                 path:"*",

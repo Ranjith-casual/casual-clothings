@@ -552,7 +552,7 @@ const generateInvoicePDF = async (order, type = 'order') => {
                 fontSize: 10,
                 color: '#FFFFFF'
             });
-            addStyledText('📞 +91 98765 43210', rightMargin - 200, contactY + 15, {
+            addStyledText('📞 +91 9442955929', rightMargin - 200, contactY + 15, {
                 fontSize: 10,
                 color: '#FFFFFF'
             });

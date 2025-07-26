@@ -98,17 +98,17 @@ function About() {
                     <li className="flex items-start gap-3">
                       <FaMapMarkerAlt className="text-gray-900 mt-1 flex-shrink-0" />
                       <div>
-                        <p className="font-medium font-['Poppins']">Casual Clothings Flagship Store</p>
+                        <p className="font-medium font-['Poppins']">Casual Clothings Fashion</p>
                         <p className="text-gray-600 font-['Poppins']">Sivsakthi Nagar, 5th Street, Tirupur, Tamil Nadu - 641604</p>
                       </div>
                     </li>
                     <li className="flex items-center gap-3">
                       <FaPhone className="text-gray-900 flex-shrink-0" />
-                      <p className="text-gray-600 font-['Poppins']">(+91) 98765-43210</p>
+                      <p className="text-gray-600 font-['Poppins']">(+91) 9442955929</p>
                     </li>
                     <li className="flex items-center gap-3">
                       <FaEnvelope className="text-gray-900 flex-shrink-0" />
-                      <p className="text-gray-600 font-['Poppins']">contact@casualclothings.com</p>
+                      <p className="text-gray-600 font-['Poppins']">casualclothing787@gmail.com</p>
                     </li>
                   </ul>
                 </div>
