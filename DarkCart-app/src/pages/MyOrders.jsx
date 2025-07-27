@@ -14,6 +14,7 @@ import OrderDetailsModal from '../components/OrderDetailsModal';
 import { useGlobalContext } from '../provider/GlobalProvider';
 import { setOrders } from '../store/orderSlice';
 import noCart from '../assets/Empty-cuate.png'; // Import fallback image
+import ProductImageLink from '../components/ProductImageLink'; // Import the ProductImageLink component
 
 function MyOrders() {
   // Get all orders from Redux store
@@ -634,29 +635,67 @@ function MyOrders() {
                 {/* Product/Bundle Image - Responsive */}
                 <div className='flex-shrink-0 order-1 xl:order-2 w-full xl:w-auto flex justify-center xl:justify-start'>
                   <div 
-                    className={`w-20 h-20 sm:w-24 sm:h-24 md:w-28 md:h-28 lg:w-32 lg:h-32 xl:w-36 xl:h-36 rounded-lg overflow-hidden border-2 relative cursor-pointer transition-all duration-200 hover:scale-105 ${isCancelled ? 'border-red-300 bg-red-50' : 'border-gray-200 bg-gray-50'}`}
-                    onClick={() => handleShowProductDetails(
-                      order?.items[0]?.itemType === 'bundle' ? order?.items[0]?.bundleDetails : order?.items[0]?.productDetails,
-                      order?.items[0]?.itemType === 'bundle' ? 'bundle' : 'product',
-                      order
-                    )}
+                    className={`w-20 h-20 sm:w-24 sm:h-24 md:w-28 md:h-28 lg:w-32 lg:h-32 xl:w-36 xl:h-36 rounded-lg overflow-hidden border-2 relative ${isCancelled ? 'border-red-300 bg-red-50' : 'border-gray-200 bg-gray-50'}`}
                   >
-                    {/* Display first item image - handle both bundles and products */}
-                    <img
-                      src={getImageSource(order?.items[0])}
-                      alt={
-                        order?.items[0]?.itemType === 'bundle' 
-                          ? order?.items[0]?.bundleDetails?.title 
-                          : order?.items[0]?.productDetails?.name
+                    {/* Get product ID or bundle ID from the first item */}
+                    {(() => {
+                      const firstItem = order?.items?.[0];
+                      if (!firstItem) return null;
+                      
+                      const isBundle = firstItem.itemType === 'bundle';
+                      const imageSrc = getImageSource(firstItem);
+                      const itemTitle = isBundle 
+                        ? firstItem?.bundleDetails?.title 
+                        : firstItem?.productDetails?.name;
+                      
+                      // Get the proper ID based on item type
+                      let itemId;
+                      if (isBundle) {
+                        itemId = firstItem?.bundleId?._id || firstItem?.bundleDetails?._id;
+                      } else {
+                        itemId = firstItem?.productId?._id || firstItem?.productDetails?._id;
                       }
-                      className={`w-full h-full object-cover transition-all duration-300 ${isCancelled ? 'grayscale opacity-60' : ''}`}
-                      onError={(e) => handleImageError(e, order?.items[0])}
-                    />
-                    {isCancelled && (
-                      <div className="absolute inset-0 flex items-center justify-center bg-black/20">
-                        <FaBan className="text-red-500 text-2xl sm:text-3xl md:text-4xl drop-shadow-lg" />
-                      </div>
-                    )}
+                      
+                      return (
+                        <>
+                          {itemId ? (
+                            <ProductImageLink 
+                              imageUrl={imageSrc}
+                              productId={itemId}
+                              alt={itemTitle}
+                              className="w-full h-full"
+                              imageClassName={`transition-all duration-300 ${isCancelled ? 'grayscale opacity-60' : ''}`}
+                              height="100%"
+                              width="100%"
+                              disableNavigation={isBundle}
+                              onClick={() => handleShowProductDetails(
+                                isBundle ? firstItem?.bundleDetails : firstItem?.productDetails,
+                                isBundle ? 'bundle' : 'product',
+                                order
+                              )}
+                            />
+                          ) : (
+                            <img
+                              src={imageSrc}
+                              alt={itemTitle}
+                              className={`w-full h-full object-cover transition-all duration-300 ${isCancelled ? 'grayscale opacity-60' : ''}`}
+                              onError={(e) => handleImageError(e, firstItem)}
+                              onClick={() => handleShowProductDetails(
+                                isBundle ? firstItem?.bundleDetails : firstItem?.productDetails,
+                                isBundle ? 'bundle' : 'product',
+                                order
+                              )}
+                            />
+                          )}
+                          {isCancelled && (
+                            <div className="absolute inset-0 flex items-center justify-center bg-black/20">
+                              <FaBan className="text-red-500 text-2xl sm:text-3xl md:text-4xl drop-shadow-lg" />
+                            </div>
+                          )}
+                        </>
+                      );
+                    })()}
+                    
                   </div>
                 </div>
 
@@ -713,28 +752,57 @@ function MyOrders() {
                           <div className="flex items-start gap-2 sm:gap-3">
                             {/* Item image */}
                             <div 
-                              className={`w-12 h-12 sm:w-16 sm:h-16 rounded-md overflow-hidden border flex-shrink-0 cursor-pointer transition-all duration-200 hover:scale-105 ${
+                              className={`w-12 h-12 sm:w-16 sm:h-16 rounded-md overflow-hidden border flex-shrink-0 ${
                                 isCancelled ? 'border-red-300' : 'border-gray-200'
                               }`}
-                              onClick={() => handleShowProductDetails(
-                                item?.itemType === 'bundle' ? item?.bundleDetails : item?.productDetails,
-                                item?.itemType === 'bundle' ? 'bundle' : 'product',
-                                order,
-                                item
-                              )}
                             >
-                              <img
-                                src={getImageSource(item)}
-                                alt={
-                                  item?.itemType === 'bundle' 
-                                    ? item?.bundleDetails?.title 
-                                    : item?.productDetails?.name
+                              {(() => {
+                                const isBundle = item?.itemType === 'bundle';
+                                const imageSrc = getImageSource(item);
+                                const itemTitle = isBundle 
+                                  ? item?.bundleDetails?.title 
+                                  : item?.productDetails?.name;
+                                
+                                // Get the proper ID based on item type
+                                let itemId;
+                                if (isBundle) {
+                                  itemId = item?.bundleId?._id || item?.bundleDetails?._id;
+                                } else {
+                                  itemId = item?.productId?._id || item?.productDetails?._id;
                                 }
-                                className={`w-full h-full object-cover ${
-                                  isCancelled ? 'grayscale opacity-60' : ''
-                                }`}
-                                onError={(e) => handleImageError(e, item)}
-                              />
+                                
+                                return itemId ? (
+                                  <ProductImageLink 
+                                    imageUrl={imageSrc}
+                                    productId={itemId}
+                                    alt={itemTitle}
+                                    className="w-full h-full"
+                                    imageClassName={`${isCancelled ? 'grayscale opacity-60' : ''}`}
+                                    height="100%"
+                                    width="100%"
+                                    disableNavigation={isBundle}
+                                    onClick={() => handleShowProductDetails(
+                                      isBundle ? item?.bundleDetails : item?.productDetails,
+                                      isBundle ? 'bundle' : 'product',
+                                      order,
+                                      item
+                                    )}
+                                  />
+                                ) : (
+                                  <img
+                                    src={imageSrc}
+                                    alt={itemTitle}
+                                    className={`w-full h-full object-cover ${isCancelled ? 'grayscale opacity-60' : ''}`}
+                                    onError={(e) => handleImageError(e, item)}
+                                    onClick={() => handleShowProductDetails(
+                                      isBundle ? item?.bundleDetails : item?.productDetails,
+                                      isBundle ? 'bundle' : 'product',
+                                      order,
+                                      item
+                                    )}
+                                  />
+                                );
+                              })()}
                             </div>
                             
                             {/* Item details */}

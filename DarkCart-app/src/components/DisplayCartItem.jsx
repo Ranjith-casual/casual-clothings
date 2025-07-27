@@ -11,6 +11,7 @@ import imageEmpty from '../assets/Empty-cuate.png'
 import toast from 'react-hot-toast'
 import Axios from '../utils/Axios'
 import SummaryApi from '../common/SummaryApi'
+import ProductImageLink from './ProductImageLink'
 
 const DisplayCartItem = ({close}) => {
     const { notDiscountTotalPrice, totalPrice ,totalQty, fetchCartItems } = useGlobalContext()
@@ -141,16 +142,31 @@ const DisplayCartItem = ({close}) => {
                                             cartItem.map((item,index)=>{
                                                 return(
                                                     <div key={item?._id+"cartItemDisplay"} className='flex w-full gap-3 sm:gap-4 pb-3 border-b border-gray-100 last:border-b-0 last:pb-0'>
-                                                        <div className='w-14 h-14 sm:w-16 sm:h-16 min-h-14 min-w-14 sm:min-h-16 sm:min-w-16 bg-gray-50 border border-gray-100 rounded overflow-hidden flex-shrink-0'>
-                                                            <img
-                                                                src={item?.itemType === 'bundle' ? item?.bundleId?.images?.[0] : item?.productId?.image?.[0]}
-                                                                className='object-contain w-full h-full'
-                                                                alt={item?.itemType === 'bundle' ? item?.bundleId?.title : item?.productId?.name}
-                                                                onError={(e) => {
-                                                                    e.target.onerror = null;
-                                                                    e.target.src = imageEmpty;
-                                                                }}
-                                                            />
+                                                        <div className='w-14 h-14 sm:w-16 sm:h-16 min-h-14 min-w-14 sm:min-h-16 sm:min-w-16 bg-gray-50 border border-gray-100 rounded overflow-hidden flex-shrink-0 transition-all duration-300 hover:shadow-md hover:border-gray-300 group relative'>
+                                                            {/* Tooltip that appears on hover */}
+                                                        
+                                                            {item?.itemType === 'bundle' ? (
+                                                                <ProductImageLink 
+                                                                    imageUrl={item?.bundleId?.images}
+                                                                    productId={item?.bundleId?._id}
+                                                                    alt={item?.bundleId?.title || "Bundle"}
+                                                                    className="w-full h-full"
+                                                                    imageClassName="object-contain"
+                                                                    disableNavigation={true} // Bundles don't have detail pages
+                                                                    containerStyle={{ position: 'relative' }}
+                                                                    onClick={close} // Close cart when image is clicked
+                                                                />
+                                                            ) : (
+                                                                <ProductImageLink 
+                                                                    imageUrl={item?.productId?.image}
+                                                                    productId={item?.productId?._id}
+                                                                    alt={item?.productId?.name || "Product"}
+                                                                    className="w-full h-full"
+                                                                    imageClassName="object-contain"
+                                                                    containerStyle={{ position: 'relative' }}
+                                                                    onClick={close} // Close cart when image is clicked
+                                                                />
+                                                            )}
                                                         </div>
                                                         <div className='flex-grow min-w-0 text-xs font-["Inter"]'>
                                                             <p className='text-xs sm:text-sm text-ellipsis line-clamp-2 text-black font-medium'>

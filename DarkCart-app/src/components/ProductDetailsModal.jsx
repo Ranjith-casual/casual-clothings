@@ -4,6 +4,7 @@ import { DisplayPriceInRupees } from '../utils/DisplayPriceInRupees';
 import noCart from '../assets/Empty-cuate.png';
 import Axios from '../utils/Axios';
 import SummaryApi from '../common/SummaryApi';
+import ProductImageLink from './ProductImageLink';
 
 const ProductDetailsModal = ({ isOpen, onClose, product, itemType = 'product', orderContext = null }) => {
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
@@ -121,38 +122,63 @@ const ProductDetailsModal = ({ isOpen, onClose, product, itemType = 'product', o
             <div className="space-y-4">
               {/* Main Image */}
               <div className="aspect-square bg-gray-100 rounded-lg overflow-hidden">
-                <img
-                  src={mainImage}
-                  alt={details.title}
-                  className="w-full h-full object-cover"
-                  onError={(e) => {
-                    e.target.onerror = null;
-                    e.target.src = noCart;
-                  }}
-                />
+                {product && product._id ? (
+                  <ProductImageLink
+                    imageUrl={mainImage}
+                    productId={product._id}
+                    alt={details.title}
+                    className="w-full h-full"
+                    height="100%"
+                    width="100%"
+                    disableNavigation={isBundle} // Don't navigate for bundles
+                    onClick={onClose} // Close the modal when clicked
+                  />
+                ) : (
+                  <img
+                    src={mainImage}
+                    alt={details.title}
+                    className="w-full h-full object-cover"
+                    onError={(e) => {
+                      e.target.onerror = null;
+                      e.target.src = noCart;
+                    }}
+                  />
+                )}
               </div>
 
               {/* Thumbnail Images */}
               {details.images?.length > 1 && (
                 <div className="flex space-x-2 overflow-x-auto">
                   {details.images.map((image, index) => (
-                    <button
+                    <div
                       key={index}
                       onClick={() => setSelectedImageIndex(index)}
                       className={`w-16 h-16 rounded-md overflow-hidden flex-shrink-0 border-2 ${
                         selectedImageIndex === index ? 'border-teal-500' : 'border-gray-200'
                       }`}
                     >
-                      <img
-                        src={image}
-                        alt={`${details.title} ${index + 1}`}
-                        className="w-full h-full object-cover"
-                        onError={(e) => {
-                          e.target.onerror = null;
-                          e.target.src = noCart;
-                        }}
-                      />
-                    </button>
+                      {product && product._id ? (
+                        <ProductImageLink
+                          imageUrl={image}
+                          productId={product._id}
+                          alt={`${details.title} ${index + 1}`}
+                          className="w-full h-full"
+                          height="100%"
+                          width="100%"
+                          disableNavigation={true} // We're handling the click ourselves
+                        />
+                      ) : (
+                        <img
+                          src={image}
+                          alt={`${details.title} ${index + 1}`}
+                          className="w-full h-full object-cover"
+                          onError={(e) => {
+                            e.target.onerror = null;
+                            e.target.src = noCart;
+                          }}
+                        />
+                      )}
+                    </div>
                   ))}
                 </div>
               )}

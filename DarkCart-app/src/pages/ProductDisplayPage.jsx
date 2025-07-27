@@ -9,6 +9,7 @@ import { DisplayPriceInRupees } from '../utils/DisplayPriceInRupees'
 import Divider from '../components/Divider'
 import { pricewithDiscount } from '../utils/PriceWithDiscount'
 import AddToCartButton from '../components/AddToCartButton.jsx'
+import BuyNowButton from '../components/BuyNowButton.jsx'
 import SizeSelector from '../components/SizeSelector.jsx'
 import CustomTshirtButton from '../components/CustomTshirtButton.jsx'
 import { useSelector } from 'react-redux'
@@ -60,6 +61,37 @@ const ProductDisplayPage = () => {
       })
       .catch(error => console.error('Failed to import sizePricing:', error));
   }, [])
+  
+  // Auto-select the first available size when product data loads
+  useEffect(() => {
+    if (!data || !data.sizes) return;
+    
+    // First check if we have any previously selected size from localStorage
+    const savedSize = productId && localStorage.getItem(`selectedSize_${productId}`);
+    
+    if (savedSize && data.sizes[savedSize] && data.sizes[savedSize] > 0) {
+      // Use the saved size if it's available
+      console.log(`Using previously selected size ${savedSize} from localStorage`);
+      setSelectedSize(savedSize);
+      return;
+    }
+    
+    // Otherwise find the first available size
+    const availableSizes = Object.entries(data.sizes || {})
+      .filter(([_, count]) => count > 0)
+      .map(([size]) => size);
+    
+    if (availableSizes.length > 0) {
+      console.log(`Auto-selecting first available size: ${availableSizes[0]}`);
+      setSelectedSize(availableSizes[0]);
+      
+      // Save this selection to localStorage for persistence
+      if (productId) {
+        localStorage.setItem(`selectedSize_${productId}`, availableSizes[0]);
+        localStorage.setItem(`selectedSize_${params.product}`, availableSizes[0]);
+      }
+    }
+  }, [data, productId, params.product])
   
   // Update addedSizes based on cart contents
   useEffect(() => {
@@ -716,22 +748,105 @@ const ProductDisplayPage = () => {
 
                 {/* Add to Bag button - Premium styling */}
                 <div className="mb-8">
-                  {selectedSize && data.sizes && data.sizes[selectedSize] <= 0 ? (
-                    <button disabled className="w-full bg-gray-200 text-gray-500 py-3.5 font-medium tracking-wide text-lg uppercase cursor-not-allowed transition-all duration-300 border border-gray-300 rounded-md">
-                      Size {selectedSize} Out of Stock
-                    </button>
-                  ) : selectedSize && Object.values(data.sizes || {}).reduce((a, b) => a + b, 0) <= 0 ? (
+                  {/* Show special message if all sizes are out of stock */}
+                  {Object.values(data.sizes || {}).reduce((a, b) => a + b, 0) <= 0 ? (
                     <button disabled className="w-full bg-gray-200 text-gray-500 py-3.5 font-medium tracking-wide text-lg uppercase cursor-not-allowed transition-all duration-300 border border-gray-300 rounded-md">
                       All Sizes Out of Stock
-                    </button>
-                  ) : !selectedSize ? (
-                    <button disabled className="w-full bg-gray-200 text-gray-500 py-3.5 font-medium tracking-wide text-lg uppercase cursor-not-allowed transition-all duration-300 border border-gray-300 rounded-md">
-                      Please Select a Size
                     </button>
                   ) : (
                     <div className="relative overflow-hidden group">
                       <div className="absolute inset-0 w-full h-full bg-gradient-to-r from-transparent via-white/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700 transform translate-x-[-100%] group-hover:translate-x-full"></div>
-                      <AddToCartButton 
+                      
+                      {/* Show warning if selected size is out of stock but allow selecting another */}
+                      {selectedSize && data.sizes && data.sizes[selectedSize] <= 0 && (
+                        <div className="mb-2 text-sm text-red-600 bg-red-50 border border-red-200 rounded-md p-2">
+                          Size {selectedSize} is out of stock. {!selectedSize ? "Please select a size." : "A different size will be selected for you."}
+                        </div>
+                      )}
+                      
+                      {/* Get the first available size for automatic selection if needed */}
+                      {(() => {
+                        // If no size is selected, we'll auto-select one for the Add to Cart button
+                        let sizeToUse = selectedSize;
+                        
+                        // If selected size is out of stock or no size is selected, find first available
+                        if (!selectedSize || (data.sizes && data.sizes[selectedSize] <= 0)) {
+                          const availableSizes = Object.entries(data.sizes || {})
+                            .filter(([_, count]) => count > 0)
+                            .map(([size]) => size);
+                            
+                          if (availableSizes.length > 0) {
+                            sizeToUse = availableSizes[0];
+                            // If we're auto-selecting a size, show indicator
+                            if (!selectedSize) {
+                              console.log(`Auto-selecting first available size for Add to Cart: ${sizeToUse}`);
+                            }
+                          }
+                        }
+                        
+                        return (
+                          <AddToCartButton 
+                            data={{
+                              ...data,
+                              // Pass both overall stock and size-specific stock
+                              stock: data.stock,
+                              sizes: data.sizes,
+                              sizePricing: data.sizePricing || {}, // Pass the full sizePricing object
+                              _id: data._id,
+                              name: data.name,
+                              // Calculate the correct price based on selected size
+                              price: sizeToUse && data.sizePricing && data.sizePricing[sizeToUse]
+                                ? data.sizePricing[sizeToUse]  // Use size-specific price if available
+                                : data.price                  // Otherwise use base price
+                            }}
+                            large={true}
+                            // Always use a valid size (either user selected or auto-selected)
+                            selectedSize={sizeToUse} 
+                            onAddToCartSuccess={() => {
+                              // Use the actual size that was added (sizeToUse)
+                              // Add the size to addedSizes array for immediate UI update
+                              setAddedSizes(prev => 
+                                prev.includes(sizeToUse) ? prev : [...prev, sizeToUse]
+                              );
+                              
+                              // If user hadn't manually selected a size, update UI to show the auto-selected one
+                              if ((!selectedSize || (data.sizes && data.sizes[selectedSize] <= 0)) && sizeToUse) {
+                                setSelectedSize(sizeToUse);
+                                toast.success(`Size ${sizeToUse} was automatically selected`, {
+                                  duration: 3000,
+                                  icon: '👕'
+                                });
+                              }
+                              
+                              // Save the selected size in localStorage for persistence
+                              if (sizeToUse && productId) {
+                                // Store using both product ID and full URL path for better persistence
+                                localStorage.setItem(`selectedSize_${productId}`, sizeToUse);
+                                localStorage.setItem(`selectedSize_${params.product}`, sizeToUse);
+                                console.log(`Saved size ${sizeToUse} for product ${productId} after adding to cart`);
+                              }
+                            }}
+                          />
+                        );
+                      })()}
+                    </div>
+                  )}
+                </div>
+
+                {/* Buy Now button */}
+                <div className="mb-8">
+                  {selectedSize && data.sizes && data.sizes[selectedSize] <= 0 ? (
+                    <button disabled className="w-full bg-gray-200 text-gray-500 py-3.5 font-medium tracking-wide text-lg uppercase cursor-not-allowed transition-all duration-300 border border-gray-300 rounded-md">
+                      Size {selectedSize} Out of Stock
+                    </button>
+                  ) : Object.values(data.sizes || {}).reduce((a, b) => a + b, 0) <= 0 ? (
+                    <button disabled className="w-full bg-gray-200 text-gray-500 py-3.5 font-medium tracking-wide text-lg uppercase cursor-not-allowed transition-all duration-300 border border-gray-300 rounded-md">
+                      All Sizes Out of Stock
+                    </button>
+                  ) : (
+                    <div className="relative overflow-hidden group">
+                      <div className="absolute inset-0 w-full h-full bg-gradient-to-r from-transparent via-white/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700 transform translate-x-[-100%] group-hover:translate-x-full"></div>
+                      <BuyNowButton 
                         data={{
                           ...data,
                           // Pass both overall stock and size-specific stock
@@ -745,22 +860,19 @@ const ProductDisplayPage = () => {
                             ? data.sizePricing[selectedSize]  // Use size-specific price if available
                             : data.price                     // Otherwise use base price
                         }}
-                        large={true} 
                         selectedSize={selectedSize}
-                        onAddToCartSuccess={() => {
-                          const currentSize = selectedSize;
+                        setSelectedSize={setSelectedSize}
+                        onBuyNowSuccess={(size) => {
                           // Add the size to addedSizes array for immediate UI update
                           setAddedSizes(prev => 
-                            prev.includes(currentSize) ? prev : [...prev, currentSize]
+                            prev.includes(size) ? prev : [...prev, size]
                           );
                           // Save the selected size in localStorage for persistence
-                          if (currentSize && productId) {
-                            // Store using both product ID and full URL path for better persistence
-                            localStorage.setItem(`selectedSize_${productId}`, currentSize);
-                            localStorage.setItem(`selectedSize_${params.product}`, currentSize);
-                            console.log(`Saved size ${currentSize} for product ${productId} after adding to cart`);
+                          if (size && productId) {
+                            localStorage.setItem(`selectedSize_${productId}`, size);
+                            localStorage.setItem(`selectedSize_${params.product}`, size);
+                            console.log(`Saved size ${size} after buying now`);
                           }
-                          // Don't reset selected size to keep showing quantity controls
                         }} 
                       />
                     </div>
@@ -772,7 +884,7 @@ const ProductDisplayPage = () => {
                   <div className="mb-8">
                     <button 
                       onClick={handleWishlist}
-                      className="w-full bg-black text-white py-3.5 font-medium tracking-wide text-lg uppercase transition-all duration-300 border border-gray-300 rounded-md"
+                      className="w-full bg-black text-white hover:bg-gray-700 transition py-3.5 font-medium tracking-wide text-lg uppercase duration-300 rounded-md"
                     >
                       Remove from Wishlist
                     </button>
@@ -781,7 +893,7 @@ const ProductDisplayPage = () => {
                   <div className="mb-8">
                     <button 
                       onClick={handleWishlist}
-                      className="w-full bg-black text-white py-3.5 font-medium tracking-wide text-lg uppercase transition-all duration-300 border border-gray-300 rounded-md"
+                      className="w-full bg-black text-white hover:bg-gray-700 transition py-3.5 font-medium tracking-wide text-lg uppercase duration-300 rounded-md"
                     >
                       Add to Wishlist
                     </button>

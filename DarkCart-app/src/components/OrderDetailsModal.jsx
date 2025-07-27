@@ -1,5 +1,7 @@
 import React from 'react';
 import { FaMapMarkerAlt, FaCity, FaFlag, FaUser, FaEnvelope, FaCalendar, FaInfoCircle, FaCreditCard, FaTruck, FaMoneyBillWave, FaBox, FaTimesCircle, FaPhone } from 'react-icons/fa';
+import ProductImageLink from './ProductImageLink';
+import noCart from '../assets/Empty-cuate.png';
 
 const OrderDetailsModal = ({ order, onClose, isLoading }) => {
   if (!order && !isLoading) return null;
@@ -282,6 +284,7 @@ const OrderDetailsModal = ({ order, onClose, isLoading }) => {
             <table className="w-full text-sm">
               <thead>
                 <tr className="bg-gray-100">
+                  <th className="text-left p-2">Image</th>
                   <th className="text-left p-2">Item</th>
                   <th className="text-left p-2">Type</th>
                   <th className="text-center p-2">Size</th>
@@ -335,6 +338,53 @@ const OrderDetailsModal = ({ order, onClose, isLoading }) => {
                   
                   return (
                     <tr key={`item-${idx}`} className={idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                      {/* Image Cell */}
+                      <td className="p-2 w-16">
+                        <div className="w-14 h-14">
+                          {(() => {
+                            // Get image source for the item
+                            let imageSrc = null;
+                            if (isBundle) {
+                              imageSrc = item.bundleDetails?.images?.[0] || 
+                                      item.bundleId?.images?.[0] || 
+                                      noCart;
+                            } else {
+                              imageSrc = item.productDetails?.image?.[0] || 
+                                      item.productId?.image?.[0] || 
+                                      item.image || 
+                                      noCart;
+                            }
+                            
+                            // Get the product or bundle ID
+                            const itemId = isBundle 
+                              ? (item.bundleId?._id || item.bundleDetails?._id) 
+                              : (item.productId?._id || item.productDetails?._id);
+                            
+                            return itemId ? (
+                              <ProductImageLink 
+                                imageUrl={imageSrc}
+                                productId={itemId}
+                                alt={name}
+                                className="w-full h-full rounded"
+                                height="100%"
+                                width="100%"
+                                disableNavigation={isBundle}
+                              />
+                            ) : (
+                              <img 
+                                src={imageSrc} 
+                                alt={name}
+                                className="w-full h-full object-cover rounded"
+                                onError={(e) => {
+                                  e.target.onerror = null;
+                                  e.target.src = noCart;
+                                }}
+                              />
+                            );
+                          })()}
+                        </div>
+                      </td>
+                      {/* Other Cells */}
                       <td className="p-2">{name}</td>
                       <td className="p-2">{isBundle ? 'Bundle' : 'Product'}</td>
                       <td className="text-center p-2">
@@ -359,7 +409,8 @@ const OrderDetailsModal = ({ order, onClose, isLoading }) => {
                               (Size: {item.size})
                             </span>
                           )}
-                        </div></td>
+                        </div>
+                      </td>
                       <td className="text-right p-2">₹{total.toFixed(2)}</td>
                     </tr>
                   );

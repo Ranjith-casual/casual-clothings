@@ -41,12 +41,22 @@ const SizeSelector = ({
         .filter(([_, count]) => count > 0)
         .map(([size]) => size);
   
+  // If no size is selected but we have available sizes, the first one will be auto-selected
+  const hasAutoSelectedSize = !selectedSize && effectiveAvailableSizes.length > 0;
+  
   return (
     <div className="mb-6">
       <div className="flex justify-between items-center mb-2">
-        <label className="block text-sm font-medium text-gray-700">
-          Size {required && <span className="text-red-500">*</span>}
-        </label>
+        <div className="flex items-center">
+          <label className="block text-sm font-medium text-gray-700">
+            Size {required && <span className="text-red-500">*</span>}
+          </label>
+          {hasAutoSelectedSize && (
+            <span className="ml-2 text-xs bg-green-50 text-green-600 px-1.5 py-0.5 rounded">
+              Auto-selected
+            </span>
+          )}
+        </div>
         <button 
           type="button"
           className="text-xs text-gray-500 hover:text-black underline"
@@ -89,8 +99,13 @@ const SizeSelector = ({
                         : isAvailable 
                           ? 'bg-white text-black border border-gray-300 hover:border-black' 
                           : 'bg-gray-100 text-gray-400 border border-gray-200 cursor-not-allowed'}
+                    ${!selectedSize && isAvailable && effectiveAvailableSizes[0] === size
+                      ? 'ring-2 ring-green-400 ring-offset-1' : ''}
                   `}
-                  title={!isAvailable ? 'Out of stock' : isInCart ? 'Already in cart' : inventory > 0 ? `${inventory} in stock` : ''}
+                  title={!isAvailable ? 'Out of stock' : 
+                         isInCart ? 'Already in cart' : 
+                         !selectedSize && isAvailable && effectiveAvailableSizes[0] === size ? 'Auto-selected size' :
+                         inventory > 0 ? `${inventory} in stock` : ''}
                 >
                   {size}
                 </button>

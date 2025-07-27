@@ -10,6 +10,7 @@ import AxiosTostError from "../utils/AxiosTostError";
 import Logo from "../assets/logo.png";
 import noCart from "../assets/Empty-cuate.png"; // Import fallback image
 import ErrorBoundary from "../components/ErrorBoundary";
+import ProductImageLink from "../components/ProductImageLink";
 
 // Import payment icons
 import {
@@ -586,15 +587,36 @@ const PaymentPage = () => {
                       >
                         {/* Product Image */}
                         <div className="w-16 h-16 flex-shrink-0 bg-gray-50 border border-gray-200 rounded overflow-hidden">
-                          <img 
-                            src={imageSrc}
-                            alt={pricing.productTitle}
-                            className="w-full h-full object-cover"
-                            onError={(e) => {
-                              e.target.onerror = null;
-                              e.target.src = noCart;
-                            }}
-                          />
+                          {item.productId?._id ? (
+                            <ProductImageLink 
+                              imageUrl={imageSrc}
+                              productId={item.productId._id}
+                              alt={pricing.productTitle}
+                              className="w-full h-full"
+                              height="100%"
+                              width="100%"
+                            />
+                          ) : item.bundleId?._id ? (
+                            <ProductImageLink 
+                              imageUrl={imageSrc}
+                              productId={item.bundleId._id}
+                              alt={pricing.productTitle}
+                              className="w-full h-full"
+                              height="100%"
+                              width="100%"
+                              disableNavigation={true} // Disable for bundles, or create a separate handler
+                            />
+                          ) : (
+                            <img 
+                              src={imageSrc}
+                              alt={pricing.productTitle}
+                              className="w-full h-full object-cover"
+                              onError={(e) => {
+                                e.target.onerror = null;
+                                e.target.src = noCart;
+                              }}
+                            />
+                          )}
                         </div>
                         
                         {/* Item Details */}

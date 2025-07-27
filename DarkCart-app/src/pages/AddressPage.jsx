@@ -12,6 +12,7 @@ import toast from "react-hot-toast";
 import EditAddressData from "../components/EditAddressData";
 import Logo from "../assets/logo.png";
 import ErrorBoundary from "../components/ErrorBoundary";
+import ProductImageLink from "../components/ProductImageLink";
 
 // Helper function to safely access product properties
 const getProductProperty = (item, propertyPath, fallback = "") => {
@@ -797,15 +798,36 @@ const AddressPage = () => {
                       >
                         {/* Product Image */}
                         <div className="w-16 h-16 sm:w-20 sm:h-20 flex-shrink-0 bg-gray-50 border border-gray-200 rounded-md overflow-hidden">
-                          <img 
-                            src={imageSrc}
-                            alt={pricing.productTitle}
-                            className="w-full h-full object-cover"
-                            onError={(e) => {
-                              e.target.onerror = null;
-                              e.target.src = noCart;
-                            }}
-                          />
+                          {item.productId?._id ? (
+                            <ProductImageLink 
+                              imageUrl={imageSrc}
+                              productId={item.productId._id}
+                              alt={pricing.productTitle}
+                              className="w-full h-full"
+                              height="100%"
+                              width="100%"
+                            />
+                          ) : item.bundleId?._id ? (
+                            <ProductImageLink 
+                              imageUrl={imageSrc}
+                              productId={item.bundleId._id}
+                              alt={pricing.productTitle}
+                              className="w-full h-full"
+                              height="100%"
+                              width="100%"
+                              disableNavigation={true} // Disable for bundles, or create a separate handler
+                            />
+                          ) : (
+                            <img 
+                              src={imageSrc}
+                              alt={pricing.productTitle}
+                              className="w-full h-full object-cover"
+                              onError={(e) => {
+                                e.target.onerror = null;
+                                e.target.src = noCart;
+                              }}
+                            />
+                          )}
                         </div>
                         
                         {/* Product Details */}

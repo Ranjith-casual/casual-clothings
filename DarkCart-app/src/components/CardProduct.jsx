@@ -1,12 +1,16 @@
 import React, { useState, useEffect } from "react";
 import { DisplayPriceInRupees } from "../utils/DisplayPriceInRupees";
 import { validURLConvert } from "../utils/validURLConvert";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { pricewithDiscount } from "../utils/PriceWithDiscount";
 import { useGlobalContext } from "../provider/GlobalProvider";
-import { FaShoppingCart } from "react-icons/fa";
+import { FaShoppingCart, FaBolt} from "react-icons/fa";
 import { useSelector } from "react-redux";
 import AddToCartButton from "./AddToCartButton";
+import BuyNowButton from "./BuyNowButton";
+import toast from "react-hot-toast";
+import Axios from "../utils/Axios.js";
+import SummaryApi from "../common/SummaryApi.js";
 
 // Component to display product name with search highlighting
 const ProductNameWithHighlight = ({ name, searchTerm }) => {
@@ -50,9 +54,13 @@ function CardProduct({ data, hideProductInfo = false }) {
   const [imageError, setImageError] = useState(false);
   const [showQuickActions, setShowQuickActions] = useState(false);
   const [processingWishlist, setProcessingWishlist] = useState(false);
-  const { addToWishlist, removeFromWishlist, checkWishlistItem } = useGlobalContext();
+  const [selectedSize, setSelectedSize] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const { addToWishlist, removeFromWishlist, checkWishlistItem, fetchCartItems } = useGlobalContext();
   const location = useLocation();
+  const navigate = useNavigate();
   const user = useSelector(state => state.user);
+  const cartItems = useSelector((state) => state.cartItem.cart) || [];
   
   // Extract search term from URL params
   const searchParams = new URLSearchParams(location.search);
@@ -62,6 +70,26 @@ function CardProduct({ data, hideProductInfo = false }) {
   const productName = data.name || 'product';
   const productId = data._id || '';
   const url = `/product/${validURLConvert(productName)}-${productId}`;
+
+  // Auto-select the first available in-stock size
+  useEffect(() => {
+    if (!data) return;
+    
+    // Select the first available size with stock
+    if (data.sizes) {
+      const availableSizes = Object.entries(data.sizes)
+        .filter(([size, stock]) => stock > 0)
+        .map(([size]) => size);
+      
+      if (availableSizes.length > 0) {
+        setSelectedSize(availableSizes[0]);
+        console.log(`Auto-selected size ${availableSizes[0]} for ${data.name}`);
+      }
+    } else if (data.stock > 0) {
+      // Fallback to a default size if there's general stock but no size-specific stock
+      setSelectedSize('L');
+    }
+  }, [data]);
 
   // Check if product is in wishlist when component mounts
   useEffect(() => {
@@ -126,6 +154,160 @@ function CardProduct({ data, hideProductInfo = false }) {
     e.preventDefault();
     e.stopPropagation();
     console.log('Quick view for:', data.name);
+  };
+  
+  // Add to cart handler
+  const handleAddToCart = async (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    if (loading) return;
+    
+    // Validate product and size
+    if (!data || !data._id) {
+      toast.error("Invalid product data");
+      return;
+    }
+    
+    if (!selectedSize) {
+      toast.error("No available size to select");
+      return;
+    }
+    
+    // Check stock
+    if (data.sizes && data.sizes[selectedSize] !== undefined) {
+      if (data.sizes[selectedSize] <= 0) {
+        toast.error(`Size ${selectedSize} is out of stock`);
+        return;
+      }
+    } else if (data.stock !== undefined && data.stock <= 0) {
+      toast.error("Product is out of stock");
+      return;
+    }
+    
+    try {
+      setLoading(true);
+      
+      // Check if this product with the same size is already in cart
+      const existingCartItem = cartItems.find(item => 
+        item?.productId && 
+        (item.productId === data._id || item.productId?._id === data._id) &&
+        item.size === selectedSize
+      );
+      
+      if (existingCartItem) {
+        // If already in cart, update quantity
+        await Axios({
+          ...SummaryApi.updateCartItemQty,
+          data: { id: existingCartItem._id, quantity: existingCartItem.quantity + 1 }
+        });
+        toast.success(`Increased quantity of ${data.name} in cart`);
+      } else {
+        // Add to cart with selected size
+        const sizePrice = selectedSize && data.sizePricing && data.sizePricing[selectedSize] !== undefined
+          ? data.sizePricing[selectedSize]
+          : data.price;
+        
+        await Axios({
+          ...SummaryApi.addToCart,
+          data: { 
+            productId: data._id,
+            size: selectedSize,
+            price: parseFloat(sizePrice)
+          }
+        });
+        toast.success(`Added ${data.name} to cart`);
+      }
+      
+      // Refresh cart items
+      fetchCartItems();
+      
+    } catch (error) {
+      if (error.response?.status === 401) {
+        toast.error("Please login to add items to cart");
+        navigate("/login");
+      } else {
+        toast.error(`Error: ${error.response?.data?.message || error.message}`);
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+  // Buy now handler
+  const handleBuyNow = async (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    if (loading) return;
+    
+    // Validate product and size
+    if (!data || !data._id) {
+      toast.error("Invalid product data");
+      return;
+    }
+    
+    if (!selectedSize) {
+      toast.error("No available size to select");
+      return;
+    }
+    
+    // Check stock
+    if (data.sizes && data.sizes[selectedSize] !== undefined) {
+      if (data.sizes[selectedSize] <= 0) {
+        toast.error(`Size ${selectedSize} is out of stock`);
+        return;
+      }
+    } else if (data.stock !== undefined && data.stock <= 0) {
+      toast.error("Product is out of stock");
+      return;
+    }
+    
+    try {
+      setLoading(true);
+      
+      // Check if this product with the same size is already in cart
+      const existingCartItem = cartItems.find(item => 
+        item?.productId && 
+        (item.productId === data._id || item.productId?._id === data._id) &&
+        item.size === selectedSize
+      );
+      
+      if (existingCartItem) {
+        // If already in cart, just navigate to cart page
+        toast.success("Item already in your bag, redirecting to checkout");
+      } else {
+        // Add to cart first
+        const sizePrice = selectedSize && data.sizePricing && data.sizePricing[selectedSize] !== undefined
+          ? data.sizePricing[selectedSize]
+          : data.price;
+        
+        await Axios({
+          ...SummaryApi.addToCart,
+          data: { 
+            productId: data._id,
+            size: selectedSize,
+            price: parseFloat(sizePrice)
+          }
+        });
+        
+        // Refresh cart items
+        fetchCartItems();
+      }
+      
+      // Navigate to cart/checkout page
+      navigate('/checkout/bag');
+      
+    } catch (error) {
+      if (error.response?.status === 401) {
+        toast.error("Please login to buy items");
+        navigate("/login");
+      } else {
+        toast.error(`Error: ${error.response?.data?.message || error.message}`);
+      }
+    } finally {
+      setLoading(false);
+    }
   };
 
   // Safe value extraction with fallbacks
@@ -238,12 +420,26 @@ function CardProduct({ data, hideProductInfo = false }) {
               )}
             </div>
 
-            {/* Add to Cart Button */}
-            <div className="mt-auto flex justify-center w-full" onClick={(e) => e.preventDefault()}>
-              <AddToCartButton 
-                data={data} 
-                isBundle={false}
-              />
+            {/* Action Buttons: Add to Cart and Buy Now */}
+            <div className="mt-auto flex justify-between w-full gap-2" onClick={(e) => e.preventDefault()}>
+              {/* Add to Cart Button */}
+           
+              
+              {/* Buy Now Button */}
+              <button
+                onClick={handleBuyNow}
+                disabled={loading || !selectedSize || (data.sizes && data.sizes[selectedSize] <= 0)}
+                className="flex-1 bg-white text-black border border-black hover:bg-black hover:text-white transition py-2 text-sm font-medium rounded-md flex items-center justify-center gap-1.5 disabled:opacity-70 disabled:cursor-not-allowed"
+              >
+                {loading ? (
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                ) : (
+                  <>
+                    <FaBolt size={14} />
+                    <span>Buy Now</span>
+                  </>
+                )}
+              </button>
             </div>
           </div>
         )}

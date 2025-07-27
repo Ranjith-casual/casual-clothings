@@ -11,6 +11,7 @@ import noCart from '../assets/Empty-cuate.png';
 import Axios from '../utils/Axios';
 import SummaryApi from '../common/SummaryApi';
 import ErrorBoundary from '../components/ErrorBoundary';
+import ProductImageLink from '../components/ProductImageLink';
 import { 
   toggleItemSelection, 
   selectAllItems, 
@@ -734,15 +735,38 @@ const BagPage = () => {
                               </div>
                             )}
                             <div className="w-20 h-24 sm:w-24 sm:h-28 flex-shrink-0">
-                              <img 
-                                src={imageSrc} 
-                                alt={pricing.productTitle}
-                                className="w-full h-full object-cover rounded"
-                                onError={(e) => {
-                                  e.target.onerror = null;
-                                  e.target.src = noCart;
-                                }}
-                              />
+                              {item.productId?._id ? (
+                                <ProductImageLink 
+                                  imageUrl={imageSrc}
+                                  productId={item.productId._id}
+                                  alt={pricing.productTitle}
+                                  className="w-full h-full rounded"
+                                  imageClassName="rounded"
+                                  height="100%"
+                                  width="100%"
+                                />
+                              ) : item.bundleId?._id ? (
+                                <ProductImageLink 
+                                  imageUrl={imageSrc}
+                                  productId={item.bundleId._id}
+                                  alt={pricing.productTitle}
+                                  className="w-full h-full rounded"
+                                  imageClassName="rounded"
+                                  height="100%"
+                                  width="100%"
+                                  disableNavigation={true} // Disable for bundles, or create a separate handler
+                                />
+                              ) : (
+                                <img 
+                                  src={imageSrc} 
+                                  alt={pricing.productTitle}
+                                  className="w-full h-full object-cover rounded"
+                                  onError={(e) => {
+                                    e.target.onerror = null;
+                                    e.target.src = noCart;
+                                  }}
+                                />
+                              )}
                             </div>
                           </div>
                           

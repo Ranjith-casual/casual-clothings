@@ -30,8 +30,9 @@ const AddToCartButton = ({ data, isBundle = false, cartItemId = null, currentQty
 
     // For products (not bundles), we need to check size selection and stock
     if (!isBundle) {
-      // First check if a size is selected
+      // Size is now required from the parent component - it should always auto-select a valid size
       if (!selectedSize) {
+        console.warn("No size selected for product - this should not happen with auto-selection");
         toast.error("Please select a size");
         return;
       }
@@ -490,7 +491,7 @@ const AddToCartButton = ({ data, isBundle = false, cartItemId = null, currentQty
               <button
                 onClick={handleADDTocart}
                 disabled={loading || isOutOfStock}
-                className={`bg-black hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-md transition-colors font-medium tracking-wide flex items-center justify-center gap-1 lg:gap-2 w-full ${
+                className={`bg-black text-white hover:bg-gray-800 transition disabled:opacity-50 disabled:cursor-not-allowed rounded-md font-medium tracking-wide flex items-center justify-center gap-1 lg:gap-2 w-full ${
                   large ? 'py-3 text-lg font-semibold' : 'p-2 lg:px-4 lg:py-2'
                 }`}
               >
