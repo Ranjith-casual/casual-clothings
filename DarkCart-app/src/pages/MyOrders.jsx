@@ -1,13 +1,14 @@
 import React, { useState, useEffect } from 'react'
 import { useSelector, useDispatch } from 'react-redux'
 import { useNavigate } from 'react-router-dom'
-import { FaMapMarkerAlt, FaCity, FaFlag, FaMailBulk, FaBox, FaUser, FaEnvelope, FaCalendar, FaTimes, FaExclamationTriangle, FaBan, FaRedo, FaInfoCircle, FaCheck, FaSpinner, FaCreditCard, FaCog, FaTruck, FaDownload, FaFilePdf, FaUndo } from 'react-icons/fa'
+import { FaMapMarkerAlt, FaCity, FaFlag, FaMailBulk, FaBox, FaUser, FaEnvelope, FaCalendar, FaTimes, FaExclamationTriangle, FaBan, FaRedo, FaInfoCircle, FaCheck, FaSpinner, FaCreditCard, FaCog, FaTruck, FaDownload, FaFilePdf, FaUndo, FaListAlt } from 'react-icons/fa'
 import AnimatedImage from '../components/NoData';
 import toast from 'react-hot-toast';
 import SummaryApi from '../common/SummaryApi';
 import Axios from '../utils/Axios';
 import OrderTimeline from '../components/OrderTimeline';
 import OrderCancellationModal from '../components/OrderCancellationModal';
+import PartialCancellationModal from '../components/PartialCancellationModal';
 import ProductDetailsModal from '../components/ProductDetailsModal';
 import BundleItemsModal from '../components/BundleItemsModal';
 import OrderDetailsModal from '../components/OrderDetailsModal';
@@ -28,6 +29,10 @@ function MyOrders() {
   const [orderToCancel, setOrderToCancel] = useState(null);
   const [userOrders, setUserOrders] = useState([]);
   const [orderCancellationRequests, setOrderCancellationRequests] = useState([]);
+  
+  // Partial Cancellation Modal States
+  const [showPartialCancellationModal, setShowPartialCancellationModal] = useState(false);
+  const [orderForPartialCancel, setOrderForPartialCancel] = useState(null);
   
   // Product Details Modal States
   const [showProductModal, setShowProductModal] = useState(false);
@@ -207,11 +212,23 @@ function MyOrders() {
     setShowCancellationModal(true);
   };
 
+  const handlePartialCancelOrder = (orderData) => {
+    setOrderForPartialCancel(orderData);
+    setShowPartialCancellationModal(true);
+  };
+
   const handleCancellationRequested = () => {
     // Refresh orders and cancellation requests after cancellation request is submitted
     fetchCurrentUserOrders();
     fetchUserCancellationRequests();
     setOrderToCancel(null);
+  };
+
+  const handlePartialCancellationSuccess = () => {
+    // Refresh orders and cancellation requests after partial cancellation request is submitted
+    fetchCurrentUserOrders();
+    fetchUserCancellationRequests();
+    setOrderForPartialCancel(null);
   };
 
   // Product Details Modal Handlers
@@ -1420,29 +1437,48 @@ function MyOrders() {
                           </div>
                         )}
                         
-                        {/* Cancel button */}
+                        {/* Cancel buttons */}
                         {canCancelOrder(order) && (
-                          <button
-                            onClick={() => handleCancelOrder(order)}
-                            disabled={cancellingOrderId === order.orderId}
-                            className={`px-4 py-2 rounded-md text-sm font-semibold transition-colors ${
-                              cancellingOrderId === order.orderId
-                                ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                                : 'bg-red-50 text-red-700 border border-red-200 hover:bg-red-100'
-                            }`}
-                          >
-                            {cancellingOrderId === order.orderId ? (
-                              <div className='flex items-center gap-2'>
-                                <div className='w-4 h-4 border-2 border-red-400 border-t-transparent rounded-full animate-spin'></div>
-                                <span>Processing...</span>
-                              </div>
-                            ) : (
-                              <>
-                                <FaTimes className='inline w-4 h-4 mr-2' />
-                                Cancel Order
-                              </>
+                          <div className="flex gap-2 flex-wrap">
+                            {/* Full Order Cancellation */}
+                            <button
+                              onClick={() => handleCancelOrder(order)}
+                              disabled={cancellingOrderId === order.orderId}
+                              className={`px-4 py-2 rounded-md text-sm font-semibold transition-colors ${
+                                cancellingOrderId === order.orderId
+                                  ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                                  : 'bg-red-50 text-red-700 border border-red-200 hover:bg-red-100'
+                              }`}
+                            >
+                              {cancellingOrderId === order.orderId ? (
+                                <div className='flex items-center gap-2'>
+                                  <div className='w-4 h-4 border-2 border-red-400 border-t-transparent rounded-full animate-spin'></div>
+                                  <span>Processing...</span>
+                                </div>
+                              ) : (
+                                <>
+                                  <FaTimes className='inline w-4 h-4 mr-2' />
+                                  Cancel Order
+                                </>
+                              )}
+                            </button>
+
+                            {/* Partial Item Cancellation - only show if order has multiple items */}
+                            {order.items && order.items.length > 1 && (
+                              <button
+                                onClick={() => handlePartialCancelOrder(order)}
+                                disabled={cancellingOrderId === order.orderId}
+                                className={`px-4 py-2 rounded-md text-sm font-semibold transition-colors ${
+                                  cancellingOrderId === order.orderId
+                                    ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                                    : 'bg-orange-50 text-orange-700 border border-orange-200 hover:bg-orange-100'
+                                }`}
+                              >
+                                <FaListAlt className='inline w-4 h-4 mr-2' />
+                                Cancel Items
+                              </button>
                             )}
-                          </button>
+                          </div>
                         )}
                       </div>
                     )}
@@ -1503,6 +1539,16 @@ function MyOrders() {
           order={detailedOrder}
           isLoading={loadingDetails}
           onClose={handleCloseOrderDetailsModal}
+        />
+      )}
+
+      {/* Partial Cancellation Modal */}
+      {showPartialCancellationModal && orderForPartialCancel && (
+        <PartialCancellationModal
+          isOpen={showPartialCancellationModal}
+          onClose={() => setShowPartialCancellationModal(false)}
+          order={orderForPartialCancel}
+          onCancellationSuccess={handlePartialCancellationSuccess}
         />
       )}
     </div>

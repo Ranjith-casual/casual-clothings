@@ -12,7 +12,10 @@ import {
     getRefundInvoice,
     getCancellationByOrderId,
     getRefundStatsWithDelivery,
-    getComprehensiveOrderDetails
+    getComprehensiveOrderDetails,
+    requestPartialItemCancellation,
+    processPartialItemCancellation,
+    getPartialCancellationDetails
 } from '../controllers/orderCancellation.controller.js';
 import { auth } from '../middleware/auth.js';
 import { admin } from '../middleware/Admin.js';
@@ -26,9 +29,14 @@ orderCancellationRoute.get('/user-refunds', auth, getUserRefunds);
 orderCancellationRoute.get('/invoice/:refundId', auth, getRefundInvoice);
 orderCancellationRoute.get('/policy', getCancellationPolicy); // Public policy access
 
+// Partial item cancellation routes
+orderCancellationRoute.post('/request-partial', auth, requestPartialItemCancellation);
+orderCancellationRoute.get('/partial/:cancellationId', auth, getPartialCancellationDetails);
+
 // Admin routes
 orderCancellationRoute.get('/admin/all', auth, admin, getCancellationRequests);
 orderCancellationRoute.put('/admin/process', auth, admin, processCancellationRequest);
+orderCancellationRoute.put('/admin/process-partial/:cancellationId', auth, admin, processPartialItemCancellation);
 orderCancellationRoute.get('/admin/policy', auth, admin, getCancellationPolicy);
 orderCancellationRoute.put('/admin/policy', auth, admin, updateCancellationPolicy);
 orderCancellationRoute.get('/order/:orderId', auth, admin, getCancellationByOrderId); // Get cancellation by order ID

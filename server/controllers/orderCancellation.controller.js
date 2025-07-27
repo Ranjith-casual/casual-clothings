@@ -1191,3 +1191,443 @@ export const getCancellationByOrderId = async (req, res) => {
         });
     }
 };
+
+// Request Partial Item Cancellation
+export const requestPartialItemCancellation = async (req, res) => {
+    try {
+        const { orderId, itemsToCancel, reason, additionalReason } = req.body;
+        const userId = req.userId;
+
+        // Validate input
+        if (!orderId || !itemsToCancel || !Array.isArray(itemsToCancel) || itemsToCancel.length === 0) {
+            return res.status(400).json({
+                success: false,
+                error: true,
+                message: "Order ID and items to cancel are required"
+            });
+        }
+
+        if (!reason) {
+            return res.status(400).json({
+                success: false,
+                error: true,
+                message: "Cancellation reason is required"
+            });
+        }
+
+        // Find the order
+        const order = await orderModel.findById(orderId);
+        if (!order) {
+            return res.status(404).json({
+                success: false,
+                error: true,
+                message: "Order not found"
+            });
+        }
+
+        // Check if user owns this order
+        if (order.userId.toString() !== userId) {
+            return res.status(403).json({
+                success: false,
+                error: true,
+                message: "You don't have permission to cancel this order"
+            });
+        }
+
+        // Check if order is in a cancellable state
+        const nonCancellableStatuses = ['CANCELLED', 'DELIVERED', 'RETURNED'];
+        if (nonCancellableStatuses.includes(order.orderStatus)) {
+            return res.status(400).json({
+                success: false,
+                error: true,
+                message: `Cannot cancel order with status: ${order.orderStatus}`
+            });
+        }
+
+        // Check if there's already a pending cancellation request for this order
+        const existingCancellation = await orderCancellationModel.findOne({
+            orderId: orderId,
+            status: 'PENDING'
+        });
+
+        if (existingCancellation) {
+            return res.status(400).json({
+                success: false,
+                error: true,
+                message: "There is already a pending cancellation request for this order"
+            });
+        }
+
+        // Validate items to cancel exist in the order
+        const validatedItemsToCancel = [];
+        let totalRefundAmount = 0;
+
+        for (const itemToCancel of itemsToCancel) {
+            const orderItem = order.items.find(item => 
+                item._id.toString() === itemToCancel.itemId
+            );
+
+            if (!orderItem) {
+                return res.status(400).json({
+                    success: false,
+                    error: true,
+                    message: `Item with ID ${itemToCancel.itemId} not found in order`
+                });
+            }
+
+            // Calculate refund amount for this item
+            const itemRefundAmount = orderItem.itemTotal || (orderItem.sizeAdjustedPrice || orderItem.productDetails?.price || 0) * orderItem.quantity;
+            totalRefundAmount += itemRefundAmount;
+
+            validatedItemsToCancel.push({
+                itemId: orderItem._id,
+                productId: orderItem.productId,
+                bundleId: orderItem.bundleId,
+                itemType: orderItem.itemType,
+                quantity: orderItem.quantity,
+                size: orderItem.size,
+                itemTotal: orderItem.itemTotal,
+                refundAmount: itemRefundAmount
+            });
+        }
+
+        // Get delivery information
+        const deliveryInfo = {
+            estimatedDeliveryDate: order.estimatedDeliveryDate,
+            actualDeliveryDate: order.actualDeliveryDate,
+            deliveryNotes: order.deliveryNotes,
+            wasPastDeliveryDate: order.estimatedDeliveryDate ? new Date() > new Date(order.estimatedDeliveryDate) : false
+        };
+
+        // Create cancellation request
+        const cancellationRequest = new orderCancellationModel({
+            orderId: orderId,
+            userId: userId,
+            cancellationType: 'PARTIAL_ITEMS',
+            itemsToCancel: validatedItemsToCancel,
+            reason: reason,
+            additionalReason: additionalReason,
+            deliveryInfo: deliveryInfo,
+            adminResponse: {
+                refundAmount: totalRefundAmount
+            }
+        });
+
+        const savedCancellation = await cancellationRequest.save();
+
+        // Send notification email to user
+        try {
+            const user = await UserModel.findById(userId);
+            if (user && user.email) {
+                await sendEmail({
+                    sendTo: user.email,
+                    subject: `Partial Cancellation Request Submitted - Order #${order.orderId}`,
+                    html: `
+                        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                            <h2 style="color: #333;">Partial Cancellation Request Submitted</h2>
+                            <p>Dear ${user.name},</p>
+                            <p>Your request to cancel specific items from order <strong>#${order.orderId}</strong> has been submitted successfully.</p>
+                            
+                            <div style="background-color: #f9f9f9; padding: 15px; border-radius: 5px; margin: 20px 0;">
+                                <h3 style="margin-top: 0;">Items to Cancel:</h3>
+                                <ul>
+                                    ${validatedItemsToCancel.map(item => {
+                                        const orderItem = order.items.find(oi => oi._id.toString() === item.itemId.toString());
+                                        const itemName = orderItem?.productDetails?.name || orderItem?.bundleDetails?.title || 'Unknown Item';
+                                        return `<li>${itemName} ${item.size ? `(Size: ${item.size})` : ''} - Qty: ${item.quantity} - ₹${item.refundAmount}</li>`;
+                                    }).join('')}
+                                </ul>
+                                <p><strong>Total Expected Refund: ₹${totalRefundAmount}</strong></p>
+                            </div>
+                            
+                            <p><strong>Reason:</strong> ${reason}</p>
+                            ${additionalReason ? `<p><strong>Additional Details:</strong> ${additionalReason}</p>` : ''}
+                            
+                            <p>Your request is now being reviewed by our team. You will receive an email notification once the request is processed.</p>
+                            
+                            <p>Thank you for shopping with us!</p>
+                            <p><strong>Customer Support Team</strong></p>
+                        </div>
+                    `
+                });
+            }
+        } catch (emailError) {
+            console.error("Error sending cancellation notification email:", emailError);
+        }
+
+        return res.status(201).json({
+            success: true,
+            error: false,
+            message: "Partial item cancellation request submitted successfully",
+            data: {
+                cancellationId: savedCancellation._id,
+                itemsToCancel: validatedItemsToCancel,
+                totalRefundAmount: totalRefundAmount,
+                status: 'PENDING'
+            }
+        });
+
+    } catch (error) {
+        console.error("Error requesting partial item cancellation:", error);
+        return res.status(500).json({
+            success: false,
+            error: true,
+            message: "Internal server error while processing cancellation request"
+        });
+    }
+};
+
+// Process Partial Item Cancellation (Admin)
+export const processPartialItemCancellation = async (req, res) => {
+    try {
+        const { cancellationId } = req.params;
+        const { action, adminComments, refundPercentage } = req.body;
+        const adminId = req.userId;
+
+        if (!action || !['APPROVED', 'REJECTED'].includes(action)) {
+            return res.status(400).json({
+                success: false,
+                error: true,
+                message: "Action must be either 'APPROVED' or 'REJECTED'"
+            });
+        }
+
+        // Find the cancellation request
+        const cancellationRequest = await orderCancellationModel.findById(cancellationId)
+            .populate('orderId')
+            .populate('userId');
+
+        if (!cancellationRequest) {
+            return res.status(404).json({
+                success: false,
+                error: true,
+                message: "Cancellation request not found"
+            });
+        }
+
+        if (cancellationRequest.status !== 'PENDING') {
+            return res.status(400).json({
+                success: false,
+                error: true,
+                message: "This cancellation request has already been processed"
+            });
+        }
+
+        const order = cancellationRequest.orderId;
+
+        // Update cancellation request
+        cancellationRequest.status = action;
+        cancellationRequest.adminResponse.processedBy = adminId;
+        cancellationRequest.adminResponse.processedDate = new Date();
+        cancellationRequest.adminResponse.adminComments = adminComments || '';
+
+        if (action === 'APPROVED') {
+            // Calculate final refund amount based on admin's refund percentage
+            const finalRefundPercentage = refundPercentage || cancellationRequest.adminResponse.refundPercentage || 75;
+            let totalRefundAmount = 0;
+
+            // Update refund amounts for each item
+            cancellationRequest.itemsToCancel.forEach(item => {
+                const calculatedRefund = (item.refundAmount * finalRefundPercentage) / 100;
+                item.refundAmount = Math.round(calculatedRefund * 100) / 100; // Round to 2 decimal places
+                totalRefundAmount += item.refundAmount;
+            });
+
+            cancellationRequest.adminResponse.refundAmount = totalRefundAmount;
+            cancellationRequest.adminResponse.refundPercentage = finalRefundPercentage;
+
+            // Update order - remove cancelled items and adjust totals
+            const itemsToRemove = cancellationRequest.itemsToCancel.map(item => item.itemId.toString());
+            order.items = order.items.filter(item => !itemsToRemove.includes(item._id.toString()));
+
+            // Recalculate order totals
+            let newSubTotal = 0;
+            let newTotalQuantity = 0;
+
+            order.items.forEach(item => {
+                newSubTotal += item.itemTotal || (item.sizeAdjustedPrice || item.productDetails?.price || 0) * item.quantity;
+                newTotalQuantity += item.quantity;
+            });
+
+            order.subTotalAmt = newSubTotal;
+            order.totalAmt = newSubTotal; // Assuming no additional charges
+            order.totalQuantity = newTotalQuantity;
+
+            // If no items left, mark order as cancelled
+            if (order.items.length === 0) {
+                order.orderStatus = 'CANCELLED';
+            }
+
+            // Set up refund details
+            cancellationRequest.refundDetails = {
+                refundId: `REF_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+                refundDate: new Date(),
+                refundMethod: 'ORIGINAL_PAYMENT_METHOD',
+                refundStatus: 'PENDING'
+            };
+
+            await order.save();
+        }
+
+        await cancellationRequest.save();
+
+        // Send notification email
+        try {
+            const user = cancellationRequest.userId;
+            if (user && user.email) {
+                const emailSubject = action === 'APPROVED' 
+                    ? `Partial Cancellation Approved - Order #${order.orderId}`
+                    : `Partial Cancellation Request Declined - Order #${order.orderId}`;
+
+                let emailContent = `
+                    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                        <h2 style="color: ${action === 'APPROVED' ? '#28a745' : '#dc3545'};">
+                            Partial Cancellation ${action === 'APPROVED' ? 'Approved' : 'Declined'}
+                        </h2>
+                        <p>Dear ${user.name},</p>
+                `;
+
+                if (action === 'APPROVED') {
+                    emailContent += `
+                        <p>Your request to cancel specific items from order <strong>#${order.orderId}</strong> has been approved.</p>
+                        
+                        <div style="background-color: #f9f9f9; padding: 15px; border-radius: 5px; margin: 20px 0;">
+                            <h3 style="margin-top: 0;">Cancelled Items:</h3>
+                            <ul>
+                                ${cancellationRequest.itemsToCancel.map(item => {
+                                    const orderItem = order.items.find(oi => oi._id && oi._id.toString() === item.itemId.toString());
+                                    const itemName = orderItem?.productDetails?.name || orderItem?.bundleDetails?.title || 'Cancelled Item';
+                                    return `<li>${itemName} ${item.size ? `(Size: ${item.size})` : ''} - ₹${item.refundAmount}</li>`;
+                                }).join('')}
+                            </ul>
+                            <p><strong>Total Refund Amount: ₹${cancellationRequest.adminResponse.refundAmount}</strong></p>
+                            <p><strong>Refund Percentage: ${cancellationRequest.adminResponse.refundPercentage}%</strong></p>
+                        </div>
+                        
+                        <p>The refund will be processed within 5-7 business days to your original payment method.</p>
+                    `;
+                } else {
+                    emailContent += `
+                        <p>Unfortunately, your request to cancel specific items from order <strong>#${order.orderId}</strong> has been declined.</p>
+                        ${adminComments ? `<p><strong>Reason:</strong> ${adminComments}</p>` : ''}
+                        <p>If you have any questions, please contact our customer support.</p>
+                    `;
+                }
+
+                emailContent += `
+                        <p>Thank you for your understanding!</p>
+                        <p><strong>Customer Support Team</strong></p>
+                    </div>
+                `;
+
+                await sendEmail({
+                    sendTo: user.email,
+                    subject: emailSubject,
+                    html: emailContent
+                });
+            }
+        } catch (emailError) {
+            console.error("Error sending cancellation response email:", emailError);
+        }
+
+        return res.status(200).json({
+            success: true,
+            error: false,
+            message: `Partial item cancellation ${action.toLowerCase()} successfully`,
+            data: {
+                cancellationId: cancellationRequest._id,
+                status: action,
+                refundAmount: action === 'APPROVED' ? cancellationRequest.adminResponse.refundAmount : 0,
+                itemsProcessed: cancellationRequest.itemsToCancel.length
+            }
+        });
+
+    } catch (error) {
+        console.error("Error processing partial item cancellation:", error);
+        return res.status(500).json({
+            success: false,
+            error: true,
+            message: "Internal server error while processing cancellation"
+        });
+    }
+};
+
+// Get Partial Cancellation Details
+export const getPartialCancellationDetails = async (req, res) => {
+    try {
+        const { cancellationId } = req.params;
+        const userId = req.userId;
+        const isAdmin = req.isAdmin;
+
+        const cancellationRequest = await orderCancellationModel.findById(cancellationId)
+            .populate('orderId')
+            .populate('userId', 'name email')
+            .populate('adminResponse.processedBy', 'name email')
+            .lean();
+
+        if (!cancellationRequest) {
+            return res.status(404).json({
+                success: false,
+                error: true,
+                message: "Cancellation request not found"
+            });
+        }
+
+        // Check permissions
+        if (!isAdmin && cancellationRequest.userId._id.toString() !== userId) {
+            return res.status(403).json({
+                success: false,
+                error: true,
+                message: "You don't have permission to view this cancellation request"
+            });
+        }
+
+        // Enhance item details with product/bundle information
+        const enhancedItemsToCancel = await Promise.all(
+            cancellationRequest.itemsToCancel.map(async (item) => {
+                let itemDetails = { ...item };
+                
+                if (item.itemType === 'product' && item.productId) {
+                    const product = await ProductModel.findById(item.productId).lean();
+                    if (product) {
+                        itemDetails.productDetails = {
+                            name: product.name,
+                            image: product.image,
+                            price: product.price,
+                            category: product.category
+                        };
+                    }
+                } else if (item.itemType === 'bundle' && item.bundleId) {
+                    const bundle = await BundleModel.findById(item.bundleId).lean();
+                    if (bundle) {
+                        itemDetails.bundleDetails = {
+                            title: bundle.title,
+                            image: bundle.image,
+                            bundlePrice: bundle.bundlePrice
+                        };
+                    }
+                }
+                
+                return itemDetails;
+            })
+        );
+
+        return res.status(200).json({
+            success: true,
+            error: false,
+            message: "Partial cancellation details retrieved successfully",
+            data: {
+                ...cancellationRequest,
+                itemsToCancel: enhancedItemsToCancel
+            }
+        });
+
+    } catch (error) {
+        console.error("Error getting partial cancellation details:", error);
+        return res.status(500).json({
+            success: false,
+            error: true,
+            message: "Internal server error while getting cancellation details"
+        });
+    }
+};

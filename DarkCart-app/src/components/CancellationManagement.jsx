@@ -259,25 +259,48 @@ function CancellationManagement() {
         return null;
     }
 
-    const handleProcessRequest = async (requestId, action, adminComments = '') => {
+    const handleProcessRequest = async (requestId, action, adminComments = '', refundPercentage = 75) => {
         setActionLoading(true)
         try {
             const token = localStorage.getItem('accessToken')
-            const response = await Axios({
-                ...SummaryApi.processCancellationRequest,
-                headers: {
-                    authorization: `Bearer ${token}`
-                },
-                data: {
-                    requestId,
-                    action,
-                    adminComments,
-                    customRefundPercentage: 75 // Setting fixed 75% refund percentage
-                }
-            })
+            
+            // Determine if this is a partial cancellation or full order cancellation
+            const isPartialCancellation = selectedRequest?.cancellationType === 'PARTIAL_ITEMS';
+            
+            let response;
+            if (isPartialCancellation) {
+                // Handle partial item cancellation
+                response = await Axios({
+                    ...SummaryApi.processPartialItemCancellation,
+                    url: `${SummaryApi.processPartialItemCancellation.url}/${requestId}`,
+                    headers: {
+                        authorization: `Bearer ${token}`
+                    },
+                    data: {
+                        action,
+                        adminComments,
+                        refundPercentage
+                    }
+                })
+            } else {
+                // Handle full order cancellation
+                response = await Axios({
+                    ...SummaryApi.processCancellationRequest,
+                    headers: {
+                        authorization: `Bearer ${token}`
+                    },
+                    data: {
+                        requestId,
+                        action,
+                        adminComments,
+                        customRefundPercentage: refundPercentage
+                    }
+                })
+            }
 
             if (response.data.success) {
-                toast.success(`Cancellation request ${action.toLowerCase()} successfully!`)
+                const requestType = isPartialCancellation ? 'partial item cancellation' : 'cancellation';
+                toast.success(`${requestType} request ${action.toLowerCase()} successfully!`)
                 fetchCancellationRequests()
                 setShowDetailsModal(false)
                 
@@ -286,14 +309,22 @@ function CancellationManagement() {
                     const userId = selectedRequest.userId._id || selectedRequest.userId;
                     const orderId = selectedRequest.orderId._id || selectedRequest.orderId;
                     const orderNumber = selectedRequest.orderId.orderId || 'N/A';
-                    const refundAmount = (selectedRequest.orderId.totalAmt * 0.75).toFixed(2);
+                    
+                    let refundAmount;
+                    if (isPartialCancellation) {
+                        refundAmount = response.data.data?.refundAmount || 0;
+                    } else {
+                        refundAmount = (selectedRequest.orderId.totalAmt * refundPercentage / 100).toFixed(2);
+                    }
                     
                     // Create notification
                     const notification = {
                         id: `cancel-${orderId}-${Date.now()}`,
                         type: 'refund',
                         title: `Refund Processed for Order #${orderNumber}`,
-                        message: `Your cancellation request has been approved. A refund of ₹${refundAmount} (75% of order amount) will be processed to your original payment method within 5-7 business days.`,
+                        message: isPartialCancellation 
+                            ? `Your partial cancellation request has been approved. A refund of ₹${refundAmount} for selected items will be processed to your original payment method within 5-7 business days.`
+                            : `Your cancellation request has been approved. A refund of ₹${refundAmount} (${refundPercentage}% of order amount) will be processed to your original payment method within 5-7 business days.`,
                         time: new Date().toISOString(),
                         read: false,
                         refundAmount: refundAmount,
@@ -494,9 +525,79 @@ function CancellationManagement() {
                             </div>
                         </div>
 
+                        {/* Cancellation Type */}
+                        <div className="mb-6">
+                            <h3 className="font-semibold text-lg sm:text-xl text-gray-800 mb-4 tracking-tight">Cancellation Type</h3>
+                            <div className="bg-blue-50 p-4 sm:p-5 rounded-xl border border-blue-100">
+                                {selectedRequest.cancellationType === 'PARTIAL_ITEMS' ? (
+                                    <div>
+                                        <div className="flex items-center gap-2 mb-3">
+                                            <div className="w-3 h-3 bg-orange-500 rounded-full"></div>
+                                            <span className="font-semibold text-orange-700 text-lg">Partial Item Cancellation</span>
+                                        </div>
+                                        <p className="text-gray-700 mb-3">
+                                            The customer requested to cancel specific items from their order:
+                                        </p>
+                                        {selectedRequest.itemsToCancel && selectedRequest.itemsToCancel.length > 0 && (
+                                            <div className="bg-white p-3 rounded-lg border border-orange-200">
+                                                <h4 className="font-medium text-gray-900 mb-2">Items to Cancel:</h4>
+                                                <ul className="space-y-2">
+                                                    {selectedRequest.itemsToCancel.map((cancelItem, index) => {
+                                                        // Find the full item details from the order
+                                                        const fullItem = selectedRequest.orderId?.items?.find(
+                                                            orderItem => orderItem._id?.toString() === cancelItem.itemId?.toString()
+                                                        );
+                                                        
+                                                        const itemName = fullItem?.productDetails?.name || 
+                                                                       fullItem?.bundleDetails?.title || 
+                                                                       'Unknown Item';
+                                                        
+                                                        return (
+                                                            <li key={index} className="flex justify-between items-center p-2 bg-gray-50 rounded">
+                                                                <span className="font-medium text-gray-800">
+                                                                    {itemName}
+                                                                    {cancelItem.size && ` (Size: ${cancelItem.size})`}
+                                                                    {cancelItem.quantity && ` - Qty: ${cancelItem.quantity}`}
+                                                                </span>
+                                                                <span className="font-semibold text-orange-600">
+                                                                    ₹{cancelItem.refundAmount || cancelItem.itemTotal || 0}
+                                                                </span>
+                                                            </li>
+                                                        );
+                                                    })}
+                                                </ul>
+                                                <div className="mt-3 pt-2 border-t border-orange-200">
+                                                    <div className="flex justify-between items-center">
+                                                        <span className="font-semibold text-gray-800">Total Expected Refund:</span>
+                                                        <span className="font-bold text-orange-600 text-lg">
+                                                            ₹{selectedRequest.itemsToCancel.reduce((sum, item) => 
+                                                                sum + (item.refundAmount || item.itemTotal || 0), 0
+                                                            )}
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                ) : (
+                                    <div>
+                                        <div className="flex items-center gap-2 mb-3">
+                                            <div className="w-3 h-3 bg-red-500 rounded-full"></div>
+                                            <span className="font-semibold text-red-700 text-lg">Full Order Cancellation</span>
+                                        </div>
+                                        <p className="text-gray-700">
+                                            The customer requested to cancel the entire order.
+                                        </p>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+
                         {/* Product Details */}
                         <div className="mb-6">
-                            <h3 className="font-semibold text-lg sm:text-xl text-gray-800 mb-4 tracking-tight">Product Details</h3>
+                            <h3 className="font-semibold text-lg sm:text-xl text-gray-800 mb-4 tracking-tight">
+                                {selectedRequest.cancellationType === 'PARTIAL_ITEMS' ? 'All Items in Order' : 'Product Details'}
+                            </h3>
                             <div className="bg-gray-50 p-4 sm:p-5 rounded-xl border border-gray-100 shadow-sm hover:shadow-md transition-all duration-300">
                                 {selectedRequest.orderId?.items && selectedRequest.orderId.items.length > 0 ? (
                                     <div className="space-y-4">
@@ -1271,6 +1372,12 @@ function CancellationManagement() {
                                         Request Details
                                     </div>
                                 </th>
+                                <th className="px-4 sm:px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider hidden lg:table-cell">
+                                    <div className="flex items-center gap-2">
+                                        <FaInfo className="hidden sm:block text-blue-500" />
+                                        Type
+                                    </div>
+                                </th>
                                 <th className="px-4 sm:px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider hidden md:table-cell">
                                     <div className="flex items-center gap-2">
                                         <FaUser className="hidden sm:block text-blue-500" />
@@ -1344,6 +1451,25 @@ function CancellationManagement() {
                                                 <div className="text-xs text-gray-500 mt-1 bg-gray-50 px-1.5 py-0.5 rounded line-clamp-1 group-hover:bg-blue-50 transition-colors duration-200">
                                                     {request.reason}
                                                 </div>
+                                            </div>
+                                        </td>
+                                        <td className="px-4 sm:px-6 py-4 sm:py-5 hidden lg:table-cell">
+                                            <div className="flex items-center">
+                                                {request.cancellationType === 'PARTIAL_ITEMS' ? (
+                                                    <div className="bg-orange-100 text-orange-800 px-3 py-1.5 rounded-full text-xs font-medium border border-orange-200">
+                                                        <div className="flex items-center gap-1.5">
+                                                            <div className="w-2 h-2 bg-orange-500 rounded-full"></div>
+                                                            Partial Items
+                                                        </div>
+                                                    </div>
+                                                ) : (
+                                                    <div className="bg-red-100 text-red-800 px-3 py-1.5 rounded-full text-xs font-medium border border-red-200">
+                                                        <div className="flex items-center gap-1.5">
+                                                            <div className="w-2 h-2 bg-red-500 rounded-full"></div>
+                                                            Full Order
+                                                        </div>
+                                                    </div>
+                                                )}
                                             </div>
                                         </td>
                                         <td className="px-4 sm:px-6 py-4 sm:py-5 hidden md:table-cell">

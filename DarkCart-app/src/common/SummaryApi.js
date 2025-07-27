@@ -223,6 +223,19 @@ const SummaryApi = {
         url: '/api/order-cancellation/order',
         method: 'get'
     },
+    // Partial Item Cancellation
+    requestPartialItemCancellation: {
+        url: '/api/order-cancellation/request-partial',
+        method: 'post'
+    },
+    getPartialCancellationDetails: {
+        url: '/api/order-cancellation/partial',
+        method: 'get'
+    },
+    processPartialItemCancellation: {
+        url: '/api/order-cancellation/admin/process-partial',
+        method: 'put'
+    },
     getAllPayments: {
         url: '/api/payment/all',
         method: 'post'

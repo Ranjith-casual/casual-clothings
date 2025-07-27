@@ -11,6 +11,40 @@ const orderCancellationSchema = mongoose.Schema({
         ref: 'users',
         required: true
     },
+    // For partial cancellations - specify which items to cancel
+    cancellationType: {
+        type: String,
+        enum: ['FULL_ORDER', 'PARTIAL_ITEMS'],
+        default: 'FULL_ORDER'
+    },
+    itemsToCancel: [{
+        itemId: {
+            type: mongoose.Schema.ObjectId,
+            required: function() { return this.parent().cancellationType === 'PARTIAL_ITEMS'; }
+        },
+        productId: {
+            type: mongoose.Schema.ObjectId,
+            ref: 'product'
+        },
+        bundleId: {
+            type: mongoose.Schema.ObjectId,
+            ref: 'bundle'
+        },
+        itemType: {
+            type: String,
+            enum: ['product', 'bundle']
+        },
+        quantity: {
+            type: Number,
+            default: 1
+        },
+        size: String,
+        itemTotal: Number,
+        refundAmount: {
+            type: Number,
+            default: 0
+        }
+    }],
     requestDate: {
         type: Date,
         default: Date.now
