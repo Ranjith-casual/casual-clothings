@@ -73,12 +73,6 @@ function AdminDashboard() {
             icon: <FaTimes className="text-red-500" />
         },
         {
-            title: "Bundle Details Management",
-            description: "View and manage existing bundle details and configurations",
-            path: "/dashboard/bundle-management",
-            icon: <FaLayerGroup className="theme-text-secondary" />
-        },
-        {
             title: "Refund Management",
             description: "Process and track refunds for cancelled orders",
             path: "/dashboard/refund-management",

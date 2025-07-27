@@ -56,7 +56,6 @@ import CustomTshirtRequestsAdmin from "../pages/CustomTshirtRequestsAdmin";
 import StockManagementPage from "../pages/StockManagementPage";
 import CancellationPolicyPage from "../pages/CancellationPolicyPage";
 import RefundManagementPage from "../pages/RefundManagementPage";
-import BundleManagement from "../pages/BundleManagement";
 import InventoryManagement from "../pages/InventoryManagement";
 import Sitemap from "../pages/Sitemap";
 
@@ -214,10 +213,6 @@ const router = createBrowserRouter([
                 {
                     path:"cancellation-policy",
                     element:<AdminPermission><CancellationPolicyPage/></AdminPermission>
-                },
-                {
-                    path:"bundle-management",
-                    element:<AdminPermission><BundleManagement/></AdminPermission>
                 },
                 {
                     path:"refund-management",
