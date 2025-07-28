@@ -403,9 +403,9 @@ function CancellationManagement() {
                         // For partial cancellations, use the refund amount sent from PartialCancellationModal
                         refundAmount = getPartialCancellationRefundAmount(selectedRequest).toFixed(2);
                     } else {
-                        // Calculate refund based on discounted amount (actual paid amount)
-                        const discountedTotal = calculateOrderDiscountedTotal(selectedRequest.orderId);
-                        refundAmount = (discountedTotal * refundPercentage / 100).toFixed(2);
+                        // Calculate refund based on total amount including delivery charges
+                        const totalAmount = selectedRequest.orderId?.totalAmt || 0;
+                        refundAmount = (totalAmount * refundPercentage / 100).toFixed(2);
                     }
                     
                     // Create notification
@@ -415,7 +415,7 @@ function CancellationManagement() {
                         title: `Refund Processed for Order #${orderNumber}`,
                         message: isPartialCancellation 
                             ? `Your partial cancellation request has been approved. A refund of ₹${refundAmount} for selected items will be processed to your original payment method within 5-7 business days.`
-                            : `Your cancellation request has been approved. A refund of ₹${refundAmount} (${refundPercentage}% of discounted amount) will be processed to your original payment method within 5-7 business days.`,
+                            : `Your cancellation request has been approved. A refund of ₹${refundAmount} (${refundPercentage}% of total order amount) will be processed to your original payment method within 5-7 business days.`,
                         time: new Date().toISOString(),
                         read: false,
                         refundAmount: refundAmount,
@@ -445,8 +445,8 @@ function CancellationManagement() {
                             }
                         });
                     } else {
-                        const discountedTotal = calculateOrderDiscountedTotal(selectedRequest.orderId);
-                        toast.success(`Refund amount: ₹${refundAmount} (75% of discounted total: ₹${discountedTotal.toFixed(2)})`, {
+                        const totalAmount = selectedRequest.orderId?.totalAmt || 0;
+                        toast.success(`Refund amount: ₹${refundAmount} (75% of total order amount: ₹${totalAmount.toFixed(2)})`, {
                             duration: 5000,
                             style: {
                                 background: '#F0FFF4',
@@ -1435,23 +1435,21 @@ function CancellationManagement() {
                                         <div className="text-sm font-medium text-gray-600 mb-2">
                                             {selectedRequest.cancellationType === 'PARTIAL_ITEMS' 
                                                 ? 'Cancelled Items Amount (With Discounts)' 
-                                                : 'Amount Paid (With Discounts)'}
+                                                : 'Total Order Amount'}
                                         </div>
                                         <div className="text-lg sm:text-2xl font-bold text-gray-800 tracking-tight">
                                             ₹{selectedRequest.cancellationType === 'PARTIAL_ITEMS' 
                                                 ? (selectedRequest.totalItemValue || calculatePartialCancellationTotal(selectedRequest))?.toFixed(2)
-                                                : calculateOrderDiscountedTotal(selectedRequest.orderId)?.toFixed(2)}
+                                                : selectedRequest.orderId?.totalAmt?.toFixed(2)}
                                         </div>
                                         {selectedRequest.cancellationType === 'PARTIAL_ITEMS' ? (
                                             <div className="text-xs text-gray-500 mt-1">
                                                 Only cancelled items total
                                             </div>
                                         ) : (
-                                            selectedRequest.orderId?.totalAmt > calculateOrderDiscountedTotal(selectedRequest.orderId) && (
-                                                <div className="text-xs text-gray-500 mt-1">
-                                                    Original: ₹{selectedRequest.orderId?.totalAmt?.toFixed(2)}
-                                                </div>
-                                            )
+                                            <div className="text-xs text-gray-500 mt-1">
+                                                Including delivery charges
+                                            </div>
                                         )}
                                     </div>
                                     <div className="bg-white p-4 sm:p-5 rounded-lg text-center shadow-sm border border-blue-100 hover:shadow transition-all duration-300 transform hover:-translate-y-0.5">
@@ -1468,9 +1466,67 @@ function CancellationManagement() {
                                         <div className="text-lg sm:text-2xl font-bold text-green-600 tracking-tight">
                                             ₹{selectedRequest.cancellationType === 'PARTIAL_ITEMS' 
                                                 ? getPartialCancellationRefundAmount(selectedRequest)?.toFixed(2)
-                                                : (calculateOrderDiscountedTotal(selectedRequest.orderId) * 0.75)?.toFixed(2)}
+                                                : (selectedRequest.orderId?.totalAmt * 0.75)?.toFixed(2)}
                                         </div>
                                     </div>
+                                </div>
+                                
+                                {/* Calculation Breakdown */}
+                                <div className="mt-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
+                                    <h4 className="font-semibold text-gray-800 mb-3 flex items-center gap-2">
+                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 7h6m0 10v-3m-3 3h.01M9 17h.01" />
+                                        </svg>
+                                        Refund Calculation Breakdown
+                                    </h4>
+                                    {selectedRequest.cancellationType === 'PARTIAL_ITEMS' ? (
+                                        <div className="space-y-2 text-sm">
+                                            <div className="flex justify-between items-center py-1">
+                                                <span className="text-gray-600">Cancelled Items Total:</span>
+                                                <span className="font-medium">₹{(selectedRequest.totalItemValue || calculatePartialCancellationTotal(selectedRequest))?.toFixed(2)}</span>
+                                            </div>
+                                            <div className="flex justify-between items-center py-1 border-t border-gray-200 pt-2">
+                                                <span className="text-gray-600">Refund Percentage:</span>
+                                                <span className="font-medium text-blue-600">75%</span>
+                                            </div>
+                                            <div className="flex justify-between items-center py-2 bg-green-50 px-3 rounded border-t-2 border-green-300">
+                                                <span className="font-semibold text-gray-800">Final Refund Amount:</span>
+                                                <span className="font-bold text-green-600 text-lg">₹{getPartialCancellationRefundAmount(selectedRequest)?.toFixed(2)}</span>
+                                            </div>
+                                            <div className="text-xs text-gray-500 mt-2 italic">
+                                                Calculation: ₹{(selectedRequest.totalItemValue || calculatePartialCancellationTotal(selectedRequest))?.toFixed(2)} × 75% = ₹{getPartialCancellationRefundAmount(selectedRequest)?.toFixed(2)}
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <div className="space-y-2 text-sm">
+                                            <div className="flex justify-between items-center py-1">
+                                                <span className="text-gray-600">Total Order Amount:</span>
+                                                <span className="font-medium">₹{selectedRequest.orderId?.totalAmt?.toFixed(2)}</span>
+                                            </div>
+                                            <div className="flex justify-between items-center py-1">
+                                                <span className="text-gray-600 text-xs">• Product(s) Total:</span>
+                                                <span className="text-xs">₹{calculateOrderDiscountedTotal(selectedRequest.orderId)?.toFixed(2)}</span>
+                                            </div>
+                                            <div className="flex justify-between items-center py-1">
+                                                <span className="text-gray-600 text-xs">• Delivery Charges:</span>
+                                                <span className="text-xs">₹{(selectedRequest.orderId?.totalAmt - calculateOrderDiscountedTotal(selectedRequest.orderId))?.toFixed(2)}</span>
+                                            </div>
+                                            <div className="flex justify-between items-center py-1 border-t border-gray-200 pt-2">
+                                                <span className="text-gray-600">Refund Percentage:</span>
+                                                <span className="font-medium text-blue-600">75%</span>
+                                            </div>
+                                            <div className="flex justify-between items-center py-2 bg-green-50 px-3 rounded border-t-2 border-green-300">
+                                                <span className="font-semibold text-gray-800">Final Refund Amount:</span>
+                                                <span className="font-bold text-green-600 text-lg">₹{(selectedRequest.orderId?.totalAmt * 0.75)?.toFixed(2)}</span>
+                                            </div>
+                                            <div className="text-xs text-gray-500 mt-2 italic">
+                                                Calculation: ₹{selectedRequest.orderId?.totalAmt?.toFixed(2)} × 75% = ₹{(selectedRequest.orderId?.totalAmt * 0.75)?.toFixed(2)}
+                                            </div>
+                                            <div className="text-xs text-orange-600 mt-1 font-medium">
+                                                Note: 75% refund applies to entire order amount including delivery charges
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
                                 
                                 {/* Delivery Context Information */}
@@ -1537,7 +1593,7 @@ function CancellationManagement() {
                                             ) : (
                                                 <>
                                                     of the total order amount 
-                                                    <span className="font-semibold"> (₹{(calculateOrderDiscountedTotal(selectedRequest.orderId) * 0.75)?.toFixed(2)})</span>
+                                                    <span className="font-semibold"> (₹{(selectedRequest.orderId?.totalAmt * 0.75)?.toFixed(2)})</span>
                                                 </>
                                             )}.
                                             This information will be sent to the customer's email automatically.
@@ -1879,7 +1935,7 @@ function CancellationManagement() {
                                                     <FaRupeeSign className="text-xs" />
                                                     {request.cancellationType === 'PARTIAL_ITEMS' 
                                                         ? getPartialCancellationRefundAmount(request)?.toFixed(2)
-                                                        : (calculateOrderDiscountedTotal(request.orderId) * 0.75)?.toFixed(2)}
+                                                        : (request.orderId?.totalAmt * 0.75)?.toFixed(2)}
                                                 </div>
                                             </div>
                                             <div className="text-xs text-gray-500 mt-2 flex items-center gap-1">
