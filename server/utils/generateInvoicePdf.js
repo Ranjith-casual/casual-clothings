@@ -183,9 +183,16 @@ export const generateInvoicePdf = async (data, type = 'delivery') => {
                 tableRow += 20;
                 
                 doc.text('Delivery Charge:', 350, tableRow);
-                const deliveryCharge = (data.totalAmt && data.subTotalAmt) 
-                    ? data.totalAmt - data.subTotalAmt 
-                    : 0;
+                // Calculate delivery charge properly with validation
+                let deliveryCharge = 0;
+                if (data.totalAmt && data.subTotalAmt && data.totalAmt >= data.subTotalAmt) {
+                    deliveryCharge = data.totalAmt - data.subTotalAmt;
+                } else if (data.deliveryCharge !== undefined) {
+                    deliveryCharge = data.deliveryCharge;
+                }
+                // Ensure delivery charge is not negative
+                deliveryCharge = Math.max(0, deliveryCharge);
+                
                 doc.text(`₹${deliveryCharge.toFixed(2)}`, totalX, tableRow);
                 tableRow += 20;
             }

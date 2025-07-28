@@ -6,6 +6,7 @@ import ProductModel from "../models/product.model.js";
 import BundleModel from "../models/bundles.js";
 import sendEmail from "../config/sendEmail.js";
 import { sendRefundInvoiceEmail } from "./payment.controller.js";
+import RefundPolicyService from "../utils/RefundPolicyService.js";
 import fs from 'fs';
 import mongoose from "mongoose";
 
@@ -458,32 +459,39 @@ export const processCancellationRequest = async (req, res) => {
             });
         }
 
-        // Calculate refund amount with delivery date consideration
+        // Calculate refund amount with delivery date consideration using RefundPolicyService
         const order = cancellationRequest.orderId;
-        let baseRefundPercentage = customRefundPercentage || cancellationRequest.adminResponse.refundPercentage;
         
-        // Adjust refund percentage based on delivery status
-        if (action === 'APPROVED' && cancellationRequest.deliveryInfo) {
-            const deliveryInfo = cancellationRequest.deliveryInfo;
-            
-            // If cancellation is requested after estimated delivery date, reduce refund
-            if (deliveryInfo.wasPastDeliveryDate) {
-                baseRefundPercentage = Math.max(50, baseRefundPercentage - 15); // Reduce by 15% but minimum 50%
-            }
-            
-            // If order was already delivered, significantly reduce refund
-            if (deliveryInfo.actualDeliveryDate) {
-                const daysSinceDelivery = Math.floor((new Date() - new Date(deliveryInfo.actualDeliveryDate)) / (1000 * 60 * 60 * 24));
-                if (daysSinceDelivery > 7) {
-                    baseRefundPercentage = Math.max(25, baseRefundPercentage - 30); // Reduce by 30% but minimum 25%
-                } else {
-                    baseRefundPercentage = Math.max(40, baseRefundPercentage - 20); // Reduce by 20% but minimum 40%
-                }
-            }
+        // Use the new RefundPolicyService for consistent calculations
+        const refundCalculation = RefundPolicyService.calculateRefundAmount(
+            order, 
+            cancellationRequest, 
+            customRefundPercentage
+        );
+        
+        if (!refundCalculation.success) {
+            return res.status(500).json({
+                success: false,
+                error: true,
+                message: "Error calculating refund amount",
+                details: refundCalculation.error
+            });
         }
         
-        const refundPercentage = baseRefundPercentage;
-        const refundAmount = action === 'APPROVED' ? (order.totalAmt * refundPercentage / 100) : 0;
+        // Validate the refund calculation
+        const validation = RefundPolicyService.validateRefundCalculation(refundCalculation);
+        if (!validation.isValid) {
+            console.error('Refund calculation validation failed:', validation.errors);
+            return res.status(400).json({
+                success: false,
+                error: true,
+                message: "Invalid refund calculation",
+                details: validation.errors
+            });
+        }
+        
+        const refundPercentage = refundCalculation.refundPercentage;
+        const refundAmount = action === 'APPROVED' ? refundCalculation.refundAmount : 0;
 
         // Update cancellation request
         cancellationRequest.status = action;

@@ -6,6 +6,7 @@ import { handleAddItemCart } from "../store/cartProduct";
 import AxiosTostError from "../utils/AxiosTostError.js";
 import toast from "react-hot-toast";
 import { pricewithDiscount } from "../utils/PriceWithDiscount.js";
+import PricingService from "../utils/PricingService.js";
 import { handleAddAddress } from "../store/addressSlice.js";
 import { setOrders } from "../store/orderSlice.js";
 import { setWishlistItems, removeWishlistItem, setWishlistLoading } from "../store/wishlistSlice.js";
@@ -281,67 +282,10 @@ const GlobalProvider = ({ children }) => {
     }, 0);
     setTotalQty(qty);
 
-    const tPrice = cartItem.reduce((preve, curr) => {
-      let priceAfterDiscount;
-      
-      if (curr.itemType === 'bundle' && curr?.bundleId) {
-        // Handle bundle pricing
-        priceAfterDiscount = curr?.bundleId?.bundlePrice || 0;
-      } else if (curr?.productId) {
-        // First check if we have a sizeAdjustedPrice from the backend
-        // This is stored when the item was added to the cart
-        let basePrice;
-        if (curr?.sizeAdjustedPrice !== undefined) {
-          basePrice = curr.sizeAdjustedPrice;
-        } 
-        // Otherwise try to use sizePricing from product data
-        else if (curr?.size && curr?.productId?.sizePricing && curr?.productId?.sizePricing[curr.size] !== undefined) {
-          basePrice = curr?.productId?.sizePricing[curr.size];
-        }
-        // Last resort: use the product's base price
-        else {
-          basePrice = curr?.productId?.price || 0;
-        }
-          
-        // Handle product pricing with discount
-        priceAfterDiscount = pricewithDiscount(
-          basePrice,
-          curr?.productId?.discount
-        );
-      } else {
-        priceAfterDiscount = 0;
-      }
-
-      return preve + priceAfterDiscount * curr.quantity;
-    }, 0);
-    setTotalPrice(tPrice);
-
-    const notDiscountTotalPrice = cartItem.reduce((preve, curr) => {
-      let originalPrice;
-      
-      if (curr.itemType === 'bundle' && curr?.bundleId) {
-        // Handle bundle original pricing
-        originalPrice = curr?.bundleId?.originalPrice || curr?.bundleId?.bundlePrice || 0;
-      } else if (curr?.productId) {
-        // First check if we have a sizeAdjustedPrice from the backend
-        if (curr?.sizeAdjustedPrice !== undefined) {
-          originalPrice = curr.sizeAdjustedPrice;
-        }
-        // Otherwise check for size-specific pricing
-        else if (curr?.size && curr?.productId?.sizePricing && curr?.productId?.sizePricing[curr.size] !== undefined) {
-          originalPrice = curr?.productId?.sizePricing[curr.size];
-        }
-        // Last resort: use the product's base price
-        else {
-          originalPrice = curr?.productId?.price || 0;
-        }
-      } else {
-        originalPrice = 0;
-      }
-      
-      return preve + originalPrice * curr.quantity;
-    }, 0);
-    setNotDiscountTotalPrice(notDiscountTotalPrice);
+    // Use PricingService for consistent calculations
+    const totals = PricingService.calculateTotals(cartItem);
+    setTotalPrice(totals.totalPrice);
+    setNotDiscountTotalPrice(totals.totalOriginalPrice);
   }, [cartItem]);
 
 

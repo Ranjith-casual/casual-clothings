@@ -4,6 +4,7 @@ import Axios from '../utils/Axios'
 import SummaryApi, { baseURL } from '../common/SummaryApi'
 import toast from 'react-hot-toast'
 import AxiosTostError from '../utils/AxiosTostError'
+import PricingService from '../utils/PricingService'
 
 function CancellationManagement() {
     const [cancellationRequests, setCancellationRequests] = useState([])
@@ -17,63 +18,12 @@ function CancellationManagement() {
     const [bundleItemsCache, setBundleItemsCache] = useState({}) // Cache for bundle items
     const [fetchingBundles, setFetchingBundles] = useState(false) // Track bundle fetching state
 
-    // Size-based price calculation utility function
+    // Size-based price calculation utility function (using PricingService for consistency)
     const calculateSizeBasedPrice = (item, productInfo = null) => {
         try {
-            const size = item?.size;
-            
-            // If no size, return original price
-            if (!size) {
-                return item?.itemTotal || 
-                       (productInfo?.price || productInfo?.bundlePrice || 0) * (item?.quantity || 1);
-            }
-
-            // Check if product has size-based pricing
-            const product = productInfo || item?.productId || item?.bundleId || item?.productDetails || item?.bundleDetails;
-            
-            if (product && product.sizePricing && typeof product.sizePricing === 'object') {
-                // Direct size-price mapping
-                const sizePrice = product.sizePricing[size] || product.sizePricing[size.toUpperCase()] || product.sizePricing[size.toLowerCase()];
-                if (sizePrice) {
-                    return sizePrice * (item?.quantity || 1);
-                }
-            }
-
-            // Check for size variants array
-            if (product && product.variants && Array.isArray(product.variants)) {
-                const sizeVariant = product.variants.find(variant => 
-                    variant.size === size || 
-                    variant.size === size.toUpperCase() || 
-                    variant.size === size.toLowerCase()
-                );
-                if (sizeVariant && sizeVariant.price) {
-                    return sizeVariant.price * (item?.quantity || 1);
-                }
-            }
-
-            // Check for size multipliers
-            const sizeMultipliers = {
-                'XS': 0.9,
-                'S': 1.0,
-                'M': 1.1,
-                'L': 1.2,
-                'XL': 1.3,
-                'XXL': 1.4,
-                '28': 0.9,
-                '30': 1.0,
-                '32': 1.1,
-                '34': 1.2,
-                '36': 1.3,
-                '38': 1.4,
-                '40': 1.5,
-                '42': 1.6
-            };
-
-            const basePrice = product?.price || product?.bundlePrice || 0;
-            const multiplier = sizeMultipliers[size] || sizeMultipliers[size.toUpperCase()] || 1.0;
-            
-            return (basePrice * multiplier) * (item?.quantity || 1);
-
+            // Use the centralized PricingService for consistent calculations
+            const pricing = PricingService.calculateItemPricing(item, productInfo);
+            return pricing.totalPrice;
         } catch (error) {
             console.error('Error calculating size-based price:', error);
             // Fallback to original pricing
@@ -84,8 +34,14 @@ function CancellationManagement() {
 
     // Get size-based unit price
     const getSizeBasedUnitPrice = (item, productInfo = null) => {
-        const totalPrice = calculateSizeBasedPrice(item, productInfo);
-        return totalPrice / (item?.quantity || 1);
+        try {
+            const pricing = PricingService.calculateItemPricing(item, productInfo);
+            return pricing.unitPrice;
+        } catch (error) {
+            console.error('Error calculating unit price:', error);
+            const totalPrice = calculateSizeBasedPrice(item, productInfo);
+            return totalPrice / (item?.quantity || 1);
+        }
     };
 
     // Calculate total discounted amount for entire order

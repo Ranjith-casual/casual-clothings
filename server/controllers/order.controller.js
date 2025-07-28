@@ -392,8 +392,17 @@ export const onlinePaymentOrderController = async (req, res) => {
           
         console.log(`Final price calculation for ${productId} (${item.size || 'no size'}): originalPrice=${originalPrice}, priceToUse=${priceToUse}, finalPrice=${finalPrice}, sizeAdjusted=${item.sizeAdjustedPrice}`);
         
-        // Calculate item total with quantity
-        const calculatedItemTotal = finalPrice * item.quantity;
+        // Calculate item total with quantity and proper rounding
+        const calculatedItemTotal = Math.round(finalPrice * item.quantity * 100) / 100;
+        
+        // Validate that the calculated price matches expected ranges
+        if (calculatedItemTotal <= 0) {
+          console.warn(`⚠️ Warning: Calculated item total is ${calculatedItemTotal} for product ${productId}`);
+        }
+        
+        if (finalPrice !== priceToUse && item.sizeAdjustedPrice === undefined) {
+          console.log(`💰 Discount applied: ${productId} - Original: ₹${priceToUse}, Final: ₹${finalPrice} (${discountToApply}% off)`);
+        }
         
         // Create processed item with explicit price fields for all price types
         const processedItem = {
@@ -415,10 +424,10 @@ export const onlinePaymentOrderController = async (req, res) => {
           // Include size information in the order item
           size: item.size,
           quantity: item.quantity,
-          // Always set unitPrice to ensure it's available for display
-          unitPrice: finalPrice,
+          // Always set unitPrice to ensure it's available for display with proper rounding
+          unitPrice: Math.round(finalPrice * 100) / 100,
           discount: discountToApply,
-          originalPrice: originalPrice,
+          originalPrice: Math.round(originalPrice * 100) / 100,
           itemTotal: calculatedItemTotal
         };
         

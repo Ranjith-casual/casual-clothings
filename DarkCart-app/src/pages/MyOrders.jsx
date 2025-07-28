@@ -1082,9 +1082,18 @@ function MyOrders() {
                               isCancelled ? 'text-red-800' : 'text-gray-900'
                             }`}>
                               {(() => {
-                                // Calculate delivery charge
-                                const deliveryCharge = (order?.totalAmt || 0) - (order?.subTotalAmt || order?.totalAmt - 50 || 0);
-                                return deliveryCharge > 0 ? `₹${deliveryCharge.toFixed(2)}` : 'FREE';
+                                // Calculate delivery charge properly
+                                const totalAmt = order?.totalAmt || 0;
+                                const subTotalAmt = order?.subTotalAmt || 0;
+                                
+                                // If we have both values, calculate the difference
+                                if (totalAmt > 0 && subTotalAmt > 0) {
+                                  const deliveryCharge = totalAmt - subTotalAmt;
+                                  return deliveryCharge > 0 ? `₹${deliveryCharge.toFixed(2)}` : 'FREE';
+                                }
+                                
+                                // Fallback: assume no delivery charge if we can't calculate properly
+                                return 'FREE';
                               })()}
                             </span>
                           </div>
@@ -1101,27 +1110,44 @@ function MyOrders() {
                                 isCancelled ? 'text-red-800 line-through' : 'text-black'
                               }`}>
                                 {(() => {
-                                  // Calculate total with size-based pricing
-                                  let calculatedTotal = 0;
-                                  order?.items?.forEach(item => {
-                                    if (item?.itemType === 'bundle') {
-                                      const bundlePrice = item?.bundleId?.bundlePrice || item?.bundleDetails?.bundlePrice || 0;
-                                      calculatedTotal += bundlePrice * item.quantity;
-                                    } else {
-                                      // Use size-based pricing for products
-                                      const productInfo = item?.productId || item?.productDetails;
-                                      const sizeBasedPrice = calculateSizeBasedPrice(item, productInfo);
-                                      calculatedTotal += sizeBasedPrice;
-                                    }
-                                  });
+                                  // Use the stored total amount from the order for consistency
+                                  // The order total was calculated at the time of order placement with proper logic
+                                  const storedTotal = order?.totalAmt || 0;
                                   
-                                  // Add delivery charge if any
-                                  const deliveryCharge = (order?.totalAmt || 0) - (order?.subTotalAmt || order?.totalAmt - 50 || 0);
-                                  if (deliveryCharge > 0) {
-                                    calculatedTotal += deliveryCharge;
+                                  // Optionally verify with calculated total for debugging
+                                  if (process.env.NODE_ENV === 'development') {
+                                    let calculatedTotal = 0;
+                                    order?.items?.forEach(item => {
+                                      if (item?.itemType === 'bundle') {
+                                        const bundlePrice = item?.bundleId?.bundlePrice || item?.bundleDetails?.bundlePrice || 0;
+                                        calculatedTotal += bundlePrice * (item.quantity || 1);
+                                      } else {
+                                        // Use itemTotal if available, otherwise calculate
+                                        if (item.itemTotal) {
+                                          calculatedTotal += item.itemTotal;
+                                        } else {
+                                          const productInfo = item?.productId || item?.productDetails;
+                                          const sizeBasedPrice = calculateSizeBasedPrice(item, productInfo);
+                                          calculatedTotal += sizeBasedPrice;
+                                        }
+                                      }
+                                    });
+                                    
+                                    // Add delivery charge if any (calculated properly)
+                                    const subTotalAmt = order?.subTotalAmt || 0;
+                                    if (storedTotal > subTotalAmt) {
+                                      const deliveryCharge = storedTotal - subTotalAmt;
+                                      // No need to add separately as it's already in storedTotal
+                                    }
+                                    
+                                    // Log discrepancy if any (for debugging)
+                                    const totalWithDelivery = calculatedTotal + (storedTotal - (order?.subTotalAmt || 0));
+                                    if (Math.abs(storedTotal - totalWithDelivery) > 0.01) {
+                                      console.warn(`Order ${order.orderId}: Total discrepancy - Stored: ${storedTotal}, Calculated: ${totalWithDelivery}`);
+                                    }
                                   }
                                   
-                                  return `₹${calculatedTotal.toFixed(2)}`;
+                                  return `₹${storedTotal.toFixed(2)}`;
                                 })()}
                               </span>
                             </div>
