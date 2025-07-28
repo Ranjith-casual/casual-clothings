@@ -39,6 +39,7 @@ const corsOptions = {
             process.env.FRONT_URL,
             process.env.PRODUCTION_URL,
             process.env.WWW_PRODUCTION_URL,
+            "https://casual-clothings.vercel.app",
             "http://localhost:5173",
             "http://localhost:5174",
             "http://localhost:3000",
@@ -54,7 +55,8 @@ const corsOptions = {
     },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'Cookie'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'Cookie', 'X-Requested-With'],
+    exposedHeaders: ['Content-Range', 'X-Content-Range'],
     optionsSuccessStatus: 200 // Some legacy browsers choke on 204
 };
 
