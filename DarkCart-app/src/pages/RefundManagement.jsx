@@ -3,9 +3,9 @@ import { useSelector } from 'react-redux';
 import { FaSearch, FaFilter, FaCheck, FaSpinner, FaTimes, FaMoneyBillWave, FaEye } from 'react-icons/fa';
 import toast from 'react-hot-toast';
 import Axios from '../utils/Axios';
-import SummaryApi, { baseURL } from '../common/SummaryApi';
+import SummaryApi from '../common/SummaryApi';
 import { DisplayPriceInRupees } from '../utils/DisplayPriceInRupees';
-import noCart from '../assets/Empty-cuate.png'; // Import fallback image
+import noCart from '../assets/noCart.jpg'; // Import fallback image
 
 const RefundManagement = () => {
     const [refunds, setRefunds] = useState([]);
@@ -19,79 +19,6 @@ const RefundManagement = () => {
     const [showCompleteModal, setShowCompleteModal] = useState(false);
     const [transactionId, setTransactionId] = useState('');
     const [adminComments, setAdminComments] = useState('');
-    const [bundleItemsCache, setBundleItemsCache] = useState({}); // Cache for bundle items
-    const [fetchingBundles, setFetchingBundles] = useState(false); // Track bundle fetching state
-
-    // Size-based price calculation utility function
-    const calculateSizeBasedPrice = (item, productInfo = null) => {
-        try {
-            const size = item?.size;
-            
-            // If no size, return original price
-            if (!size) {
-                return item?.itemTotal || 
-                       (productInfo?.price || productInfo?.bundlePrice || 0) * (item?.quantity || 1);
-            }
-
-            // Check if product has size-based pricing
-            const product = productInfo || item?.productId || item?.bundleId || item?.productDetails || item?.bundleDetails;
-            
-            if (product && product.sizePricing && typeof product.sizePricing === 'object') {
-                // Direct size-price mapping
-                const sizePrice = product.sizePricing[size] || product.sizePricing[size.toUpperCase()] || product.sizePricing[size.toLowerCase()];
-                if (sizePrice) {
-                    return sizePrice * (item?.quantity || 1);
-                }
-            }
-
-            // Check for size variants array
-            if (product && product.variants && Array.isArray(product.variants)) {
-                const sizeVariant = product.variants.find(variant => 
-                    variant.size === size || 
-                    variant.size === size.toUpperCase() || 
-                    variant.size === size.toLowerCase()
-                );
-                if (sizeVariant && sizeVariant.price) {
-                    return sizeVariant.price * (item?.quantity || 1);
-                }
-            }
-
-            // Check for size multipliers
-            const sizeMultipliers = {
-                'XS': 0.9,
-                'S': 1.0,
-                'M': 1.1,
-                'L': 1.2,
-                'XL': 1.3,
-                'XXL': 1.4,
-                '28': 0.9,
-                '30': 1.0,
-                '32': 1.1,
-                '34': 1.2,
-                '36': 1.3,
-                '38': 1.4,
-                '40': 1.5,
-                '42': 1.6
-            };
-
-            const basePrice = product?.price || product?.bundlePrice || 0;
-            const multiplier = sizeMultipliers[size] || sizeMultipliers[size.toUpperCase()] || 1.0;
-            
-            return (basePrice * multiplier) * (item?.quantity || 1);
-
-        } catch (error) {
-            console.error('Error calculating size-based price:', error);
-            // Fallback to original pricing
-            return item?.itemTotal || 
-                   (productInfo?.price || productInfo?.bundlePrice || 0) * (item?.quantity || 1);
-        }
-    };
-
-    // Get size-based unit price
-    const getSizeBasedUnitPrice = (item, productInfo = null) => {
-        const totalPrice = calculateSizeBasedPrice(item, productInfo);
-        return totalPrice / (item?.quantity || 1);
-    };
 
     // Fetch refunds with filters
     const fetchRefunds = async (page = 1) => {
@@ -113,56 +40,37 @@ const RefundManagement = () => {
                 }
             });
 
-            if (response.data && response.data.success) {
+            if (response.data.success) {
                 console.log("Full response data:", response.data);
-                const refundsData = response.data.data.refunds || [];
-                setRefunds(refundsData);
-                setCurrentPage(response.data.data.currentPage || 1);
-                setTotalPages(response.data.data.totalPages || 1);
+                setRefunds(response.data.data.refunds);
+                setCurrentPage(response.data.data.currentPage);
+                setTotalPages(response.data.data.totalPages);
                 
-                // Auto-fetch bundle items for all bundles in the refunds if there are any
-                if (refundsData && refundsData.length > 0) {
-                    await fetchBundleItemsForRefunds(refundsData);
-                    
-                    // Log detailed information about the first refund for debugging
-                    const firstRefund = refundsData[0];
+                // Log detailed information about the first refund for debugging
+                if (response.data.data.refunds && response.data.data.refunds.length > 0) {
+                    const firstRefund = response.data.data.refunds[0];
                     console.log("Sample refund data:", firstRefund);
+                    console.log("Order data:", firstRefund?.orderId);
                     
-                    if (firstRefund?.orderId) {
-                        console.log("Order data:", firstRefund.orderId);
-                        
-                        // Log product/bundle data if available
-                        if (firstRefund.orderId.items && firstRefund.orderId.items.length > 0) {
-                            console.log("First order item:", firstRefund.orderId.items[0]);
-                            const firstItem = firstRefund.orderId.items[0];
-                            if (firstItem.itemType === 'product') {
-                                console.log("Product data:", firstItem.productId);
-                                console.log("Product details:", firstItem.productDetails);
-                            } else if (firstItem.bundleId) {
-                                console.log("Bundle data:", firstItem.bundleId);
-                                console.log("Bundle details:", firstItem.bundleDetails);
-                            }
+                    // Log product/bundle data if available
+                    if (firstRefund?.orderId?.items && firstRefund.orderId.items.length > 0) {
+                        console.log("First order item:", firstRefund.orderId.items[0]);
+                        const firstItem = firstRefund.orderId.items[0];
+                        if (firstItem.itemType === 'product') {
+                            console.log("Product data:", firstItem.productId);
+                            console.log("Product details:", firstItem.productDetails);
+                        } else {
+                            console.log("Bundle data:", firstItem.bundleId);
+                            console.log("Bundle details:", firstItem.bundleDetails);
                         }
                     }
-                } else {
-                    console.log("No refunds data returned or empty array");
                 }
             } else {
-                toast.error(response.data?.message || "Failed to fetch refunds");
+                toast.error("Failed to fetch refunds");
             }
         } catch (error) {
             console.error("Error fetching refunds:", error);
-            // Show a more user-friendly error message
-            if (error.response?.status === 500) {
-                toast.error("Server error while fetching refunds. Please try again later.");
-            } else {
-                toast.error(error.response?.data?.message || "Error fetching refunds. Please refresh the page.");
-            }
-            
-            // Set empty refunds to avoid UI issues
-            setRefunds([]);
-            setCurrentPage(1);
-            setTotalPages(1);
+            toast.error(error.response?.data?.message || "Error fetching refunds");
         } finally {
             setLoading(false);
         }
@@ -202,114 +110,6 @@ const RefundManagement = () => {
                 return 'text-red-600 bg-red-100';
             default:
                 return 'text-gray-600 bg-gray-100';
-        }
-    };
-    
-    // Function to fetch bundle details from API if missing
-    const fetchBundleDetails = async (bundleId) => {
-        if (!bundleId || bundleItemsCache[bundleId]) {
-            return bundleItemsCache[bundleId] || [];
-        }
-
-        try {
-            console.log('Fetching bundle details for ID:', bundleId);
-            const response = await Axios({
-                ...SummaryApi.getBundleById,
-                url: SummaryApi.getBundleById.url.replace(':id', bundleId)
-            });
-
-            if (response.data && response.data.success && response.data.data) {
-                const bundleItems = response.data.data.items || [];
-                console.log('Fetched bundle items:', bundleItems);
-                
-                // Cache the results
-                setBundleItemsCache(prev => ({
-                    ...prev,
-                    [bundleId]: bundleItems
-                }));
-                
-                return bundleItems;
-            }
-        } catch (error) {
-            console.error('Error fetching bundle details:', error);
-        }
-
-        return [];
-    };
-    
-    // Function to fetch bundle items for all bundles in refunds
-    const fetchBundleItemsForRefunds = async (refundsData) => {
-        if (!refundsData || !Array.isArray(refundsData)) {
-            console.log("No refund data to process for bundle items");
-            return;
-        }
-
-        try {
-            const bundleIdsToFetch = new Set();
-            
-            // Collect all bundle IDs that need fetching
-            refundsData.forEach(refund => {
-                if (refund?.orderId?.items && Array.isArray(refund.orderId.items)) {
-                    refund.orderId.items.forEach(item => {
-                        // Enhanced bundle detection with null checks
-                        const isBundle = 
-                            (item.itemType === 'bundle') || 
-                            (item.bundleId && typeof item.bundleId === 'object') ||
-                            (item.bundleDetails && typeof item.bundleDetails === 'object') ||
-                            (item.bundle && typeof item.bundle === 'object') ||
-                            (item.productId && typeof item.productId === 'object' && item.productId?.type === 'bundle') ||
-                            (item.type === 'bundle') ||
-                            (item.isBundle === true);
-
-                        if (isBundle) {
-                            // Check if bundle items are already available
-                            const hasExistingItems = 
-                                (item.bundleId?.items && Array.isArray(item.bundleId.items) && item.bundleId.items.length > 0) ||
-                                (item.bundleDetails?.items && Array.isArray(item.bundleDetails.items) && item.bundleDetails.items.length > 0) ||
-                                (item.bundle?.items && Array.isArray(item.bundle.items) && item.bundle.items.length > 0);
-
-                            if (!hasExistingItems) {
-                                // Extract bundle ID for API fetch
-                                let bundleId = null;
-                                if (item.bundleId) {
-                                    bundleId = typeof item.bundleId === 'object' ? item.bundleId._id : item.bundleId;
-                                } else if (item.productId) {
-                                    bundleId = typeof item.productId === 'object' ? item.productId._id : item.productId;
-                                }
-
-                                if (bundleId && !bundleItemsCache[bundleId]) {
-                                    bundleIdsToFetch.add(bundleId);
-                                }
-                            }
-                        }
-                    });
-                }
-            });
-
-            // Fetch bundle details for all collected IDs
-            if (bundleIdsToFetch.size > 0) {
-                console.log('Fetching bundle items for IDs:', Array.from(bundleIdsToFetch));
-                setFetchingBundles(true);
-                
-                const fetchPromises = Array.from(bundleIdsToFetch).map(bundleId => 
-                    fetchBundleDetails(bundleId).catch(error => {
-                        console.error(`Error fetching bundle ${bundleId}:`, error);
-                        return [];
-                    })
-                );
-
-                try {
-                    await Promise.all(fetchPromises);
-                    console.log('Finished fetching all bundle items');
-                } catch (error) {
-                    console.error('Error fetching bundle items:', error);
-                } finally {
-                    setFetchingBundles(false);
-                }
-            }
-        } catch (error) {
-            console.error("Error in fetchBundleItemsForRefunds:", error);
-            setFetchingBundles(false);
         }
     };
     
@@ -427,29 +227,6 @@ const RefundManagement = () => {
 
             if (response.data.success) {
                 toast.success("Refund processed successfully");
-                
-                // Update delivery status to cancelled for the order
-                try {
-                    await Axios({
-                        ...SummaryApi.updateOrderStatus,
-                        headers: {
-                            'Authorization': `Bearer ${token}`,
-                            'Accept': 'application/json'
-                        },
-                        data: {
-                            orderId: selectedRefund.orderId._id || selectedRefund.orderId,
-                            orderStatus: 'CANCELLED',
-                            deliveryStatus: 'CANCELLED',
-                            deliveryNotes: 'Order cancelled due to refund completion'
-                        }
-                    });
-                    
-                    toast.success("Delivery status updated to cancelled");
-                } catch (deliveryUpdateError) {
-                    console.error("Error updating delivery status:", deliveryUpdateError);
-                    // Don't show error toast for this as the main refund was successful
-                }
-                
                 setShowCompleteModal(false);
                 setSelectedRefund(null);
                 setTransactionId('');
@@ -517,37 +294,6 @@ const RefundManagement = () => {
                                 <p><span className="font-medium">Payment Method:</span> {order.paymentMethod}</p>
                                 <p><span className="font-medium">Payment Status:</span> {order.paymentStatus}</p>
                                 <p><span className="font-medium">Total Amount:</span> {DisplayPriceInRupees(order.totalAmt)}</p>
-                                
-                                {/* Delivery Information */}
-                                {order.estimatedDeliveryDate && (
-                                    <p><span className="font-medium">Estimated Delivery:</span> {formatDate(order.estimatedDeliveryDate)}</p>
-                                )}
-                                {order.actualDeliveryDate && (
-                                    <p><span className="font-medium">Actual Delivery:</span> {formatDate(order.actualDeliveryDate)}</p>
-                                )}
-                                {order.deliveryNotes && (
-                                    <p><span className="font-medium">Delivery Notes:</span> {order.deliveryNotes}</p>
-                                )}
-                                
-                                {/* Delivery Context from Refund */}
-                                {refund.deliveryContext && (
-                                    <div className="mt-3 p-2 bg-blue-50 rounded border-l-4 border-blue-400">
-                                        <h4 className="font-medium text-blue-800 mb-1">Delivery Context</h4>
-                                        <p className="text-sm text-blue-700">
-                                            Days between order and cancellation: {refund.deliveryContext.daysBetweenOrderAndCancellation}
-                                        </p>
-                                        {refund.deliveryContext.daysBetweenDeliveryAndCancellation !== undefined && (
-                                            <p className="text-sm text-blue-700">
-                                                Days between delivery and cancellation: {refund.deliveryContext.daysBetweenDeliveryAndCancellation}
-                                            </p>
-                                        )}
-                                        {refund.deliveryContext.isOverdue && (
-                                            <p className="text-sm text-red-600 font-medium">
-                                                ⚠️ Delivery was overdue when cancelled
-                                            </p>
-                                        )}
-                                    </div>
-                                )}
                             </div>
 
                             {/* Customer Details */}
@@ -589,18 +335,9 @@ const RefundManagement = () => {
                                             // Debug: Log item structure to console
                                             console.log(`Item ${index}:`, item);
                                             
-                                            // Enhanced bundle detection with multiple fallback strategies
-                                            const isBundle = item.itemType === 'bundle' || 
-                                                            (item.bundleId && typeof item.bundleId === 'object') ||
-                                                            (item.bundleDetails && typeof item.bundleDetails === 'object') ||
-                                                            (item.bundle && typeof item.bundle === 'object') ||
-                                                            (item.productId && typeof item.productId === 'object' && item.productId.type === 'bundle') ||
-                                                            (item.type === 'bundle') ||
-                                                            item.isBundle;
-                                            
                                             // Get item name with enhanced fallback logic
                                             let itemName = 'Product';
-                                            if (isBundle) {
+                                            if (item.itemType === 'bundle') {
                                                 // Check all possible places where bundle name could be stored
                                                 if (item.bundleId && typeof item.bundleId === 'object') {
                                                     itemName = item.bundleId.title || item.bundleId.name || 'Bundle';
@@ -624,17 +361,13 @@ const RefundManagement = () => {
                                                 }
                                             }
                                             
-                                            // Get item price with enhanced fallback logic and size-based pricing
+                                            // Get item price with enhanced fallback logic
                                             let itemPrice = 0;
-                                            let productInfo = null;
-                                            
-                                            if (isBundle) {
+                                            if (item.itemType === 'bundle') {
                                                 // Check all possible places where bundle price could be stored
                                                 if (item.bundleId && typeof item.bundleId === 'object') {
-                                                    productInfo = item.bundleId;
                                                     itemPrice = item.bundleId.bundlePrice || item.bundleId.price || 0;
                                                 } else if (item.bundleDetails) {
-                                                    productInfo = item.bundleDetails;
                                                     itemPrice = item.bundleDetails.bundlePrice || item.bundleDetails.price || 0;
                                                 } else if (item.bundlePrice) {
                                                     itemPrice = item.bundlePrice;
@@ -644,400 +377,41 @@ const RefundManagement = () => {
                                             } else {
                                                 // Check all possible places where product price could be stored
                                                 if (item.productId && typeof item.productId === 'object') {
-                                                    productInfo = item.productId;
                                                     itemPrice = item.productId.price || 0;
                                                 } else if (item.productDetails) {
-                                                    productInfo = item.productDetails;
                                                     itemPrice = item.productDetails.price || 0;
                                                 } else if (item.price) {
                                                     itemPrice = item.price;
                                                 }
                                             }
                                             
-                                            // Calculate size-based unit price
-                                            const sizeBasedUnitPrice = getSizeBasedUnitPrice(item, productInfo);
-                                            const sizeBasedTotalPrice = calculateSizeBasedPrice(item, productInfo);
-                                            
-                                            // Use size-based pricing if available, otherwise fallback to original
-                                            itemPrice = sizeBasedUnitPrice || itemPrice;
-                                            
-                                            // Enhanced function to get bundle items with comprehensive detection and cache support
-                                            const getBundleItems = () => {
-                                                if (!isBundle) return [];
-                                                
-                                                console.log('Getting bundle items for item:', item);
-                                                
-                                                // Check all possible locations for bundle items
-                                                const bundleSources = [
-                                                    item.bundleId,
-                                                    item.bundleDetails,
-                                                    item.bundle,
-                                                    item.productId,
-                                                    item.productDetails
-                                                ];
-
-                                                for (const source of bundleSources) {
-                                                    if (source && typeof source === 'object') {
-                                                        // Check for items array in various properties
-                                                        const itemsArrays = [
-                                                            source.items,
-                                                            source.bundleItems,
-                                                            source.products,
-                                                            source.productDetails
-                                                        ];
-
-                                                        for (const itemsArray of itemsArrays) {
-                                                            if (Array.isArray(itemsArray) && itemsArray.length > 0) {
-                                                                console.log('Found bundle items in source:', itemsArray);
-                                                                return itemsArray;
-                                                            }
-                                                        }
-
-                                                        // Also check if the source itself is an array
-                                                        if (Array.isArray(source) && source.length > 0) {
-                                                            console.log('Found bundle items in source array:', source);
-                                                            return source;
-                                                        }
-                                                    }
-                                                }
-
-                                                // Check if the item itself has bundleItems property
-                                                if (item.bundleItems && Array.isArray(item.bundleItems)) {
-                                                    return item.bundleItems;
-                                                }
-
-                                                // Check the cache for bundle items
-                                                let bundleId = null;
-                                                if (item.bundleId) {
-                                                    bundleId = typeof item.bundleId === 'object' ? item.bundleId._id : item.bundleId;
-                                                } else if (item.productId) {
-                                                    bundleId = typeof item.productId === 'object' ? item.productId._id : item.productId;
-                                                }
-
-                                                if (bundleId && bundleItemsCache[bundleId]) {
-                                                    console.log('Found bundle items in cache:', bundleItemsCache[bundleId]);
-                                                    return bundleItemsCache[bundleId];
-                                                }
-
-                                                console.log('No bundle items found');
-                                                return [];
-                                            };
-
-                                            // Enhanced function to get bundle item image with comprehensive URL resolution
-                                            const getBundleItemImage = (bundleItem) => {
-                                                console.log('Getting bundle item image for:', bundleItem);
-                                                
-                                                // Priority order for image sources
-                                                const imageSources = [
-                                                    bundleItem?.image?.[0]?.url,
-                                                    bundleItem?.image?.[0],
-                                                    bundleItem?.images?.[0]?.url,
-                                                    bundleItem?.images?.[0],
-                                                    bundleItem?.productDetails?.image?.[0]?.url,
-                                                    bundleItem?.productDetails?.image?.[0],
-                                                    bundleItem?.thumbnail,
-                                                    bundleItem?.picture,
-                                                    bundleItem?.img,
-                                                ];
-
-                                                for (const imageSource of imageSources) {
-                                                    if (imageSource) {
-                                                        console.log('Found image source:', imageSource);
-                                                        
-                                                        // Check if it's already a complete URL
-                                                        if (imageSource.startsWith('http://') || imageSource.startsWith('https://')) {
-                                                            return imageSource;
-                                                        }
-                                                        
-                                                        // If it's a relative URL, prepend the base URL
-                                                        const fullUrl = `${baseURL}${imageSource.startsWith('/') ? '' : '/'}${imageSource}`;
-                                                        console.log('Generated full URL:', fullUrl);
-                                                        return fullUrl;
-                                                    }
-                                                }
-
-                                                console.log('No valid image found, using fallback');
-                                                return noCart;
-                                            };
-
-                                            const bundleItems = getBundleItems();
-
-                                            // Simple Bundle Items Display Component
-                                            const BundleItemsDisplay = ({ item, isBundle }) => {
-                                                const [items, setItems] = useState([]);
-                                                const [loading, setLoading] = useState(false);
-                                                const [bundleMainImage, setBundleMainImage] = useState(null);
-
-                                                useEffect(() => {
-                                                    const loadItems = async () => {
-                                                        if (!isBundle) return;
-                                                        
-                                                        console.log('=== LOADING BUNDLE ITEMS ===');
-                                                        console.log('Item data:', item);
-                                                        
-                                                        setLoading(true);
-                                                        
-                                                        // Get bundle main image for fallback
-                                                        let mainImage = null;
-                                                        if (item.bundleId?.image) {
-                                                            mainImage = Array.isArray(item.bundleId.image) ? item.bundleId.image[0] : item.bundleId.image;
-                                                        } else if (item.bundleId?.images && item.bundleId.images.length > 0) {
-                                                            mainImage = item.bundleId.images[0];
-                                                        } else if (item.bundleDetails?.image) {
-                                                            mainImage = Array.isArray(item.bundleDetails.image) ? item.bundleDetails.image[0] : item.bundleDetails.image;
-                                                        } else if (item.bundleDetails?.images && item.bundleDetails.images.length > 0) {
-                                                            mainImage = item.bundleDetails.images[0];
-                                                        }
-                                                        setBundleMainImage(mainImage);
-                                                        console.log('Bundle main image for fallback:', mainImage);
-                                                        
-                                                        // First check local data
-                                                        let foundItems = [];
-                                                        
-                                                        // Check various bundle data locations
-                                                        if (item.bundleDetails?.items) {
-                                                            foundItems = item.bundleDetails.items;
-                                                            console.log('Found items in bundleDetails.items:', foundItems);
-                                                        } else if (item.bundleId?.items) {
-                                                            foundItems = item.bundleId.items;
-                                                            console.log('Found items in bundleId.items:', foundItems);
-                                                        } else if (item.items) {
-                                                            foundItems = item.items;
-                                                            console.log('Found items in item.items:', foundItems);
-                                                        }
-                                                        
-                                                        // If no items found locally, try API
-                                                        if (foundItems.length === 0) {
-                                                            let bundleId = null;
-                                                            if (typeof item.bundleId === 'string') {
-                                                                bundleId = item.bundleId;
-                                                            } else if (item.bundleId?._id) {
-                                                                bundleId = item.bundleId._id;
-                                                            } else if (item.productId?._id) {
-                                                                bundleId = item.productId._id;
-                                                            }
-                                                            
-                                                            if (bundleId) {
-                                                                console.log('Fetching from API with ID:', bundleId);
-                                                                try {
-                                                                    const response = await Axios({
-                                                                        ...SummaryApi.getBundleById,
-                                                                        url: SummaryApi.getBundleById.url.replace(':id', bundleId)
-                                                                    });
-                                                                    
-                                                                    if (response.data?.success && response.data?.data?.items) {
-                                                                        foundItems = response.data.data.items;
-                                                                        console.log('Found items from API:', foundItems);
-                                                                    } else {
-                                                                        console.log('API response:', response.data);
-                                                                    }
-                                                                } catch (error) {
-                                                                    console.error('API fetch error:', error);
-                                                                }
-                                                            }
-                                                        }
-                                                        
-                                                        setItems(foundItems);
-                                                        setLoading(false);
-                                                        console.log('Final items set:', foundItems);
-                                                    };
-                                                    
-                                                    loadItems();
-                                                }, [item, isBundle]);
-
-                                                if (!isBundle) return null;
-
-                                                if (loading) {
-                                                    return (
-                                                        <div className="border-t pt-3 mt-3">
-                                                            <div className="text-sm text-blue-600 bg-blue-50 p-2 rounded border border-blue-200 flex items-center gap-2">
-                                                                <FaSpinner className="animate-spin" />
-                                                                Loading bundle items...
-                                                            </div>
-                                                        </div>
-                                                    );
-                                                }
-
-                                                if (items.length > 0) {
-                                                    return (
-                                                        <div className="border-t pt-3 mt-3">
-                                                            <h5 className="text-sm font-semibold text-gray-700 mb-2">Bundle Items ({items.length}):</h5>
-                                                            <div className="space-y-2">
-                                                                {items.map((bundleItem, bundleIndex) => (
-                                                                    <div key={bundleIndex} className="flex items-center gap-2 p-2 bg-gray-50 rounded border text-sm">
-                                                                        <div className="w-8 h-8 rounded overflow-hidden bg-gray-200 flex-shrink-0">
-                                                                            {(() => {
-                                                                                console.log('Bundle item for image:', bundleItem);
-                                                                                console.log('BaseURL:', baseURL);
-                                                                                
-                                                                                // Enhanced image source detection
-                                                                                let imageUrl = null;
-                                                                                
-                                                                                // Check bundle item image (string field)
-                                                                                if (bundleItem.image && typeof bundleItem.image === 'string') {
-                                                                                    imageUrl = bundleItem.image;
-                                                                                    console.log('Found image in bundleItem.image:', imageUrl);
-                                                                                }
-                                                                                
-                                                                                // Check if image is array format
-                                                                                if (!imageUrl && bundleItem.image && Array.isArray(bundleItem.image)) {
-                                                                                    imageUrl = bundleItem.image[0]?.url || bundleItem.image[0];
-                                                                                    console.log('Found image in bundleItem.image array:', imageUrl);
-                                                                                }
-                                                                                
-                                                                                // Check images array
-                                                                                if (!imageUrl && bundleItem.images && Array.isArray(bundleItem.images)) {
-                                                                                    imageUrl = bundleItem.images[0]?.url || bundleItem.images[0];
-                                                                                    console.log('Found image in bundleItem.images:', imageUrl);
-                                                                                }
-                                                                                
-                                                                                // Check productId for images (if bundle item has productId populated)
-                                                                                if (!imageUrl && bundleItem.productId) {
-                                                                                    if (typeof bundleItem.productId === 'object') {
-                                                                                        // ProductId is populated
-                                                                                        if (bundleItem.productId.image) {
-                                                                                            if (Array.isArray(bundleItem.productId.image)) {
-                                                                                                imageUrl = bundleItem.productId.image[0]?.url || bundleItem.productId.image[0];
-                                                                                            } else {
-                                                                                                imageUrl = bundleItem.productId.image;
-                                                                                            }
-                                                                                            console.log('Found image in bundleItem.productId.image:', imageUrl);
-                                                                                        } else if (bundleItem.productId.images && Array.isArray(bundleItem.productId.images)) {
-                                                                                            imageUrl = bundleItem.productId.images[0]?.url || bundleItem.productId.images[0];
-                                                                                            console.log('Found image in bundleItem.productId.images:', imageUrl);
-                                                                                        }
-                                                                                    }
-                                                                                }
-                                                                                
-                                                                                // Fallback to bundle main image if no item-specific image
-                                                                                if (!imageUrl && bundleMainImage) {
-                                                                                    imageUrl = bundleMainImage;
-                                                                                    console.log('Using bundle main image as fallback:', imageUrl);
-                                                                                }
-                                                                                
-                                                                                console.log('Resolved image URL:', imageUrl);
-                                                                                
-                                                                                if (imageUrl && imageUrl.trim() !== '') {
-                                                                                    // Build final URL with proper base URL handling
-                                                                                    let finalUrl;
-                                                                                    if (imageUrl.startsWith('http://') || imageUrl.startsWith('https://')) {
-                                                                                        finalUrl = imageUrl;
-                                                                                    } else {
-                                                                                        // Handle relative URLs
-                                                                                        const cleanImageUrl = imageUrl.startsWith('/') ? imageUrl : `/${imageUrl}`;
-                                                                                        finalUrl = `${baseURL}${cleanImageUrl}`;
-                                                                                    }
-                                                                                    
-                                                                                    console.log('Final image URL:', finalUrl);
-                                                                                    
-                                                                                    return (
-                                                                                        <img 
-                                                                                            src={finalUrl}
-                                                                                            alt={bundleItem.name || bundleItem.title || 'Bundle Item'}
-                                                                                            className="w-full h-full object-cover"
-                                                                                            onLoad={() => {
-                                                                                                console.log('Image loaded successfully:', finalUrl);
-                                                                                            }}
-                                                                                            onError={(e) => {
-                                                                                                console.error('Image failed to load:', finalUrl);
-                                                                                                console.error('Original bundle item:', bundleItem);
-                                                                                                console.error('Error event:', e);
-                                                                                                // Hide the broken image
-                                                                                                e.target.style.display = 'none';
-                                                                                                // Show the placeholder instead
-                                                                                                const placeholder = e.target.nextElementSibling;
-                                                                                                if (placeholder) {
-                                                                                                    placeholder.style.display = 'flex';
-                                                                                                }
-                                                                                            }}
-                                                                                        />
-                                                                                    );
-                                                                                }
-                                                                                
-                                                                                console.log('No valid image found, showing placeholder');
-                                                                                return (
-                                                                                    <div className="w-full h-full flex items-center justify-center">
-                                                                                        <svg className="w-3 h-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-                                                                                        </svg>
-                                                                                    </div>
-                                                                                );
-                                                                            })()}
-                                                                        </div>
-                                                                        <div className="flex-grow">
-                                                                            <div className="font-medium text-gray-800">
-                                                                                {bundleItem.name || bundleItem.title || 'Bundle Item'}
-                                                                            </div>
-                                                                            <div className="text-xs text-gray-600">
-                                                                                Qty: {bundleItem.quantity || 1} • Size: {bundleItem.size ? (
-                                                                                    <span className="inline-block bg-green-100 text-green-800 px-1 py-0.5 rounded text-xs font-semibold">
-                                                                                        {bundleItem.size}
-                                                                                    </span>
-                                                                                ) : (
-                                                                                    <span className="text-gray-500">N/A</span>
-                                                                                )} • Price: {DisplayPriceInRupees(getSizeBasedUnitPrice(bundleItem, bundleItem) || bundleItem.price || 0)}
-                                                                            </div>
-                                                                        </div>
-                                                                    </div>
-                                                                ))}
-                                                            </div>
-                                                        </div>
-                                                    );
-                                                }
-
-                                                return (
-                                                    <div className="border-t pt-3 mt-3">
-                                                        <div className="text-sm text-amber-600 bg-amber-50 p-2 rounded border border-amber-200">
-                                                            ⚠️ Bundle items details are not available in this view
-                                                        </div>
-                                                    </div>
-                                                );
-                                            };
-                                            
-                                            console.log(`Extracted name: ${itemName}, price: ${itemPrice}, isBundle: ${isBundle}, bundleItems: ${bundleItems.length}`);
+                                            console.log(`Extracted name: ${itemName}, price: ${itemPrice}`);
                                             
                                             return (
-                                                <div key={index} className="border border-gray-200 rounded-lg p-3 bg-white">
-                                                    <div className="flex items-start">
-                                                        <div className="flex-shrink-0 w-16 h-16 mr-4">
-                                                            <img 
-                                                                src={getImageSource(item)}
-                                                                alt={itemName}
-                                                                className="w-full h-full object-cover rounded"
-                                                                onError={(e) => {
-                                                                    console.log("Image error, falling back to noCart");
-                                                                    e.target.onerror = null; 
-                                                                    e.target.src = noCart;
-                                                                }}
-                                                            />
+                                                <div key={index} className="border border-gray-200 rounded-lg p-3 flex items-center bg-white">
+                                                    <div className="flex-shrink-0 w-16 h-16 mr-4">
+                                                        <img 
+                                                            src={getImageSource(item)}
+                                                            alt={itemName}
+                                                            className="w-full h-full object-cover rounded"
+                                                            onError={(e) => {
+                                                                console.log("Image error, falling back to noCart");
+                                                                e.target.onerror = null; 
+                                                                e.target.src = noCart;
+                                                            }}
+                                                        />
+                                                    </div>
+                                                    <div className="flex-grow">
+                                                        <h4 className="font-medium">
+                                                            {itemName}
+                                                        </h4>
+                                                        <div className="text-sm text-gray-600 mt-1">
+                                                            <span>Quantity: {item.quantity || 1}</span>
+                                                            <span className="mx-2">•</span>
+                                                            <span>Price: {DisplayPriceInRupees(itemPrice)}</span>
                                                         </div>
-                                                        <div className="flex-grow">
-                                                            <div className="flex items-center gap-2 mb-2">
-                                                                <h4 className="font-medium">{itemName}</h4>
-                                                                {isBundle && (
-                                                                    <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                                                                        Bundle
-                                                                    </span>
-                                                                )}
-                                                            </div>
-                                                            <div className="text-sm text-gray-600 mb-2">
-                                                                <span>Quantity: {item.quantity || 1}</span>
-                                                                <span className="mx-2">•</span>
-                                                                <span>Size: {item.size ? (
-                                                                    <span className="inline-block bg-green-100 text-green-800 px-2 py-0.5 rounded-md text-xs font-semibold ml-1">
-                                                                        {item.size}
-                                                                    </span>
-                                                                ) : (
-                                                                    <span className="text-gray-500 text-xs ml-1">N/A</span>
-                                                                )}</span>
-                                                                <span className="mx-2">•</span>
-                                                                <span>Price: {DisplayPriceInRupees(itemPrice)}</span>
-                                                                <span className="mx-2">•</span>
-                                                                <span className="font-medium">Subtotal: {DisplayPriceInRupees(sizeBasedTotalPrice || item.itemTotal || (itemPrice * (item.quantity || 1)))}</span>
-                                                            </div>
-                                                            
-                                                            {/* Bundle Items Display Component */}
-                                                            <BundleItemsDisplay item={item} isBundle={isBundle} />
+                                                        <div className="text-sm font-medium mt-1">
+                                                            Subtotal: {DisplayPriceInRupees(item.itemTotal || (itemPrice * (item.quantity || 1)))}
                                                         </div>
                                                     </div>
                                                 </div>
@@ -1231,9 +605,6 @@ const RefundManagement = () => {
                                     Date
                                 </th>
                                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    Delivery Status
-                                </th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                     Status
                                 </th>
                                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -1244,7 +615,7 @@ const RefundManagement = () => {
                         <tbody className="bg-white divide-y divide-gray-200">
                             {loading ? (
                                 <tr>
-                                    <td colSpan={7} className="px-6 py-4 text-center">
+                                    <td colSpan={6} className="px-6 py-4 text-center">
                                         <div className="flex justify-center items-center">
                                             <FaSpinner className="animate-spin mr-2" />
                                             Loading refunds...
@@ -1253,129 +624,67 @@ const RefundManagement = () => {
                                 </tr>
                             ) : refunds.length === 0 ? (
                                 <tr>
-                                    <td colSpan={7} className="px-6 py-4 text-center text-gray-500">
+                                    <td colSpan={6} className="px-6 py-4 text-center text-gray-500">
                                         No refund requests found
                                     </td>
                                 </tr>
                             ) : (
-                                refunds.map((refund) => {
-                                    // Helper function to get delivery status
-                                    const getDeliveryStatus = (refund) => {
-                                        const order = refund.orderId;
-                                        if (!order) return { status: 'No Info', color: 'bg-gray-100 text-gray-800' };
-                                        
-                                        // Check if order is cancelled or refund is completed
-                                        if (order.orderStatus === 'CANCELLED' || refund.refundDetails?.refundStatus === 'COMPLETED') {
-                                            return { status: 'Cancelled', color: 'bg-red-100 text-red-800' };
-                                        }
-                                        
-                                        if (order.actualDeliveryDate) {
-                                            return { status: 'Delivered', color: 'bg-green-100 text-green-800' };
-                                        }
-                                        
-                                        if (order.estimatedDeliveryDate) {
-                                            const isOverdue = new Date() > new Date(order.estimatedDeliveryDate);
-                                            if (isOverdue) {
-                                                return { status: 'Overdue', color: 'bg-red-100 text-red-800' };
-                                            } else {
-                                                return { status: 'Pending', color: 'bg-yellow-100 text-yellow-800' };
-                                            }
-                                        }
-                                        
-                                        return { status: 'No Date', color: 'bg-gray-100 text-gray-800' };
-                                    };
-                                    
-                                    const deliveryStatus = getDeliveryStatus(refund);
-                                    
-                                    return (
-                                        <tr key={refund._id} className="hover:bg-gray-50">
-                                            <td className="px-6 py-4 whitespace-nowrap">
-                                                <div className="font-medium text-gray-900">
-                                                    {refund.orderId?.orderId || 'N/A'}
-                                                </div>
-                                                {/* Product sizes */}
-                                                {refund.orderId?.items && refund.orderId.items.length > 0 && (
-                                                    <div className="text-xs text-gray-500 mt-1">
-                                                        {(() => {
-                                                            const sizes = refund.orderId.items
-                                                                .map(item => item.size)
-                                                                .filter(Boolean);
-                                                            const uniqueSizes = [...new Set(sizes)];
-                                                            if (uniqueSizes.length > 0) {
-                                                                return (
-                                                                    <span className="bg-gray-100 px-2 py-0.5 rounded text-xs">
-                                                                        Size: {uniqueSizes.slice(0, 2).join(', ')}{uniqueSizes.length > 2 ? '...' : ''}
-                                                                    </span>
-                                                                );
-                                                            }
-                                                            return null;
-                                                        })()}
-                                                    </div>
-                                                )}
-                                                {refund.deliveryContext && (
-                                                    <div className="text-xs text-gray-500 mt-1">
-                                                        {refund.deliveryContext.daysBetweenOrderAndCancellation} days after order
-                                                    </div>
-                                                )}
-                                            </td>
-                                            <td className="px-6 py-4 whitespace-nowrap">
-                                                <div className="text-gray-900">
-                                                    {refund.userId?.name || 'Unknown'}
-                                                </div>
-                                                <div className="text-gray-500 text-sm">
-                                                    {refund.userId?.email || 'No email'}
-                                                </div>
-                                            </td>
-                                            <td className="px-6 py-4 whitespace-nowrap">
-                                                <div className="text-gray-900 font-medium">
-                                                    {DisplayPriceInRupees(refund.adminResponse?.refundAmount || 0)}
-                                                </div>
-                                            </td>
-                                            <td className="px-6 py-4 whitespace-nowrap">
-                                                <div className="text-gray-900">
-                                                    {formatDate(refund.requestDate)}
-                                                </div>
-                                            </td>
-                                            <td className="px-6 py-4 whitespace-nowrap">
-                                                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${deliveryStatus.color}`}>
-                                                    {deliveryStatus.status}
-                                                </span>
-                                                {refund.deliveryContext?.isOverdue && (
-                                                    <div className="text-xs text-red-600 mt-1">⚠️ Overdue</div>
-                                                )}
-                                            </td>
-                                            <td className="px-6 py-4 whitespace-nowrap">
-                                                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(refund.refundDetails?.refundStatus || 'PROCESSING')}`}>
-                                                    {refund.refundDetails?.refundStatus || 'PROCESSING'}
-                                                </span>
-                                            </td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                                <div className="flex space-x-2">
+                                refunds.map((refund) => (
+                                    <tr key={refund._id} className="hover:bg-gray-50">
+                                        <td className="px-6 py-4 whitespace-nowrap">
+                                            <div className="font-medium text-gray-900">
+                                                {refund.orderId?.orderId || 'N/A'}
+                                            </div>
+                                        </td>
+                                        <td className="px-6 py-4 whitespace-nowrap">
+                                            <div className="text-gray-900">
+                                                {refund.userId?.name || 'Unknown'}
+                                            </div>
+                                            <div className="text-gray-500 text-sm">
+                                                {refund.userId?.email || 'No email'}
+                                            </div>
+                                        </td>
+                                        <td className="px-6 py-4 whitespace-nowrap">
+                                            <div className="text-gray-900 font-medium">
+                                                {DisplayPriceInRupees(refund.adminResponse?.refundAmount || 0)}
+                                            </div>
+                                        </td>
+                                        <td className="px-6 py-4 whitespace-nowrap">
+                                            <div className="text-gray-900">
+                                                {formatDate(refund.requestDate)}
+                                            </div>
+                                        </td>
+                                        <td className="px-6 py-4 whitespace-nowrap">
+                                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(refund.refundDetails?.refundStatus || 'PROCESSING')}`}>
+                                                {refund.refundDetails?.refundStatus || 'PROCESSING'}
+                                            </span>
+                                        </td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                            <div className="flex space-x-2">
+                                                <button
+                                                    onClick={() => setSelectedRefund(refund)}
+                                                    className="text-blue-600 hover:text-blue-900 flex items-center"
+                                                    title="View Details"
+                                                >
+                                                    <FaEye className="mr-1" /> View
+                                                </button>
+                                                
+                                                {refund.refundDetails?.refundStatus === 'PROCESSING' && (
                                                     <button
-                                                        onClick={() => setSelectedRefund(refund)}
-                                                        className="text-blue-600 hover:text-blue-900 flex items-center"
-                                                        title="View Details"
+                                                        onClick={() => {
+                                                            setSelectedRefund(refund);
+                                                            setShowCompleteModal(true);
+                                                        }}
+                                                        className="text-green-600 hover:text-green-900 flex items-center"
+                                                        title="Complete Refund"
                                                     >
-                                                        <FaEye className="mr-1" /> View
+                                                        <FaMoneyBillWave className="mr-1" /> Complete
                                                     </button>
-                                                    
-                                                    {refund.refundDetails?.refundStatus === 'PROCESSING' && (
-                                                        <button
-                                                            onClick={() => {
-                                                                setSelectedRefund(refund);
-                                                                setShowCompleteModal(true);
-                                                            }}
-                                                            className="text-green-600 hover:text-green-900 flex items-center"
-                                                            title="Complete Refund"
-                                                        >
-                                                            <FaMoneyBillWave className="mr-1" /> Complete
-                                                        </button>
-                                                    )}
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    );
-                                })
+                                                )}
+                                            </div>
+                                        </td>
+                                    </tr>
+                                ))
                             )}
                         </tbody>
                     </table>
