@@ -440,7 +440,8 @@ const RefundManagement = () => {
                                 Close
                             </button>
                             
-                            {refundDetails.refundStatus === 'PROCESSING' && (
+                            {(refundDetails.refundStatus === 'PROCESSING' || 
+                              refundDetails.refundStatus === 'PENDING') && (
                                 <button 
                                     onClick={() => {
                                         setSelectedRefund(refund);
@@ -669,7 +670,8 @@ const RefundManagement = () => {
                                                     <FaEye className="mr-1" /> View
                                                 </button>
                                                 
-                                                {refund.refundDetails?.refundStatus === 'PROCESSING' && (
+                                                {(refund.refundDetails?.refundStatus === 'PROCESSING' || 
+                                                  refund.refundDetails?.refundStatus === 'PENDING') && (
                                                     <button
                                                         onClick={() => {
                                                             setSelectedRefund(refund);
