@@ -5,6 +5,7 @@ import cookieParser from 'cookie-parser'
 import morgan from 'morgan'
 import helmet from 'helmet'
 import connectDB from './config/connectdb.js'
+import logCorsConfiguration from './utils/corsDebug.js'
 import userRouter from './route/user.route.js'
 import categoryRouter from './route/category.route.js'
 import uploadRouter from './route/upload.router.js'
@@ -36,6 +37,8 @@ const corsOptions = {
         
         const allowedOrigins = [
             process.env.FRONT_URL,
+            process.env.PRODUCTION_URL,
+            process.env.WWW_PRODUCTION_URL,
             "http://localhost:5173",
             "http://localhost:5174",
             "http://localhost:3000",
@@ -54,6 +57,9 @@ const corsOptions = {
     allowedHeaders: ['Content-Type', 'Authorization', 'Cookie'],
     optionsSuccessStatus: 200 // Some legacy browsers choke on 204
 };
+
+// Log CORS configuration for debugging
+logCorsConfiguration(corsOptions);
 
 app.use(cors(corsOptions));
 

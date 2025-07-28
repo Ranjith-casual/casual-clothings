@@ -14,6 +14,7 @@ import CartMobileLink from './components/CartMobile';
 import DisplayCartItem from './components/DisplayCartItem';
 import ScrollToTop from './components/ScrollToTop';
 import ScrollToTopButton from './components/ScrollToTopButton';
+import ErrorBoundary from './components/ErrorBoundary';
 
 function AppContent() {
   const location = useLocation();
@@ -21,7 +22,7 @@ function AppContent() {
   const user = useSelector((state) => state?.user);
 
   return (
-    <>
+    <ErrorBoundary>
       <Header/>
       <main className='min-h-[78vh]'>
         <ScrollToTop/>
@@ -35,7 +36,7 @@ function AppContent() {
       {openCartSection && user?._id && (
         <DisplayCartItem close={() => setOpenCartSection(false)} />
       )}
-    </>
+    </ErrorBoundary>
   );
 }
 

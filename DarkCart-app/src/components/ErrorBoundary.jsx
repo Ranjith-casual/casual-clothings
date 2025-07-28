@@ -13,8 +13,16 @@ class ErrorBoundary extends React.Component {
 
   componentDidCatch(error, errorInfo) {
     // You can also log the error to an error reporting service
-    console.error("Checkout page error:", error, errorInfo);
+    console.error("Application error caught by boundary:", error, errorInfo);
     this.setState({ errorInfo });
+    
+    // Check if this is a CORS error or an image upload error
+    if (error?.message?.includes('XMLHttpRequest') || 
+        error?.message?.includes('CORS') || 
+        error?.message?.includes("S is undefined") ||
+        (error?.originalError && error?.originalError?.message?.includes('Network Error'))) {
+      console.warn('CORS or image upload error detected');
+    }
   }
 
   render() {
@@ -27,12 +35,13 @@ class ErrorBoundary extends React.Component {
             
             <div className="mb-4">
               <p className="text-gray-600 mb-2 tracking-wide text-sm sm:text-base">
-                We're sorry, but there was an issue loading your checkout page. This might be due to:
+                We're sorry, but there was an issue processing your request. This might be due to:
               </p>
               <ul className="list-disc pl-5 text-gray-600 text-xs sm:text-sm space-y-1.5 tracking-wide">
-                <li>Items in your cart might be missing information</li>
                 <li>There might be a temporary connection issue</li>
+                <li>The server might be experiencing problems</li>
                 <li>The session might have expired</li>
+                <li>The operation you're trying to perform might need permissions</li>
               </ul>
             </div>
             
@@ -44,10 +53,10 @@ class ErrorBoundary extends React.Component {
             
             <div className="flex flex-col sm:flex-row gap-3">
               <button 
-                onClick={() => window.location.href = '/cart'} 
+                onClick={() => window.location.href = '/'} 
                 className="px-4 py-2 bg-black text-white rounded-md hover:bg-gray-800 transition-all font-semibold tracking-wider text-sm focus:outline-none focus:ring-2 focus:ring-black focus:ring-opacity-50 shadow-sm"
               >
-                Return to Cart
+                Return to Homepage
               </button>
               <button 
                 onClick={() => window.location.reload()} 

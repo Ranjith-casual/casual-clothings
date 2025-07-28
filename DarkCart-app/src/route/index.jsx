@@ -176,7 +176,30 @@ const router = createBrowserRouter([
                 },
                 {
                     path:"upload-product",
-                    element:<AdminPermission><UploadProduct/></AdminPermission>
+                    element:<AdminPermission><UploadProduct/></AdminPermission>,
+                    errorElement: <div className="min-h-screen flex items-center justify-center bg-white p-4">
+                        <div className="max-w-md w-full p-6 bg-white rounded-lg shadow-md border border-gray-200">
+                            <h2 className="text-xl font-semibold text-gray-800 mb-4">Error Loading Product Upload Page</h2>
+                            <p className="text-gray-600 mb-4">
+                                There was a problem loading the product upload functionality. This could be due to:
+                            </p>
+                            <ul className="list-disc pl-5 text-gray-600 mb-4">
+                                <li className="mb-2">A connection issue with the server</li>
+                                <li className="mb-2">Your session may have expired</li>
+                                <li>You might not have the required permissions</li>
+                            </ul>
+                            <div className="flex flex-col sm:flex-row gap-3 mt-6">
+                                <button onClick={() => window.location.reload()} 
+                                    className="px-4 py-2 bg-black text-white rounded-md hover:bg-gray-800 transition-all">
+                                    Try Again
+                                </button>
+                                <button onClick={() => window.location.href = '/dashboard/admin'} 
+                                    className="px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-100 transition-all">
+                                    Return to Dashboard
+                                </button>
+                            </div>
+                        </div>
+                    </div>
                 },
                 {
                     path:"product",

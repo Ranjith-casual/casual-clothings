@@ -131,9 +131,16 @@ const ImageDropzone = ({
         },
       });
       
-      // Handle successful upload
-      if (response.data.success) {
-        const imageUrl = response.data.data.secure_url;
+      // Check if response exists and has data property
+      if (response && response.data && response.data.success) {
+        // Make sure secure_url exists before using it
+        const imageUrl = response.data.data && response.data.data.secure_url;
+        
+        if (!imageUrl) {
+          console.error('Invalid response format:', response);
+          toast.error('Server returned invalid response format');
+          return;
+        }
         
         if (multiple) {
           // Add to images array for multiple mode
@@ -156,11 +163,17 @@ const ImageDropzone = ({
         
         toast.success('Image uploaded successfully');
       } else {
-        toast.error('Failed to upload image');
+        console.error('Upload failed:', response);
+        toast.error('Failed to upload image: Server returned unsuccessful response');
       }
     } catch (error) {
       console.error('Error uploading image:', error);
-      toast.error('Error uploading image: ' + (error.message || 'Unknown error'));
+      // Check if this is a CORS error
+      if (error.message && error.message.includes('Network Error')) {
+        toast.error('Network error: CORS issue detected. Please contact support.');
+      } else {
+        toast.error('Error uploading image: ' + (error.message || 'Unknown error'));
+      }
     } finally {
       setIsUploading(false);
     }
