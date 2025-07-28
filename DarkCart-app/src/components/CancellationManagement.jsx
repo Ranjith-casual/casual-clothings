@@ -88,6 +88,94 @@ function CancellationManagement() {
         return totalPrice / (item?.quantity || 1);
     };
 
+    // Calculate total discounted amount for entire order
+    const calculateOrderDiscountedTotal = (order) => {
+        if (!order || !order.items) {
+            return order?.totalAmt || 0;
+        }
+
+        let totalDiscountedAmount = 0;
+
+        order.items.forEach(item => {
+            // Use the same logic as calculateItemPricingDetailed but simplified for total calculation
+            const product = item.productId || item.bundleId || item.productDetails || item.bundleDetails;
+            
+            // Base price calculation with size adjustment
+            let basePrice = calculateSizeBasedPrice(item, product);
+            
+            // Apply product discount if available
+            if (product && product.discount > 0) {
+                const discountAmount = (basePrice * product.discount) / 100;
+                basePrice = basePrice - discountAmount;
+            }
+            
+            // Apply bundle discount if it's a bundle item
+            if (item.bundleId && product && product.bundleDiscount > 0) {
+                const bundleDiscountAmount = (basePrice * product.bundleDiscount) / 100;
+                basePrice = basePrice - bundleDiscountAmount;
+            }
+            
+            totalDiscountedAmount += basePrice;
+        });
+
+        return totalDiscountedAmount;
+    };
+
+    // Calculate total discounted amount for partial cancellation items only
+    const calculatePartialCancellationTotal = (cancellationRequest) => {
+        if (!cancellationRequest?.itemsToCancel || !cancellationRequest?.orderId?.items) {
+            return 0;
+        }
+
+        let totalPartialAmount = 0;
+
+        cancellationRequest.itemsToCancel.forEach(cancelItem => {
+            // First check if we have pricing data directly from the cancellation request
+            if (cancelItem.itemPrice !== undefined && cancelItem.quantity !== undefined) {
+                // Use the pricing data sent from PartialCancellationModal
+                totalPartialAmount += (cancelItem.itemPrice * cancelItem.quantity);
+            } else {
+                // Fallback to finding the full item details from the order
+                const fullItem = cancellationRequest.orderId.items.find(
+                    orderItem => orderItem._id?.toString() === cancelItem.itemId?.toString()
+                );
+
+                if (fullItem) {
+                    let unitPrice = 0;
+
+                    if (fullItem.itemType === 'product') {
+                        if (fullItem.productDetails?.finalPrice) {
+                            unitPrice = fullItem.productDetails.finalPrice;
+                        } else if (fullItem.sizeAdjustedPrice) {
+                            unitPrice = fullItem.sizeAdjustedPrice;
+                        } else {
+                            const originalPrice = fullItem.productId?.price || fullItem.productDetails?.price || 0;
+                            const discount = fullItem.productId?.discount || fullItem.discount || 0;
+                            unitPrice = discount > 0 ? originalPrice * (1 - discount / 100) : originalPrice;
+                        }
+                    } else if (fullItem.itemType === 'bundle') {
+                        unitPrice = fullItem.bundleId?.bundlePrice || fullItem.bundleDetails?.bundlePrice || 0;
+                    }
+
+                    totalPartialAmount += (unitPrice * fullItem.quantity);
+                }
+            }
+        });
+
+        return totalPartialAmount;
+    };
+
+    // Get the total refund amount for partial cancellation (75% of item value)
+    const getPartialCancellationRefundAmount = (cancellationRequest) => {
+        // First check if the refund amount was directly sent from PartialCancellationModal
+        if (cancellationRequest?.totalRefundAmount !== undefined) {
+            return cancellationRequest.totalRefundAmount;
+        }
+        
+        // Fallback: calculate 75% of total item value
+        return calculatePartialCancellationTotal(cancellationRequest) * 0.75;
+    };
+
     useEffect(() => {
         fetchCancellationRequests()
     }, [])
@@ -312,9 +400,12 @@ function CancellationManagement() {
                     
                     let refundAmount;
                     if (isPartialCancellation) {
-                        refundAmount = response.data.data?.refundAmount || 0;
+                        // For partial cancellations, use the refund amount sent from PartialCancellationModal
+                        refundAmount = getPartialCancellationRefundAmount(selectedRequest).toFixed(2);
                     } else {
-                        refundAmount = (selectedRequest.orderId.totalAmt * refundPercentage / 100).toFixed(2);
+                        // Calculate refund based on discounted amount (actual paid amount)
+                        const discountedTotal = calculateOrderDiscountedTotal(selectedRequest.orderId);
+                        refundAmount = (discountedTotal * refundPercentage / 100).toFixed(2);
                     }
                     
                     // Create notification
@@ -324,7 +415,7 @@ function CancellationManagement() {
                         title: `Refund Processed for Order #${orderNumber}`,
                         message: isPartialCancellation 
                             ? `Your partial cancellation request has been approved. A refund of ₹${refundAmount} for selected items will be processed to your original payment method within 5-7 business days.`
-                            : `Your cancellation request has been approved. A refund of ₹${refundAmount} (${refundPercentage}% of order amount) will be processed to your original payment method within 5-7 business days.`,
+                            : `Your cancellation request has been approved. A refund of ₹${refundAmount} (${refundPercentage}% of discounted amount) will be processed to your original payment method within 5-7 business days.`,
                         time: new Date().toISOString(),
                         read: false,
                         refundAmount: refundAmount,
@@ -342,16 +433,30 @@ function CancellationManagement() {
                     }));
                     
                     // Display a toast message showing the refund amount
-                    toast.success(`Refund amount: ₹${refundAmount} (75% of total)`, {
-                        duration: 5000,
-                        style: {
-                            background: '#F0FFF4',
-                            color: '#22543D',
-                            fontWeight: 'bold',
-                            border: '1px solid #C6F6D5'
-                        },
-                        icon: '💰'
-                    });
+                    if (isPartialCancellation) {
+                        const itemValueDisplay = selectedRequest.totalItemValue || 
+                                               calculatePartialCancellationTotal(selectedRequest);
+                        toast.success(`Refund amount: ₹${refundAmount} (75% of cancelled items total: ₹${itemValueDisplay.toFixed(2)})`, {
+                            duration: 5000,
+                            style: {
+                                background: '#F0FFF4',
+                                color: '#22543D',
+                                fontWeight: 'bold',
+                            }
+                        });
+                    } else {
+                        const discountedTotal = calculateOrderDiscountedTotal(selectedRequest.orderId);
+                        toast.success(`Refund amount: ₹${refundAmount} (75% of discounted total: ₹${discountedTotal.toFixed(2)})`, {
+                            duration: 5000,
+                            style: {
+                                background: '#F0FFF4',
+                                color: '#22543D',
+                                fontWeight: 'bold',
+                                border: '1px solid #C6F6D5'
+                            },
+                            icon: '💰'
+                        });
+                    }
                     
                     // Send email notification to user
                     try {
@@ -539,40 +644,161 @@ function CancellationManagement() {
                                             The customer requested to cancel specific items from their order:
                                         </p>
                                         {selectedRequest.itemsToCancel && selectedRequest.itemsToCancel.length > 0 && (
-                                            <div className="bg-white p-3 rounded-lg border border-orange-200">
-                                                <h4 className="font-medium text-gray-900 mb-2">Items to Cancel:</h4>
-                                                <ul className="space-y-2">
+                                            <div className="bg-white p-4 rounded-lg border border-orange-200">
+                                                <h4 className="font-medium text-gray-900 mb-3">Items to Cancel:</h4>
+                                                <div className="space-y-3">
                                                     {selectedRequest.itemsToCancel.map((cancelItem, index) => {
                                                         // Find the full item details from the order
                                                         const fullItem = selectedRequest.orderId?.items?.find(
                                                             orderItem => orderItem._id?.toString() === cancelItem.itemId?.toString()
                                                         );
                                                         
+                                                        if (!fullItem) {
+                                                            return (
+                                                                <div key={index} className="p-3 bg-gray-100 rounded-md">
+                                                                    <span className="text-gray-600">Item details not found</span>
+                                                                </div>
+                                                            );
+                                                        }
+
+                                                        // Calculate pricing information
+                                                        const calculateItemPricing = (item, cancelItemData = null) => {
+                                                            let unitPrice = 0;
+                                                            let originalPrice = 0;
+                                                            let discountPercentage = 0;
+                                                            
+                                                            // First, check if we have pricing data from the cancellation request
+                                                            if (cancelItemData && cancelItemData.itemPrice !== undefined) {
+                                                                unitPrice = cancelItemData.itemPrice || 0;
+                                                                originalPrice = cancelItemData.originalPrice || unitPrice;
+                                                                discountPercentage = cancelItemData.discount || 0;
+                                                            } else {
+                                                                // Fallback to calculating from item data
+                                                                if (item.itemType === 'product') {
+                                                                    // Get the original price first
+                                                                    originalPrice = item.productId?.price || item.productDetails?.price || 0;
+                                                                    
+                                                                    // Check for explicit final price (already discounted)
+                                                                    if (item.productDetails?.finalPrice) {
+                                                                        unitPrice = item.productDetails.finalPrice;
+                                                                        // Calculate discount from original vs final price
+                                                                        if (originalPrice > unitPrice) {
+                                                                            discountPercentage = ((originalPrice - unitPrice) / originalPrice) * 100;
+                                                                        }
+                                                                    } else if (item.sizeAdjustedPrice) {
+                                                                        unitPrice = item.sizeAdjustedPrice;
+                                                                        originalPrice = unitPrice;
+                                                                    } else if (item.productId?.sizePricing && item.size) {
+                                                                        const sizeMultiplier = item.productId.sizePricing[item.size] || 1;
+                                                                        const basePriceBeforeSize = originalPrice;
+                                                                        
+                                                                        // Apply size multiplier first
+                                                                        originalPrice = basePriceBeforeSize * sizeMultiplier;
+                                                                        unitPrice = originalPrice;
+                                                                        
+                                                                        // Then apply discount if available
+                                                                        discountPercentage = item.productId?.discount || item.discount || 0;
+                                                                        if (discountPercentage > 0) {
+                                                                            unitPrice = originalPrice * (1 - discountPercentage / 100);
+                                                                        }
+                                                                    } else {
+                                                                        originalPrice = item.productId?.price || item.productDetails?.price || 0;
+                                                                        discountPercentage = item.productId?.discount || item.discount || 0;
+                                                                        unitPrice = discountPercentage > 0 ? originalPrice * (1 - discountPercentage / 100) : originalPrice;
+                                                                    }
+                                                                } else if (item.itemType === 'bundle') {
+                                                                    unitPrice = item.bundleId?.bundlePrice || item.bundleDetails?.bundlePrice || 0;
+                                                                    originalPrice = item.bundleId?.originalPrice || item.bundleDetails?.originalPrice || unitPrice;
+                                                                    if (originalPrice > unitPrice && originalPrice > 0) {
+                                                                        discountPercentage = ((originalPrice - unitPrice) / originalPrice) * 100;
+                                                                    }
+                                                                }
+                                                            }
+                                                            
+                                                            return {
+                                                                unitPrice: unitPrice,
+                                                                originalPrice: originalPrice,
+                                                                discount: discountPercentage,
+                                                                totalPrice: unitPrice * item.quantity
+                                                            };
+                                                        };
+
                                                         const itemName = fullItem?.productDetails?.name || 
                                                                        fullItem?.bundleDetails?.title || 
+                                                                       cancelItem?.productName ||
                                                                        'Unknown Item';
                                                         
+                                                        const pricingData = calculateItemPricing(fullItem, cancelItem);
+                                                        const hasDiscount = pricingData.discount > 0 && pricingData.originalPrice > pricingData.unitPrice;
+                                                        
                                                         return (
-                                                            <li key={index} className="flex justify-between items-center p-2 bg-gray-50 rounded">
-                                                                <span className="font-medium text-gray-800">
-                                                                    {itemName}
-                                                                    {cancelItem.size && ` (Size: ${cancelItem.size})`}
-                                                                    {cancelItem.quantity && ` - Qty: ${cancelItem.quantity}`}
-                                                                </span>
-                                                                <span className="font-semibold text-orange-600">
-                                                                    ₹{cancelItem.refundAmount || cancelItem.itemTotal || 0}
-                                                                </span>
-                                                            </li>
+                                                            <div key={index} className="flex items-start gap-3 p-3 bg-gray-50 rounded-lg border border-gray-200">
+                                                                {/* Item Image */}
+                                                                <div className="flex-shrink-0">
+                                                                    <img
+                                                                        src={fullItem?.productDetails?.image?.[0] || fullItem?.bundleDetails?.image || '/placeholder-image.jpg'}
+                                                                        alt={itemName}
+                                                                        className="w-16 h-16 object-cover rounded-md border"
+                                                                    />
+                                                                </div>
+                                                                
+                                                                {/* Item Details */}
+                                                                <div className="flex-grow">
+                                                                    <div className="flex justify-between items-start">
+                                                                        <div>
+                                                                            <h5 className="font-medium text-gray-900 mb-1">{itemName}</h5>
+                                                                            <div className="text-sm text-gray-600">
+                                                                                {fullItem.itemType === 'product' && fullItem.size && (
+                                                                                    <span className="inline-block mr-3">Size: {fullItem.size}</span>
+                                                                                )}
+                                                                                <span>Qty: {fullItem.quantity}</span>
+                                                                            </div>
+                                                                            
+                                                                            {/* Price Information */}
+                                                                            <div className="mt-2">
+                                                                                <div className="text-sm">
+                                                                                    <span className="text-gray-600">Unit Price: </span>
+                                                                                    {hasDiscount ? (
+                                                                                        <span className="space-x-2">
+                                                                                            <span className="line-through text-gray-500">₹{pricingData.originalPrice.toFixed(2)}</span>
+                                                                                            <span className="text-green-600 font-semibold">₹{pricingData.unitPrice.toFixed(2)}</span>
+                                                                                            <span className="text-xs text-green-600 bg-green-100 px-2 py-1 rounded">
+                                                                                                {pricingData.discount.toFixed(0)}% OFF
+                                                                                            </span>
+                                                                                        </span>
+                                                                                    ) : (
+                                                                                        <span className="font-semibold">₹{pricingData.unitPrice.toFixed(2)}</span>
+                                                                                    )}
+                                                                                </div>
+                                                                            </div>
+                                                                        </div>
+                                                                        
+                                                                        {/* Refund Amount */}
+                                                                        <div className="text-right">
+                                                                            <div className="text-sm text-gray-600 mb-1">Refund Amount (75%)</div>
+                                                                            <div className="font-bold text-orange-600 text-lg">
+                                                                                ₹{(cancelItem.refundAmount || (pricingData.totalPrice * 0.75)).toFixed(2)}
+                                                                            </div>
+                                                                            {hasDiscount && (
+                                                                                <div className="text-xs text-green-600">
+                                                                                    (Save ₹{((pricingData.originalPrice - pricingData.unitPrice) * fullItem.quantity).toFixed(2)})
+                                                                                </div>
+                                                                            )}
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
                                                         );
                                                     })}
-                                                </ul>
-                                                <div className="mt-3 pt-2 border-t border-orange-200">
+                                                </div>
+                                                <div className="mt-4 pt-3 border-t border-orange-200">
                                                     <div className="flex justify-between items-center">
-                                                        <span className="font-semibold text-gray-800">Total Expected Refund:</span>
-                                                        <span className="font-bold text-orange-600 text-lg">
-                                                            ₹{selectedRequest.itemsToCancel.reduce((sum, item) => 
-                                                                sum + (item.refundAmount || item.itemTotal || 0), 0
-                                                            )}
+                                                        <span className="font-semibold text-gray-800 text-lg">Total Expected Refund (75%):</span>
+                                                        <span className="font-bold text-orange-600 text-xl">
+                                                            ₹{selectedRequest.totalRefundAmount ? 
+                                                                selectedRequest.totalRefundAmount.toFixed(2) :
+                                                                (calculatePartialCancellationTotal(selectedRequest) * 0.75).toFixed(2)
+                                                            }
                                                         </span>
                                                     </div>
                                                 </div>
@@ -596,379 +822,440 @@ function CancellationManagement() {
                         {/* Product Details */}
                         <div className="mb-6">
                             <h3 className="font-semibold text-lg sm:text-xl text-gray-800 mb-4 tracking-tight">
-                                {selectedRequest.cancellationType === 'PARTIAL_ITEMS' ? 'All Items in Order' : 'Product Details'}
+                                {selectedRequest.cancellationType === 'PARTIAL_ITEMS' ? 'Items Being Cancelled' : 'Product Details'}
                             </h3>
                             <div className="bg-gray-50 p-4 sm:p-5 rounded-xl border border-gray-100 shadow-sm hover:shadow-md transition-all duration-300">
-                                {selectedRequest.orderId?.items && selectedRequest.orderId.items.length > 0 ? (
-                                    <div className="space-y-4">
-                                        {selectedRequest.orderId.items.map((item, index) => {
-                                            // Enhanced product name resolution
-                                            const getProductName = () => {
-                                                if (item.productId && typeof item.productId === 'object') {
-                                                    return item.productId.name || item.productId.title;
-                                                }
-                                                if (item.productDetails) {
-                                                    return item.productDetails.name || item.productDetails.title;
-                                                }
-                                                if (item.bundleId && typeof item.bundleId === 'object') {
-                                                    return item.bundleId.title || item.bundleId.name;
-                                                }
-                                                if (item.bundleDetails) {
-                                                    return item.bundleDetails.title || item.bundleDetails.name;
-                                                }
-                                                return 'Product Item';
-                                            };
-
-                                            const getProductImage = () => {
-                                                // Try all possible image sources in order of preference
-                                                let imageUrl = null;
+                                {selectedRequest.cancellationType === 'PARTIAL_ITEMS' ? (
+                                    // For partial cancellations, only show the items being cancelled
+                                    selectedRequest.itemsToCancel && selectedRequest.itemsToCancel.length > 0 ? (
+                                        <div className="space-y-4">
+                                            {selectedRequest.itemsToCancel.map((cancelItem, index) => {
+                                                // Find the full item details from the order
+                                                const fullItem = selectedRequest.orderId?.items?.find(
+                                                    orderItem => orderItem._id?.toString() === cancelItem.itemId?.toString()
+                                                );
                                                 
-                                                // First try bundleId (most specific for bundles)
-                                                if (item.bundleId && typeof item.bundleId === 'object') {
-                                                    // Check if image is a string (URL) or array
-                                                    if (typeof item.bundleId.image === 'string') {
-                                                        imageUrl = item.bundleId.image;
-                                                    } else if (Array.isArray(item.bundleId.image) && item.bundleId.image.length > 0) {
-                                                        imageUrl = item.bundleId.image[0];
-                                                    } else if (Array.isArray(item.bundleId.images) && item.bundleId.images.length > 0) {
-                                                        imageUrl = item.bundleId.images[0];
-                                                    } else if (item.bundleId.bundleImage) {
-                                                        imageUrl = item.bundleId.bundleImage;
-                                                    }
-                                                    
-                                                    if (imageUrl) {
-                                                        return imageUrl;
-                                                    }
-                                                    
-                                                    // Try to get image from first bundle item if main bundle doesn't have image
-                                                    if (item.bundleId.items && item.bundleId.items.length > 0) {
-                                                        const firstItem = item.bundleId.items[0];
-                                                        imageUrl = firstItem.images?.[0] || firstItem.image?.[0];
-                                                        if (imageUrl) {
-                                                            return imageUrl;
-                                                        }
-                                                    }
-                                                }
-                                                
-                                                // Then try bundleDetails
-                                                if (item.bundleDetails) {
-                                                    // Check if image is a string (URL) or array
-                                                    if (typeof item.bundleDetails.image === 'string') {
-                                                        imageUrl = item.bundleDetails.image;
-                                                    } else if (Array.isArray(item.bundleDetails.image) && item.bundleDetails.image.length > 0) {
-                                                        imageUrl = item.bundleDetails.image[0];
-                                                    } else if (Array.isArray(item.bundleDetails.images) && item.bundleDetails.images.length > 0) {
-                                                        imageUrl = item.bundleDetails.images[0];
-                                                    } else if (item.bundleDetails.bundleImage) {
-                                                        imageUrl = item.bundleDetails.bundleImage;
-                                                    }
-                                                    
-                                                    if (imageUrl) {
-                                                        return imageUrl;
-                                                    }
-                                                    
-                                                    // Try to get image from first bundle item if main bundle doesn't have image
-                                                    if (item.bundleDetails.items && item.bundleDetails.items.length > 0) {
-                                                        const firstItem = item.bundleDetails.items[0];
-                                                        imageUrl = firstItem.images?.[0] || firstItem.image?.[0];
-                                                        if (imageUrl) {
-                                                            return imageUrl;
-                                                        }
-                                                    }
-                                                }
-                                                
-                                                // Then try productId
-                                                if (item.productId && typeof item.productId === 'object') {
-                                                    // Check if image is a string (URL) or array
-                                                    if (typeof item.productId.image === 'string') {
-                                                        imageUrl = item.productId.image;
-                                                    } else if (Array.isArray(item.productId.image) && item.productId.image.length > 0) {
-                                                        imageUrl = item.productId.image[0];
-                                                    } else if (Array.isArray(item.productId.images) && item.productId.images.length > 0) {
-                                                        imageUrl = item.productId.images[0];
-                                                    }
-                                                    
-                                                    if (imageUrl) {
-                                                        return imageUrl;
-                                                    }
-                                                }
-                                                
-                                                // Finally try productDetails
-                                                if (item.productDetails) {
-                                                    // Check if image is a string (URL) or array
-                                                    if (typeof item.productDetails.image === 'string') {
-                                                        imageUrl = item.productDetails.image;
-                                                    } else if (Array.isArray(item.productDetails.image) && item.productDetails.image.length > 0) {
-                                                        imageUrl = item.productDetails.image[0];
-                                                    } else if (Array.isArray(item.productDetails.images) && item.productDetails.images.length > 0) {
-                                                        imageUrl = item.productDetails.images[0];
-                                                    }
-                                                    
-                                                    if (imageUrl) {
-                                                        return imageUrl;
-                                                    }
-                                                }
-                                                
-                                                return null;
-                                            };
-
-                                            const getUnitPrice = () => {
-                                                // For your requirement: unit price should equal total price
-                                                return item.itemTotal || 0;
-                                            };
-
-                                            // Enhanced bundle detection - check multiple sources
-                                            const isBundle = item.itemType === 'bundle' || 
-                                                           (item.bundleId && typeof item.bundleId === 'object') ||
-                                                           (item.bundleDetails && typeof item.bundleDetails === 'object') ||
-                                                           (item.type === 'Bundle') ||
-                                                           (item.productType === 'bundle');
-
-                                            return (
-                                                <div key={index} className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
-                                                    <div className="flex items-start gap-4">
-                                                        <div className="w-16 h-16 rounded-lg overflow-hidden bg-gray-100 border border-gray-200 flex-shrink-0">
-                                                            {getProductImage() ? (
-                                                                <img 
-                                                                    src={getProductImage()} 
-                                                                    alt={getProductName()}
-                                                                    className="w-full h-full object-cover"
-                                                                    onError={(e) => {
-                                                                        e.target.style.display = 'none';
-                                                                        e.target.parentElement.innerHTML = `
-                                                                            <div class="w-full h-full flex items-center justify-center">
-                                                                                <svg class="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-                                                                                </svg>
-                                                                            </div>
-                                                                        `;
-                                                                    }}
-                                                                />
-                                                            ) : (
-                                                                <div className="w-full h-full flex items-center justify-center">
-                                                                    <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-                                                                    </svg>
-                                                                </div>
-                                                            )}
+                                                if (!fullItem) {
+                                                    return (
+                                                        <div key={index} className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
+                                                            <span className="text-gray-600">Item details not found</span>
                                                         </div>
-                                                        <div className="flex-grow">
-                                                            <div className="flex items-center gap-2 mb-2">
-                                                                <h4 className="font-semibold text-gray-900">{getProductName()}</h4>
-                                                                {isBundle && (
-                                                                    <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                                                                        Bundle
-                                                                    </span>
+                                                    );
+                                                }
+
+                                                // Enhanced pricing calculation with discount
+                                                const calculateItemPricingDetailed = (item, cancelItemData = null) => {
+                                                    let unitPrice = 0;
+                                                    let originalPrice = 0;
+                                                    let discountPercentage = 0;
+                                                    
+                                                    // First, check if we have pricing data from the cancellation request
+                                                    if (cancelItemData && cancelItemData.itemPrice !== undefined) {
+                                                        unitPrice = cancelItemData.itemPrice || 0;
+                                                        originalPrice = cancelItemData.originalPrice || unitPrice;
+                                                        discountPercentage = cancelItemData.discount || 0;
+                                                    } else {
+                                                        // Fallback to calculating from item data
+                                                        if (item.itemType === 'product') {
+                                                            // Get the original price first
+                                                            originalPrice = item.productId?.price || item.productDetails?.price || 0;
+                                                            
+                                                            // Check for explicit final price (already discounted)
+                                                            if (item.productDetails?.finalPrice) {
+                                                                unitPrice = item.productDetails.finalPrice;
+                                                                // Calculate discount from original vs final price
+                                                                if (originalPrice > unitPrice) {
+                                                                    discountPercentage = ((originalPrice - unitPrice) / originalPrice) * 100;
+                                                                }
+                                                            } else if (item.sizeAdjustedPrice) {
+                                                                // Use size-adjusted price as base
+                                                                unitPrice = item.sizeAdjustedPrice;
+                                                                originalPrice = unitPrice; // For size-adjusted, show as no additional discount
+                                                            } else if (item.productId?.sizePricing && item.size) {
+                                                                // Calculate size-adjusted price from populated product data
+                                                                const sizeMultiplier = item.productId.sizePricing[item.size] || 1;
+                                                                const basePriceBeforeSize = originalPrice;
+                                                                
+                                                                // Apply size multiplier first
+                                                                originalPrice = basePriceBeforeSize * sizeMultiplier;
+                                                                unitPrice = originalPrice;
+                                                                
+                                                                // Then apply discount if available
+                                                                discountPercentage = item.productId?.discount || item.discount || 0;
+                                                                if (discountPercentage > 0) {
+                                                                    unitPrice = originalPrice * (1 - discountPercentage / 100);
+                                                                }
+                                                            } else {
+                                                                // Regular price with discount
+                                                                discountPercentage = item.productId?.discount || item.discount || 0;
+                                                                if (discountPercentage > 0) {
+                                                                    unitPrice = originalPrice * (1 - discountPercentage / 100);
+                                                                } else {
+                                                                    unitPrice = originalPrice;
+                                                                }
+                                                            }
+                                                        } else if (item.itemType === 'bundle') {
+                                                            // For bundles
+                                                            unitPrice = item.bundleId?.bundlePrice || item.bundleDetails?.bundlePrice || 0;
+                                                            originalPrice = item.bundleId?.originalPrice || item.bundleDetails?.originalPrice || unitPrice;
+                                                            
+                                                            // Calculate discount percentage for display
+                                                            if (originalPrice > unitPrice && originalPrice > 0) {
+                                                                discountPercentage = ((originalPrice - unitPrice) / originalPrice) * 100;
+                                                            }
+                                                        }
+                                                    }
+                                                    
+                                                    return {
+                                                        unitPrice: unitPrice,
+                                                        originalPrice: originalPrice,
+                                                        discount: discountPercentage,
+                                                        totalPrice: unitPrice * item.quantity
+                                                    };
+                                                };
+
+                                                const getProductName = () => {
+                                                    if (fullItem.productId && typeof fullItem.productId === 'object') {
+                                                        return fullItem.productId.name || fullItem.productId.title;
+                                                    }
+                                                    if (fullItem.productDetails) {
+                                                        return fullItem.productDetails.name || fullItem.productDetails.title;
+                                                    }
+                                                    if (fullItem.bundleId && typeof fullItem.bundleId === 'object') {
+                                                        return fullItem.bundleId.title || fullItem.bundleId.name;
+                                                    }
+                                                    if (fullItem.bundleDetails) {
+                                                        return fullItem.bundleDetails.title || fullItem.bundleDetails.name;
+                                                    }
+                                                    return 'Product Item';
+                                                };
+
+                                                const getProductImage = () => {
+                                                    // Try multiple image sources
+                                                    if (fullItem.productDetails?.image?.[0]) return fullItem.productDetails.image[0];
+                                                    if (fullItem.productId?.image?.[0]) return fullItem.productId.image[0];
+                                                    if (fullItem.bundleDetails?.image) return fullItem.bundleDetails.image;
+                                                    if (fullItem.bundleId?.image) return fullItem.bundleId.image;
+                                                    return null;
+                                                };
+
+                                                const pricingData = calculateItemPricingDetailed(fullItem, cancelItem);
+                                                const hasDiscount = pricingData.discount > 0 && pricingData.originalPrice > pricingData.unitPrice;
+                                                const isBundle = fullItem.itemType === 'bundle' || 
+                                                               (fullItem.bundleId && typeof fullItem.bundleId === 'object') ||
+                                                               (fullItem.bundleDetails && typeof fullItem.bundleDetails === 'object');
+
+                                                return (
+                                                    <div key={index} className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
+                                                        <div className="flex items-start gap-4">
+                                                            <div className="w-16 h-16 rounded-lg overflow-hidden bg-gray-100 border border-gray-200 flex-shrink-0">
+                                                                {getProductImage() ? (
+                                                                    <img 
+                                                                        src={getProductImage()} 
+                                                                        alt={getProductName()}
+                                                                        className="w-full h-full object-cover"
+                                                                        onError={(e) => {
+                                                                            e.target.style.display = 'none';
+                                                                        }}
+                                                                    />
+                                                                ) : (
+                                                                    <div className="w-full h-full flex items-center justify-center">
+                                                                        <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                                                                        </svg>
+                                                                    </div>
                                                                 )}
                                                             </div>
-                                                            <div className="grid grid-cols-2 gap-4 text-sm mb-3">
-                                                                <div>
-                                                                    <span className="text-gray-600">Quantity:</span>
-                                                                    <span className="font-medium text-gray-800 ml-2">{item.quantity}</span>
-                                                                </div>
-                                                                <div>
-                                                                    <span className="text-gray-600">Unit Price:</span>
-                                                                    <span className="font-medium text-gray-800 ml-2">₹{getUnitPrice().toFixed(2)}</span>
-                                                                </div>
-                                                                <div>
-                                                                    <span className="text-gray-600">Item Total:</span>
-                                                                    <span className="font-medium text-gray-800 ml-2">₹{getUnitPrice().toFixed(2)}</span>
-                                                                </div>
-                                                                <div>
-                                                                    <span className="text-gray-600">Size:</span>
-                                                                    <span className="font-medium text-gray-800 ml-2">
-                                                                        {item.size ? (
-                                                                            <span className="inline-block bg-green-100 text-green-800 px-2 py-1 rounded-md text-xs font-semibold">
-                                                                                {item.size}
-                                                                            </span>
-                                                                        ) : (
-                                                                            <span className="text-gray-500 text-xs">N/A</span>
-                                                                        )}
+                                                            <div className="flex-grow">
+                                                                <div className="flex items-center gap-2 mb-2">
+                                                                    <h4 className="font-semibold text-gray-900">{getProductName()}</h4>
+                                                                    {isBundle && (
+                                                                        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                                                            Bundle
+                                                                        </span>
+                                                                    )}
+                                                                    <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                                                                        CANCELLED
                                                                     </span>
                                                                 </div>
-                                                                <div>
-                                                                    <span className="text-gray-600">Type:</span>
-                                                                    <span className="font-medium text-gray-800 ml-2">{isBundle ? 'Bundle' : 'Product'}</span>
+                                                                <div className="grid grid-cols-2 gap-4 text-sm mb-3">
+                                                                    <div>
+                                                                        <span className="text-gray-600">Quantity:</span>
+                                                                        <span className="font-medium text-gray-800 ml-2">{fullItem.quantity}</span>
+                                                                    </div>
+                                                                    <div>
+                                                                        <span className="text-gray-600">Unit Price:</span>
+                                                                        <span className="font-medium text-gray-800 ml-2">
+                                                                            {hasDiscount ? (
+                                                                                <span className="space-x-2">
+                                                                                    <span className="line-through text-gray-500">₹{pricingData.originalPrice.toFixed(2)}</span>
+                                                                                    <span className="text-green-600 font-semibold">₹{pricingData.unitPrice.toFixed(2)}</span>
+                                                                                    <span className="text-xs text-white bg-green-500 px-2 py-1 rounded-full">
+                                                                                        {pricingData.discount.toFixed(0)}% OFF
+                                                                                    </span>
+                                                                                </span>
+                                                                            ) : (
+                                                                                <span className="text-blue-600 font-semibold">₹{pricingData.unitPrice.toFixed(2)}</span>
+                                                                            )}
+                                                                        </span>
+                                                                    </div>
+                                                                    <div>
+                                                                        <span className="text-gray-600">Item Total:</span>
+                                                                        <span className="font-medium text-gray-800 ml-2">₹{pricingData.totalPrice.toFixed(2)}</span>
+                                                                        {hasDiscount && (
+                                                                            <div className="text-xs text-green-600 mt-1">
+                                                                                Save ₹{((pricingData.originalPrice - pricingData.unitPrice) * fullItem.quantity).toFixed(2)}
+                                                                            </div>
+                                                                        )}
+                                                                    </div>
+                                                                    <div>
+                                                                        <span className="text-gray-600">Size:</span>
+                                                                        <span className="font-medium text-gray-800 ml-2">
+                                                                            {fullItem.size ? (
+                                                                                <span className="inline-block bg-green-100 text-green-800 px-2 py-1 rounded-md text-xs font-semibold">
+                                                                                    {fullItem.size}
+                                                                                </span>
+                                                                            ) : (
+                                                                                <span className="text-gray-500 text-xs">N/A</span>
+                                                                            )}
+                                                                        </span>
+                                                                    </div>
                                                                 </div>
                                                             </div>
-                                                            
-                                                            {/* Enhanced Bundle Items Display */}
-                                                            {isBundle && (() => {
-                                                                const BundleItemsDisplay = ({ item }) => {
-                                                                    const [bundleItems, setBundleItems] = useState([]);
-                                                                    const [loadingBundle, setLoadingBundle] = useState(false);
-                                                                    const [bundleMainImage, setBundleMainImage] = useState(null);
-                                                                    
-                                                                    useEffect(() => {
-                                                                        const loadBundleItems = async () => {
-                                                                            setLoadingBundle(true);
-                                                                            
-                                                                            console.log('=== ENHANCED BUNDLE ITEMS LOADING ===');
-                                                                            console.log('Item data:', item);
-                                                                            
-                                                                            // Get bundle main image for fallback
-                                                                            let mainImage = null;
-                                                                            if (item.bundleId?.image) {
-                                                                                mainImage = Array.isArray(item.bundleId.image) ? item.bundleId.image[0] : item.bundleId.image;
-                                                                            } else if (item.bundleId?.images && item.bundleId.images.length > 0) {
-                                                                                mainImage = item.bundleId.images[0];
-                                                                            } else if (item.bundleDetails?.image) {
-                                                                                mainImage = Array.isArray(item.bundleDetails.image) ? item.bundleDetails.image[0] : item.bundleDetails.image;
-                                                                            } else if (item.bundleDetails?.images && item.bundleDetails.images.length > 0) {
-                                                                                mainImage = item.bundleDetails.images[0];
-                                                                            }
-                                                                            setBundleMainImage(mainImage);
-                                                                            console.log('Bundle main image for fallback:', mainImage);
-                                                                            
-                                                                            // First try to get items from existing data
-                                                                            let items = [];
-                                                                            
-                                                                            // Check existing bundle data structure
-                                                                            if (item.bundleDetails?.items) {
-                                                                                console.log('Found items in bundleDetails.items:', item.bundleDetails.items);
-                                                                                items = item.bundleDetails.items;
-                                                                            } else if (item.bundleId?.items) {
-                                                                                console.log('Found items in bundleId.items:', item.bundleId.items);
-                                                                                items = item.bundleId.items;
-                                                                            } else if (item.items) {
-                                                                                console.log('Found items in item.items:', item.items);
-                                                                                items = item.items;
-                                                                            }
-                                                                            
-                                                                            // If no items found locally, check cache or fetch from API
-                                                                            if (items.length === 0) {
-                                                                                const bundleId = getBundleId(item);
-                                                                                console.log('No items found locally, checking cache/API with bundleId:', bundleId);
-                                                                                
-                                                                                if (bundleId) {
-                                                                                    // Check cache first
-                                                                                    if (bundleItemsCache[bundleId]) {
-                                                                                        console.log('Found items in cache:', bundleItemsCache[bundleId]);
-                                                                                        items = bundleItemsCache[bundleId].items || [];
-                                                                                    } else {
-                                                                                        // Fetch from API
-                                                                                        const bundleData = await fetchBundleDetails(bundleId);
-                                                                                        console.log('Fetched bundle data from API:', bundleData);
-                                                                                        if (bundleData?.items) {
-                                                                                            console.log('Found items in API response:', bundleData.items);
-                                                                                            items = bundleData.items;
-                                                                                        }
-                                                                                    }
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    ) : (
+                                        <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm text-center text-gray-500">
+                                            No items found for cancellation
+                                        </div>
+                                    )
+                                ) : (
+                                    // For full order cancellations, show all items
+                                    selectedRequest.orderId?.items && selectedRequest.orderId.items.length > 0 ? (
+                                        <div className="space-y-4">
+                                            {selectedRequest.orderId.items.map((item, index) => {
+                                                // Enhanced product name resolution
+                                                const getProductName = () => {
+                                                    if (item.productId && typeof item.productId === 'object') {
+                                                        return item.productId.name || item.productId.title;
+                                                    }
+                                                    if (item.productDetails) {
+                                                        return item.productDetails.name || item.productDetails.title;
+                                                    }
+                                                    if (item.bundleId && typeof item.bundleId === 'object') {
+                                                        return item.bundleId.title || item.bundleId.name;
+                                                    }
+                                                    if (item.bundleDetails) {
+                                                        return item.bundleDetails.title || item.bundleDetails.name;
+                                                    }
+                                                    return 'Product Item';
+                                                };
+
+                                                const getProductImage = () => {
+                                                    // Try multiple image sources
+                                                    if (item.productDetails?.image?.[0]) return item.productDetails.image[0];
+                                                    if (item.productId?.image?.[0]) return item.productId.image[0];
+                                                    if (item.bundleDetails?.image) return item.bundleDetails.image;
+                                                    if (item.bundleId?.image) return item.bundleId.image;
+                                                    return null;
+                                                };
+
+                                                const getUnitPrice = () => {
+                                                    // Enhanced pricing calculation with discount support
+                                                    if (item.itemType === 'product') {
+                                                        // Try to get the actual unit price first
+                                                        if (item.productDetails?.finalPrice) {
+                                                            return item.productDetails.finalPrice;
+                                                        } else if (item.productDetails?.sellingPrice) {
+                                                            return item.productDetails.sellingPrice;
+                                                        } else if (item.sizeAdjustedPrice) {
+                                                            return item.sizeAdjustedPrice;
+                                                        } else if (item.productId?.price) {
+                                                            // Apply discount if available
+                                                            const discount = item.productId.discount || item.discount || 0;
+                                                            const basePrice = item.productId.price;
+                                                            return discount > 0 ? basePrice * (1 - discount / 100) : basePrice;
+                                                        } else if (item.productDetails?.price) {
+                                                            // Apply discount if available
+                                                            const discount = item.productDetails.discount || item.discount || 0;
+                                                            const basePrice = item.productDetails.price;
+                                                            return discount > 0 ? basePrice * (1 - discount / 100) : basePrice;
+                                                        }
+                                                    } else if (item.itemType === 'bundle') {
+                                                        // For bundles, use bundle price
+                                                        return item.bundleId?.bundlePrice || item.bundleDetails?.bundlePrice || 0;
+                                                    }
+                                                    
+                                                    // Fallback to item total divided by quantity
+                                                    return (item.itemTotal || 0) / (item.quantity || 1);
+                                                };
+
+                                                // Enhanced pricing details for display
+                                                const getPricingDetails = () => {
+                                                    let originalPrice = 0;
+                                                    let finalPrice = getUnitPrice();
+                                                    let discount = 0;
+                                                    
+                                                    if (item.itemType === 'product') {
+                                                        originalPrice = item.productId?.price || item.productDetails?.price || finalPrice;
+                                                        discount = item.productId?.discount || item.productDetails?.discount || item.discount || 0;
+                                                        
+                                                        // If we have explicit final price, calculate discount from difference
+                                                        if ((item.productDetails?.finalPrice || item.productDetails?.sellingPrice) && originalPrice > finalPrice) {
+                                                            discount = ((originalPrice - finalPrice) / originalPrice) * 100;
+                                                        }
+                                                    } else if (item.itemType === 'bundle') {
+                                                        originalPrice = item.bundleId?.originalPrice || item.bundleDetails?.originalPrice || finalPrice;
+                                                        if (originalPrice > finalPrice && originalPrice > 0) {
+                                                            discount = ((originalPrice - finalPrice) / originalPrice) * 100;
+                                                        }
+                                                    }
+                                                    
+                                                    return {
+                                                        originalPrice,
+                                                        finalPrice,
+                                                        discount,
+                                                        hasDiscount: discount > 0 && originalPrice > finalPrice
+                                                    };
+                                                };
+
+                                                // Enhanced bundle detection - check multiple sources
+                                                const isBundle = item.itemType === 'bundle' || 
+                                                               (item.bundleId && typeof item.bundleId === 'object') ||
+                                                               (item.bundleDetails && typeof item.bundleDetails === 'object') ||
+                                                               (item.type === 'Bundle') ||
+                                                               (item.productType === 'bundle');
+
+                                                return (
+                                                    <div key={index} className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
+                                                        <div className="flex items-start gap-4">
+                                                            <div className="w-16 h-16 rounded-lg overflow-hidden bg-gray-100 border border-gray-200 flex-shrink-0">
+                                                                {getProductImage() ? (
+                                                                    <img 
+                                                                        src={getProductImage()} 
+                                                                        alt={getProductName()}
+                                                                        className="w-full h-full object-cover"
+                                                                        onError={(e) => {
+                                                                            e.target.style.display = 'none';
+                                                                        }}
+                                                                    />
+                                                                ) : (
+                                                                    <div className="w-full h-full flex items-center justify-center">
+                                                                        <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                                                                        </svg>
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                            <div className="flex-grow">
+                                                                <div className="flex items-center gap-2 mb-2">
+                                                                    <h4 className="font-semibold text-gray-900">{getProductName()}</h4>
+                                                                    {isBundle && (
+                                                                        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                                                            Bundle
+                                                                        </span>
+                                                                    )}
+                                                                </div>
+                                                                <div className="grid grid-cols-2 gap-4 text-sm mb-3">
+                                                                    <div>
+                                                                        <span className="text-gray-600">Quantity:</span>
+                                                                        <span className="font-medium text-gray-800 ml-2">{item.quantity}</span>
+                                                                    </div>
+                                                                    <div>
+                                                                        <span className="text-gray-600">Unit Price:</span>
+                                                                        <span className="font-medium text-gray-800 ml-2">
+                                                                            {(() => {
+                                                                                const pricingDetails = getPricingDetails();
+                                                                                if (pricingDetails.hasDiscount) {
+                                                                                    return (
+                                                                                        <span className="space-x-2">
+                                                                                            <span className="line-through text-gray-500">₹{pricingDetails.originalPrice.toFixed(2)}</span>
+                                                                                            <span className="text-green-600 font-semibold">₹{pricingDetails.finalPrice.toFixed(2)}</span>
+                                                                                            <span className="text-xs text-white bg-green-500 px-2 py-1 rounded-full">
+                                                                                                {pricingDetails.discount.toFixed(0)}% OFF
+                                                                                            </span>
+                                                                                        </span>
+                                                                                    );
+                                                                                } else {
+                                                                                    return <span className="text-blue-600 font-semibold">₹{pricingDetails.finalPrice.toFixed(2)}</span>;
                                                                                 }
+                                                                            })()}
+                                                                        </span>
+                                                                    </div>
+                                                                    <div>
+                                                                        <span className="text-gray-600">Item Total:</span>
+                                                                        <span className="font-medium text-gray-800 ml-2">₹{(getUnitPrice() * item.quantity).toFixed(2)}</span>
+                                                                        {(() => {
+                                                                            const pricingDetails = getPricingDetails();
+                                                                            if (pricingDetails.hasDiscount) {
+                                                                                const totalSavings = (pricingDetails.originalPrice - pricingDetails.finalPrice) * item.quantity;
+                                                                                return (
+                                                                                    <div className="text-xs text-green-600 mt-1">
+                                                                                        Save ₹{totalSavings.toFixed(2)}
+                                                                                    </div>
+                                                                                );
+                                                                            }
+                                                                            return null;
+                                                                        })()}
+                                                                    </div>
+                                                                    <div>
+                                                                        <span className="text-gray-600">Size:</span>
+                                                                        <span className="font-medium text-gray-800 ml-2">
+                                                                            {item.size ? (
+                                                                                <span className="inline-block bg-green-100 text-green-800 px-2 py-1 rounded-md text-xs font-semibold">
+                                                                                    {item.size}
+                                                                                </span>
+                                                                            ) : (
+                                                                                <span className="text-gray-500 text-xs">N/A</span>
+                                                                            )}
+                                                                        </span>
+                                                                    </div>
+                                                                    <div>
+                                                                        <span className="text-gray-600">Type:</span>
+                                                                        <span className="font-medium text-gray-800 ml-2">{isBundle ? 'Bundle' : 'Product'}</span>
+                                                                    </div>
+                                                                </div>
+                                                                
+                                                                {/* Bundle Items Display */}
+                                                                {isBundle && (
+                                                                    <div className="border-t pt-3 mt-3">
+                                                                        {(() => {
+                                                                            // Get bundle items from multiple possible sources
+                                                                            let bundleItems = [];
+                                                                            
+                                                                            if (item.bundleDetails?.items) {
+                                                                                bundleItems = item.bundleDetails.items;
+                                                                            } else if (item.bundleId?.items) {
+                                                                                bundleItems = item.bundleId.items;
+                                                                            } else if (item.items) {
+                                                                                bundleItems = item.items;
                                                                             }
                                                                             
-                                                                            console.log('Final items to display:', items);
-                                                                            setBundleItems(items || []);
-                                                                            setLoadingBundle(false);
-                                                                        };
-                                                                        
-                                                                        loadBundleItems();
-                                                                    }, [item]);
-                                                                    
-                                                                    if (loadingBundle || fetchingBundles) {
-                                                                        return (
-                                                                            <div className="border-t pt-3 mt-3">
-                                                                                <div className="flex items-center gap-2 text-sm text-blue-600 bg-blue-50 p-2 rounded border border-blue-200">
-                                                                                    <div className="animate-spin w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full"></div>
-                                                                                    Loading bundle items...
-                                                                                </div>
-                                                                            </div>
-                                                                        );
-                                                                    }
-                                                                    
-                                                                    return (
-                                                                        <div className="border-t pt-3 mt-3">
-                                                                            {bundleItems.length > 0 ? (
+                                                                            return bundleItems.length > 0 ? (
                                                                                 <>
                                                                                     <h5 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
                                                                                         <span className="w-2 h-2 bg-blue-500 rounded-full"></span>
                                                                                         Bundle includes ({bundleItems.length} items):
                                                                                     </h5>
                                                                                     <div className="grid grid-cols-1 gap-3">
-                                                                                        {bundleItems.map((bundleItem, bundleIndex) => {
-                                                                                            // Enhanced image resolution for bundle items
-                                                                                            const getBundleItemImage = (item) => {
-                                                                                                console.log('Bundle item image debug:', item);
-                                                                                                
-                                                                                                // Try all possible image sources
-                                                                                                let imageUrl = null;
-                                                                                                
-                                                                                                // Check bundle item image (string field as per schema)
-                                                                                                if (typeof item.image === 'string' && item.image.trim() !== '') {
-                                                                                                    imageUrl = item.image;
-                                                                                                    console.log('Found image in item.image (string):', imageUrl);
-                                                                                                }
-                                                                                                // Check image as array
-                                                                                                else if (Array.isArray(item.image) && item.image.length > 0) {
-                                                                                                    imageUrl = item.image[0]?.url || item.image[0];
-                                                                                                    console.log('Found image in item.image (array):', imageUrl);
-                                                                                                }
-                                                                                                // Check images array
-                                                                                                else if (Array.isArray(item.images) && item.images.length > 0) {
-                                                                                                    imageUrl = item.images[0]?.url || item.images[0];
-                                                                                                    console.log('Found image in item.images:', imageUrl);
-                                                                                                }
-                                                                                                // Check productId.image (if populated)
-                                                                                                else if (item.productId && typeof item.productId === 'object') {
-                                                                                                    if (Array.isArray(item.productId.image) && item.productId.image.length > 0) {
-                                                                                                        imageUrl = item.productId.image[0]?.url || item.productId.image[0];
-                                                                                                        console.log('Found image in productId.image (array):', imageUrl);
-                                                                                                    } else if (typeof item.productId.image === 'string') {
-                                                                                                        imageUrl = item.productId.image;
-                                                                                                        console.log('Found image in productId.image (string):', imageUrl);
-                                                                                                    } else if (Array.isArray(item.productId.images) && item.productId.images.length > 0) {
-                                                                                                        imageUrl = item.productId.images[0]?.url || item.productId.images[0];
-                                                                                                        console.log('Found image in productId.images:', imageUrl);
-                                                                                                    }
-                                                                                                }
-                                                                                                
-                                                                                                // Fallback to bundle main image if no item-specific image
-                                                                                                if (!imageUrl && bundleMainImage) {
-                                                                                                    imageUrl = bundleMainImage;
-                                                                                                    console.log('Using bundle main image as fallback:', imageUrl);
-                                                                                                }
-                                                                                                
-                                                                                                // If we have an image URL, make sure it's absolute
-                                                                                                if (imageUrl) {
-                                                                                                    // If it's a relative URL, prepend the base URL
-                                                                                                    if (!imageUrl.startsWith('http') && !imageUrl.startsWith('data:')) {
-                                                                                                        const cleanImageUrl = imageUrl.startsWith('/') ? imageUrl : `/${imageUrl}`;
-                                                                                                        imageUrl = `${baseURL}${cleanImageUrl}`;
-                                                                                                    }
-                                                                                                }
-                                                                                                
-                                                                                                console.log('Final image URL:', imageUrl);
-                                                                                                return imageUrl;
-                                                                                            };
-                                                                                            
-                                                                                            const itemImage = getBundleItemImage(bundleItem);
-                                                                                            
-                                                                                            return (
+                                                                                        {bundleItems.map((bundleItem, bundleIndex) => (
                                                                                             <div key={bundleIndex} className="flex items-center gap-3 p-3 bg-blue-50 rounded-lg border border-blue-100 hover:bg-blue-100 transition-colors">
-                                                                                                <div className="w-16 h-16 rounded-lg overflow-hidden bg-gray-200 flex-shrink-0 border border-gray-300">
-                                                                                                    {itemImage ? (
+                                                                                                <div className="w-12 h-12 rounded-lg overflow-hidden bg-gray-200 flex-shrink-0 border border-gray-300">
+                                                                                                    {bundleItem.image?.[0] || bundleItem.images?.[0] ? (
                                                                                                         <img 
-                                                                                                            src={itemImage}
+                                                                                                            src={bundleItem.image?.[0] || bundleItem.images?.[0]}
                                                                                                             alt={bundleItem.name || bundleItem.title || 'Bundle Item'}
                                                                                                             className="w-full h-full object-cover"
                                                                                                             onError={(e) => {
-                                                                                                                console.error('Image failed to load:', itemImage);
                                                                                                                 e.target.style.display = 'none';
-                                                                                                                e.target.parentElement.innerHTML = `
-                                                                                                                    <div class="w-full h-full flex items-center justify-center">
-                                                                                                                        <svg class="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                                                                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                                                                                                                        </svg>
-                                                                                                                    </div>
-                                                                                                                `;
-                                                                                                            }}
-                                                                                                            onLoad={() => {
-                                                                                                                console.log('Image loaded successfully:', itemImage);
                                                                                                             }}
                                                                                                         />
                                                                                                     ) : (
                                                                                                         <div className="w-full h-full flex items-center justify-center">
-                                                                                                            <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                                                            <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                                                                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                                                                                                             </svg>
                                                                                                         </div>
@@ -990,8 +1277,7 @@ function CancellationManagement() {
                                                                                                     </div>
                                                                                                 </div>
                                                                                             </div>
-                                                                                            );
-                                                                                        })}
+                                                                                        ))}
                                                                                     </div>
                                                                                 </>
                                                                             ) : (
@@ -1006,68 +1292,115 @@ function CancellationManagement() {
                                                                                         </div>
                                                                                     </div>
                                                                                 </div>
-                                                                            )}
-                                                                        </div>
-                                                                    );
-                                                                };
-                                                                
-                                                                return <BundleItemsDisplay item={item} />;
-                                                            })()}
+                                                                            );
+                                                                        })()}
+                                                                    </div>
+                                                                )}
+                                                            </div>
                                                         </div>
                                                     </div>
+                                                );
+                                            })}
+                                        </div>
+                                    ) : (
+                                        // Fallback for legacy order structure
+                                        <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
+                                            <div className="flex items-start gap-4">
+                                                <div className="w-16 h-16 rounded-lg overflow-hidden bg-gray-100 border border-gray-200 flex-shrink-0">
+                                                    {selectedRequest.orderId?.productDetails?.image?.[0] ? (
+                                                        <img 
+                                                            src={selectedRequest.orderId.productDetails.image[0]} 
+                                                            alt={selectedRequest.orderId.productDetails.name || 'Product'}
+                                                            className="w-full h-full object-cover"
+                                                            onError={(e) => {
+                                                                e.target.style.display = 'none';
+                                                            }}
+                                                        />
+                                                    ) : (
+                                                        <div className="w-full h-full flex items-center justify-center">
+                                                            <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                                                            </svg>
+                                                        </div>
+                                                    )}
                                                 </div>
-                                            );
-                                        })}
-                                    </div>
-                                ) : (
-                                    // Fallback for legacy order structure
-                                    <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
-                                        <div className="flex items-start gap-4">
-                                            <div className="w-16 h-16 rounded-lg overflow-hidden bg-gray-100 border border-gray-200 flex-shrink-0">
-                                                {selectedRequest.orderId?.productDetails?.image?.[0] ? (
-                                                    <img 
-                                                        src={selectedRequest.orderId.productDetails.image[0]} 
-                                                        alt={selectedRequest.orderId.productDetails.name || 'Product'}
-                                                        className="w-full h-full object-cover"
-                                                        onError={(e) => {
-                                                            e.target.style.display = 'none';
-                                                        }}
-                                                    />
-                                                ) : (
-                                                    <div className="w-full h-full flex items-center justify-center">
-                                                        <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-                                                        </svg>
-                                                    </div>
-                                                )}
-                                            </div>
-                                            <div className="flex-grow">
-                                                <h4 className="font-semibold text-gray-900 mb-2">
-                                                    {selectedRequest.orderId?.productDetails?.name || 
-                                                     selectedRequest.orderId?.productDetails?.title || 
-                                                     'Product Item'}
-                                                </h4>
-                                                <div className="grid grid-cols-2 gap-4 text-sm">
-                                                    <div>
-                                                        <span className="text-gray-600">Quantity:</span>
-                                                        <span className="font-medium text-gray-800 ml-2">{selectedRequest.orderId?.orderQuantity || selectedRequest.orderId?.totalQuantity || 1}</span>
-                                                    </div>
-                                                    <div>
-                                                        <span className="text-gray-600">Unit Price:</span>
-                                                        <span className="font-medium text-gray-800 ml-2">₹{(selectedRequest.orderId?.productDetails?.price || selectedRequest.orderId?.subTotalAmt || 0).toFixed(2)}</span>
-                                                    </div>
-                                                    <div>
-                                                        <span className="text-gray-600">Total:</span>
-                                                        <span className="font-medium text-gray-800 ml-2">₹{(selectedRequest.orderId?.subTotalAmt || selectedRequest.orderId?.totalAmt || 0).toFixed(2)}</span>
-                                                    </div>
-                                                    <div>
-                                                        <span className="text-gray-600">Type:</span>
-                                                        <span className="font-medium text-gray-800 ml-2">Product</span>
+                                                <div className="flex-grow">
+                                                    <h4 className="font-semibold text-gray-900 mb-2">
+                                                        {selectedRequest.orderId?.productDetails?.name || 
+                                                         selectedRequest.orderId?.productDetails?.title || 
+                                                         'Product Item'}
+                                                    </h4>
+                                                    <div className="grid grid-cols-2 gap-4 text-sm">
+                                                        <div>
+                                                            <span className="text-gray-600">Quantity:</span>
+                                                            <span className="font-medium text-gray-800 ml-2">{selectedRequest.orderId?.orderQuantity || selectedRequest.orderId?.totalQuantity || 1}</span>
+                                                        </div>
+                                                        <div>
+                                                            <span className="text-gray-600">Unit Price:</span>
+                                                            <span className="font-medium text-gray-800 ml-2">
+                                                                {(() => {
+                                                                    // Calculate pricing with discount display
+                                                                    const originalPrice = selectedRequest.orderId?.productDetails?.price || 0;
+                                                                    const finalPrice = selectedRequest.orderId?.productDetails?.finalPrice || 
+                                                                                     selectedRequest.orderId?.productDetails?.sellingPrice || 
+                                                                                     originalPrice;
+                                                                    const discount = selectedRequest.orderId?.productDetails?.discount || 0;
+                                                                    
+                                                                    // Check if there's a discount
+                                                                    const hasDiscount = (discount > 0 && originalPrice > finalPrice) || 
+                                                                                       (originalPrice > finalPrice && finalPrice > 0);
+                                                                    
+                                                                    if (hasDiscount) {
+                                                                        const discountPercentage = originalPrice > 0 ? 
+                                                                            ((originalPrice - finalPrice) / originalPrice) * 100 : 0;
+                                                                        
+                                                                        return (
+                                                                            <span className="space-x-2">
+                                                                                <span className="line-through text-gray-500">₹{originalPrice.toFixed(2)}</span>
+                                                                                <span className="text-green-600 font-semibold">₹{finalPrice.toFixed(2)}</span>
+                                                                                <span className="text-xs text-white bg-green-500 px-2 py-1 rounded-full">
+                                                                                    {discountPercentage.toFixed(0)}% OFF
+                                                                                </span>
+                                                                            </span>
+                                                                        );
+                                                                    } else {
+                                                                        return <span className="text-blue-600 font-semibold">₹{finalPrice.toFixed(2)}</span>;
+                                                                    }
+                                                                })()}
+                                                            </span>
+                                                        </div>
+                                                        <div>
+                                                            <span className="text-gray-600">Total:</span>
+                                                            <span className="font-medium text-gray-800 ml-2">₹{(selectedRequest.orderId?.subTotalAmt || selectedRequest.orderId?.totalAmt || 0).toFixed(2)}</span>
+                                                            {(() => {
+                                                                // Show total savings if there's a discount
+                                                                const originalPrice = selectedRequest.orderId?.productDetails?.price || 0;
+                                                                const finalPrice = selectedRequest.orderId?.productDetails?.finalPrice || 
+                                                                                 selectedRequest.orderId?.productDetails?.sellingPrice || 
+                                                                                 originalPrice;
+                                                                const quantity = selectedRequest.orderId?.orderQuantity || selectedRequest.orderId?.totalQuantity || 1;
+                                                                const hasDiscount = originalPrice > finalPrice && finalPrice > 0;
+                                                                
+                                                                if (hasDiscount) {
+                                                                    const totalSavings = (originalPrice - finalPrice) * quantity;
+                                                                    return (
+                                                                        <div className="text-xs text-green-600 mt-1">
+                                                                            Save ₹{totalSavings.toFixed(2)}
+                                                                        </div>
+                                                                    );
+                                                                }
+                                                                return null;
+                                                            })()}
+                                                        </div>
+                                                        <div>
+                                                            <span className="text-gray-600">Type:</span>
+                                                            <span className="font-medium text-gray-800 ml-2">Product</span>
+                                                        </div>
                                                     </div>
                                                 </div>
                                             </div>
                                         </div>
-                                    </div>
+                                    )
                                 )}
                             </div>
                         </div>
@@ -1099,8 +1432,27 @@ function CancellationManagement() {
                             <div className="bg-blue-50 p-4 sm:p-5 rounded-xl border border-blue-200 shadow-sm hover:shadow-md transition-all duration-300">
                                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6">
                                     <div className="bg-white p-4 sm:p-5 rounded-lg text-center shadow-sm border border-blue-100 hover:shadow transition-all duration-300 transform hover:-translate-y-0.5">
-                                        <div className="text-sm font-medium text-gray-600 mb-2">Original Amount</div>
-                                        <div className="text-lg sm:text-2xl font-bold text-gray-800 tracking-tight">₹{selectedRequest.orderId?.totalAmt?.toFixed(2)}</div>
+                                        <div className="text-sm font-medium text-gray-600 mb-2">
+                                            {selectedRequest.cancellationType === 'PARTIAL_ITEMS' 
+                                                ? 'Cancelled Items Amount (With Discounts)' 
+                                                : 'Amount Paid (With Discounts)'}
+                                        </div>
+                                        <div className="text-lg sm:text-2xl font-bold text-gray-800 tracking-tight">
+                                            ₹{selectedRequest.cancellationType === 'PARTIAL_ITEMS' 
+                                                ? (selectedRequest.totalItemValue || calculatePartialCancellationTotal(selectedRequest))?.toFixed(2)
+                                                : calculateOrderDiscountedTotal(selectedRequest.orderId)?.toFixed(2)}
+                                        </div>
+                                        {selectedRequest.cancellationType === 'PARTIAL_ITEMS' ? (
+                                            <div className="text-xs text-gray-500 mt-1">
+                                                Only cancelled items total
+                                            </div>
+                                        ) : (
+                                            selectedRequest.orderId?.totalAmt > calculateOrderDiscountedTotal(selectedRequest.orderId) && (
+                                                <div className="text-xs text-gray-500 mt-1">
+                                                    Original: ₹{selectedRequest.orderId?.totalAmt?.toFixed(2)}
+                                                </div>
+                                            )
+                                        )}
                                     </div>
                                     <div className="bg-white p-4 sm:p-5 rounded-lg text-center shadow-sm border border-blue-100 hover:shadow transition-all duration-300 transform hover:-translate-y-0.5">
                                         <div className="text-sm font-medium text-gray-600 mb-2">Refund Percentage</div>
@@ -1113,7 +1465,11 @@ function CancellationManagement() {
                                     </div>
                                     <div className="bg-white p-4 sm:p-5 rounded-lg text-center shadow-sm border border-blue-100 hover:shadow transition-all duration-300 transform hover:-translate-y-0.5">
                                         <div className="text-sm font-medium text-gray-600 mb-2">Refund Amount</div>
-                                        <div className="text-lg sm:text-2xl font-bold text-green-600 tracking-tight">₹{(selectedRequest.orderId?.totalAmt * 0.75)?.toFixed(2)}</div>
+                                        <div className="text-lg sm:text-2xl font-bold text-green-600 tracking-tight">
+                                            ₹{selectedRequest.cancellationType === 'PARTIAL_ITEMS' 
+                                                ? getPartialCancellationRefundAmount(selectedRequest)?.toFixed(2)
+                                                : (calculateOrderDiscountedTotal(selectedRequest.orderId) * 0.75)?.toFixed(2)}
+                                        </div>
                                     </div>
                                 </div>
                                 
@@ -1172,8 +1528,18 @@ function CancellationManagement() {
                                             <span className="font-semibold text-lg tracking-tight">Refund Policy: 75% of order amount will be refunded</span>
                                         </div>
                                         <p className="text-sm text-blue-600 mt-3 sm:ml-7 bg-white p-3 rounded-lg border border-blue-100 shadow-sm">
-                                            Upon approval, the customer will receive a 75% refund of the total order amount 
-                                            <span className="font-semibold"> (₹{(selectedRequest.orderId?.totalAmt * 0.75)?.toFixed(2)})</span>.
+                                            Upon approval, the customer will receive a 75% refund 
+                                            {selectedRequest.cancellationType === 'PARTIAL_ITEMS' ? (
+                                                <>
+                                                    of the cancelled items amount 
+                                                    <span className="font-semibold"> (₹{getPartialCancellationRefundAmount(selectedRequest)?.toFixed(2)})</span>
+                                                </>
+                                            ) : (
+                                                <>
+                                                    of the total order amount 
+                                                    <span className="font-semibold"> (₹{(calculateOrderDiscountedTotal(selectedRequest.orderId) * 0.75)?.toFixed(2)})</span>
+                                                </>
+                                            )}.
                                             This information will be sent to the customer's email automatically.
                                         </p>
                                     </div>
@@ -1511,7 +1877,9 @@ function CancellationManagement() {
                                             <div className="bg-green-50 py-1.5 px-3 rounded-lg border border-green-100 shadow-sm inline-block">
                                                 <div className="text-sm font-semibold text-green-600 flex items-center justify-center gap-1">
                                                     <FaRupeeSign className="text-xs" />
-                                                    {(request.orderId?.totalAmt * 0.75)?.toFixed(2)}
+                                                    {request.cancellationType === 'PARTIAL_ITEMS' 
+                                                        ? getPartialCancellationRefundAmount(request)?.toFixed(2)
+                                                        : (calculateOrderDiscountedTotal(request.orderId) * 0.75)?.toFixed(2)}
                                                 </div>
                                             </div>
                                             <div className="text-xs text-gray-500 mt-2 flex items-center gap-1">

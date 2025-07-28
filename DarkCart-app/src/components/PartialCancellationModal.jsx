@@ -22,24 +22,74 @@ const PartialCancellationModal = ({ isOpen, onClose, order, onCancellationSucces
     'Other'
   ];
 
-  // Calculate size-based price for an item
+  // Calculate size-based price for an item with discount applied
   const calculateItemPrice = (item) => {
     let basePrice = 0;
+    let originalPrice = 0;
+    let discountPercentage = 0;
     
     if (item.itemType === 'product') {
-      basePrice = item.sizeAdjustedPrice || item.productDetails?.price || 0;
+      // Get the original price first
+      originalPrice = item.productId?.price || item.productDetails?.price || 0;
+      
+      // Check for explicit final price (already discounted)
+      if (item.productDetails?.finalPrice) {
+        basePrice = item.productDetails.finalPrice;
+        // Calculate discount from original vs final price
+        if (originalPrice > basePrice) {
+          discountPercentage = ((originalPrice - basePrice) / originalPrice) * 100;
+        }
+      } else if (item.sizeAdjustedPrice) {
+        // Use size-adjusted price as base
+        basePrice = item.sizeAdjustedPrice;
+        originalPrice = basePrice; // For size-adjusted, show as no additional discount
+      } else if (item.productId?.sizePricing && item.size) {
+        // Calculate size-adjusted price from populated product data
+        const sizeMultiplier = item.productId.sizePricing[item.size] || 1;
+        const basePriceBeforeSize = originalPrice;
+        
+        // Apply size multiplier first
+        originalPrice = basePriceBeforeSize * sizeMultiplier;
+        basePrice = originalPrice;
+        
+        // Then apply discount if available
+        discountPercentage = item.productId?.discount || item.discount || 0;
+        if (discountPercentage > 0) {
+          basePrice = originalPrice * (1 - discountPercentage / 100);
+        }
+      } else {
+        // Regular price with discount
+        discountPercentage = item.productId?.discount || item.discount || 0;
+        if (discountPercentage > 0) {
+          basePrice = originalPrice * (1 - discountPercentage / 100);
+        } else {
+          basePrice = originalPrice;
+        }
+      }
     } else if (item.itemType === 'bundle') {
-      basePrice = item.bundleDetails?.bundlePrice || 0;
+      // For bundles
+      basePrice = item.bundleId?.bundlePrice || item.bundleDetails?.bundlePrice || 0;
+      originalPrice = item.bundleId?.originalPrice || item.bundleDetails?.originalPrice || basePrice;
+      
+      // Calculate discount percentage for display
+      if (originalPrice > basePrice && originalPrice > 0) {
+        discountPercentage = ((originalPrice - basePrice) / originalPrice) * 100;
+      }
     }
     
-    return basePrice * item.quantity;
+    return {
+      unitPrice: basePrice,
+      originalPrice: originalPrice,
+      discount: discountPercentage,
+      totalPrice: basePrice * item.quantity
+    };
   };
 
   // Calculate total refund amount when selected items change
   useEffect(() => {
     const total = selectedItems.reduce((sum, itemId) => {
       const item = order.items.find(item => item._id === itemId);
-      return sum + (item ? calculateItemPrice(item) : 0);
+      return sum + (item ? calculateItemPrice(item).totalPrice : 0);
     }, 0);
     setTotalRefundAmount(total);
   }, [selectedItems, order.items]);
@@ -51,6 +101,14 @@ const PartialCancellationModal = ({ isOpen, onClose, order, onCancellationSucces
       setReason('');
       setAdditionalReason('');
       setTotalRefundAmount(0);
+      
+      // Debug: Log order structure to understand data format
+      console.log('Order items structure:', order.items);
+      if (order.items && order.items.length > 0) {
+        console.log('First item structure:', order.items[0]);
+        console.log('First item productId:', order.items[0].productId);
+        console.log('First item productDetails:', order.items[0].productDetails);
+      }
     }
   }, [isOpen]);
 
@@ -80,31 +138,88 @@ const PartialCancellationModal = ({ isOpen, onClose, order, onCancellationSucces
       return;
     }
 
+    // Validate order ID format
+    if (!order._id) {
+      toast.error('Invalid order ID');
+      return;
+    }
+
+    // Validate selected items exist in order
+    const invalidItems = selectedItems.filter(itemId => 
+      !order.items.find(item => item._id === itemId)
+    );
+    
+    if (invalidItems.length > 0) {
+      toast.error('Some selected items are not valid');
+      console.error('Invalid item IDs:', invalidItems);
+      return;
+    }
+
     setIsSubmitting(true);
 
     try {
       const requestData = {
         orderId: order._id,
-        itemsToCancel: selectedItems.map(itemId => ({ itemId })),
+        itemsToCancel: selectedItems.map(itemId => {
+          const item = order.items.find(item => item._id === itemId);
+          const priceData = calculateItemPrice(item);
+          
+          return {
+            itemId,
+            itemPrice: priceData.unitPrice, // Unit price after discount
+            originalPrice: priceData.originalPrice, // Original price before discount
+            totalPrice: priceData.totalPrice, // Total price for this item (unitPrice * quantity)
+            quantity: item.quantity,
+            discount: priceData.discount,
+            itemType: item.itemType,
+            productName: item.itemType === 'product' 
+              ? item.productDetails?.name 
+              : item.bundleDetails?.title,
+            size: item.size || null,
+            refundAmount: (priceData.totalPrice * 0.75) // 75% refund amount for this item
+          };
+        }),
         reason,
-        additionalReason: reason === 'Other' ? additionalReason : ''
+        additionalReason: reason === 'Other' ? additionalReason : '',
+        totalRefundAmount: totalRefundAmount * 0.75, // Total 75% refund amount for all cancelled items
+        totalItemValue: totalRefundAmount // Total value of cancelled items before refund percentage
       };
+
+      console.log('=== PARTIAL CANCELLATION REQUEST ===');
+      console.log('Order ID:', order._id);
+      console.log('Selected Items:', selectedItems);
+      console.log('Total Item Value:', totalRefundAmount);
+      console.log('Total Refund Amount (75%):', totalRefundAmount * 0.75);
+      console.log('Request Data:', requestData);
+      console.log('API Config:', SummaryApi.requestPartialItemCancellation);
 
       const response = await Axios({
         ...SummaryApi.requestPartialItemCancellation,
         data: requestData
       });
 
+      console.log('Response:', response.data);
+
       if (response.data.success) {
         toast.success('Partial cancellation request submitted successfully');
         onCancellationSuccess();
         onClose();
       } else {
+        console.error('Backend returned success=false:', response.data);
         toast.error(response.data.message || 'Failed to submit cancellation request');
       }
     } catch (error) {
       console.error('Error submitting partial cancellation:', error);
-      toast.error(error.response?.data?.message || 'Failed to submit cancellation request');
+      console.error('Error response data:', error.response?.data);
+      console.error('Error status:', error.response?.status);
+      console.error('Request data sent:', requestData);
+      
+      // Show the specific error message from backend
+      const errorMessage = error.response?.data?.message || 
+                          error.response?.data?.error || 
+                          error.message || 
+                          'Failed to submit cancellation request';
+      toast.error(errorMessage);
     } finally {
       setIsSubmitting(false);
     }
@@ -112,14 +227,15 @@ const PartialCancellationModal = ({ isOpen, onClose, order, onCancellationSucces
 
   const renderItemCard = (item, index) => {
     const isSelected = selectedItems.includes(item._id);
-    const itemPrice = calculateItemPrice(item);
-    
+    const priceData = calculateItemPrice(item);
+    const { unitPrice, originalPrice, discount, totalPrice } = priceData;
+
     return (
-      <div 
+      <div
         key={item._id || index}
         className={`border rounded-lg p-4 cursor-pointer transition-all duration-200 ${
-          isSelected 
-            ? 'border-red-500 bg-red-50' 
+          isSelected
+            ? 'border-red-500 bg-red-50'
             : 'border-gray-200 hover:border-gray-300'
         }`}
         onClick={() => handleItemSelection(item._id)}
@@ -133,7 +249,7 @@ const PartialCancellationModal = ({ isOpen, onClose, order, onCancellationSucces
               className="w-4 h-4 text-red-600 border-gray-300 rounded focus:ring-red-500"
             />
           </div>
-          
+
           <div className="flex-grow">
             <div className="flex items-start gap-3">
               {/* Item Image */}
@@ -152,25 +268,59 @@ const PartialCancellationModal = ({ isOpen, onClose, order, onCancellationSucces
                   />
                 )}
               </div>
-              
+
               {/* Item Details */}
               <div className="flex-grow">
                 <h4 className="font-medium text-gray-900">
-                  {item.itemType === 'product' 
-                    ? item.productDetails?.name 
-                    : item.bundleDetails?.title
-                  }
+                  {item.itemType === 'product'
+                    ? item.productDetails?.name
+                    : item.bundleDetails?.title}
                 </h4>
-                
+
                 <div className="text-sm text-gray-600 mt-1">
                   {item.itemType === 'product' && item.size && (
                     <span className="inline-block mr-3">Size: {item.size}</span>
                   )}
                   <span>Qty: {item.quantity}</span>
                 </div>
-                
-                <div className="text-lg font-semibold text-gray-900 mt-2">
-                  ₹{itemPrice.toFixed(2)}
+
+                {/* Price Display with Discount */}
+                <div className="text-sm text-gray-700 mt-2">
+                  <div className="flex items-center gap-2">
+                    <span className="font-medium">Unit Price:</span>
+                    {discount > 0 && originalPrice > unitPrice ? (
+                      <div className="flex items-center gap-2">
+                        <span className="line-through text-gray-500">₹{originalPrice.toFixed(2)}</span>
+                        <span className="text-green-600 font-semibold">₹{unitPrice.toFixed(2)}</span>
+                        <span className="text-xs text-green-600 bg-green-100 px-2 py-1 rounded">
+                          {discount.toFixed(0)}% OFF
+                        </span>
+                      </div>
+                    ) : (
+                      <span className="font-semibold">₹{unitPrice.toFixed(2)}</span>
+                    )}
+                  </div>
+                  {unitPrice === 0 && (
+                    <span className="text-red-500 text-xs mt-1">(Price unavailable)</span>
+                  )}
+                  {/* Debug info for development */}
+                  {process.env.NODE_ENV === 'development' && unitPrice === 0 && (
+                    <div className="text-xs text-gray-500 mt-1">
+                      Debug: productId={item.productId?._id}, 
+                      productPrice={item.productId?.price}, 
+                      detailsPrice={item.productDetails?.price},
+                      finalPrice={item.productDetails?.finalPrice},
+                      sizeAdjusted={item.sizeAdjustedPrice}
+                    </div>
+                  )}
+                </div>
+                <div className="text-lg font-semibold text-gray-900 mt-1">
+                  <span>Total: ₹{totalPrice.toFixed(2)}</span>
+                  {discount > 0 && originalPrice > unitPrice && (
+                    <span className="text-sm text-green-600 ml-2">
+                      (Save ₹{((originalPrice - unitPrice) * item.quantity).toFixed(2)})
+                    </span>
+                  )}
                 </div>
               </div>
             </div>
@@ -216,10 +366,21 @@ const PartialCancellationModal = ({ isOpen, onClose, order, onCancellationSucces
             <div className="mb-6">
               <h4 className="font-medium text-gray-900 mb-3">Select Items to Cancel:</h4>
               <div className="space-y-3">
-                {order.items && order.items.map((item, index) => 
-                  renderItemCard(item, index)
-                )}
+                {order.items && order.items
+                  .filter(item => {
+                    // Only show items that can be cancelled
+                    // You can add more conditions here based on item status
+                    return item && item._id; // Basic validation
+                  })
+                  .map((item, index) => 
+                    renderItemCard(item, index)
+                  )}
               </div>
+              {order.items && order.items.length === 0 && (
+                <div className="text-center py-8 text-gray-500">
+                  No items available for cancellation
+                </div>
+              )}
             </div>
 
             {/* Selected Items Summary */}
@@ -231,11 +392,14 @@ const PartialCancellationModal = ({ isOpen, onClose, order, onCancellationSucces
                 <p className="text-sm text-blue-700">
                   Items selected: {selectedItems.length}
                 </p>
+                <p className="text-sm text-blue-700">
+                  Total item value: ₹{totalRefundAmount.toFixed(2)}
+                </p>
                 <p className="text-lg font-semibold text-blue-900 mt-1">
-                  Expected refund: ₹{totalRefundAmount.toFixed(2)}
+                  Expected refund (75%): ₹{(totalRefundAmount * 0.75).toFixed(2)}
                 </p>
                 <p className="text-xs text-blue-600 mt-2">
-                  * Final refund amount may vary based on cancellation policy
+                  * Refund amount is 75% of item value as per cancellation policy
                 </p>
               </div>
             )}
