@@ -6,7 +6,6 @@ import ProductModel from "../models/product.model.js";
 import BundleModel from "../models/bundles.js";
 import sendEmail from "../config/sendEmail.js";
 import { sendRefundInvoiceEmail } from "./payment.controller.js";
-import RefundPolicyService from "../utils/RefundPolicyService.js";
 import fs from 'fs';
 import mongoose from "mongoose";
 
@@ -83,15 +82,34 @@ export const getComprehensiveOrderDetails = async (req, res) => {
                     }
                     
                     // Ensure unitPrice is correctly set
-                    if (item.unitPrice === undefined) {
-                        if (item.sizeAdjustedPrice !== undefined) {
+                    if (item.unitPrice === undefined || item.unitPrice === 0) {
+                        if (item.sizeAdjustedPrice !== undefined && item.sizeAdjustedPrice > 0) {
                             item.unitPrice = Number(item.sizeAdjustedPrice);
-                        } else if (item.productDetails?.finalPrice !== undefined) {
+                        } else if (item.productDetails?.finalPrice !== undefined && item.productDetails.finalPrice > 0) {
                             item.unitPrice = Number(item.productDetails.finalPrice);
-                        } else {
-                            const price = item.productDetails?.price || 0;
+                        } else if (item.productDetails?.price !== undefined && item.productDetails.price > 0) {
+                            const price = item.productDetails.price;
                             const discount = item.productDetails?.discount || 0;
                             item.unitPrice = discount > 0 ? price * (1 - discount/100) : price;
+                        } else {
+                            // Final fallback - try to get price from the product in database
+                            const product = await ProductModel.findById(item.productId).lean();
+                            if (product) {
+                                if (item.size && product.sizePricing && product.sizePricing[item.size]) {
+                                    item.unitPrice = product.sizePricing[item.size];
+                                    item.sizeAdjustedPrice = product.sizePricing[item.size];
+                                } else {
+                                    const discount = product.discount || 0;
+                                    item.unitPrice = discount > 0 ? product.price * (1 - discount/100) : product.price;
+                                }
+                                
+                                // Update productDetails with complete info
+                                item.productDetails = {
+                                    ...item.productDetails,
+                                    ...product,
+                                    _id: product._id.toString()
+                                };
+                            }
                         }
                         console.log(`Set missing unitPrice to ${item.unitPrice} for product ${item.productDetails?.name || 'unknown'}`);
                     }
@@ -105,12 +123,27 @@ export const getComprehensiveOrderDetails = async (req, res) => {
                                 ...bundle,
                                 _id: bundle._id.toString()
                             };
-                            
-                            // Ensure unitPrice is set for bundle
-                            if (item.unitPrice === undefined) {
+                        }
+                    }
+                    
+                    // Ensure unitPrice is set for bundle
+                    if (item.unitPrice === undefined || item.unitPrice === 0) {
+                        if (item.bundleDetails?.bundlePrice !== undefined && item.bundleDetails.bundlePrice > 0) {
+                            item.unitPrice = item.bundleDetails.bundlePrice;
+                        } else {
+                            // Fetch bundle price from database as fallback
+                            const bundle = await BundleModel.findById(item.bundleId).lean();
+                            if (bundle && bundle.bundlePrice) {
                                 item.unitPrice = bundle.bundlePrice;
+                                // Update bundleDetails
+                                item.bundleDetails = {
+                                    ...item.bundleDetails,
+                                    ...bundle,
+                                    _id: bundle._id.toString()
+                                };
                             }
                         }
+                        console.log(`Set missing unitPrice to ${item.unitPrice} for bundle ${item.bundleDetails?.title || 'unknown'}`);
                     }
                 }
                 return item;
@@ -459,39 +492,32 @@ export const processCancellationRequest = async (req, res) => {
             });
         }
 
-        // Calculate refund amount with delivery date consideration using RefundPolicyService
+        // Calculate refund amount with delivery date consideration
         const order = cancellationRequest.orderId;
+        let baseRefundPercentage = customRefundPercentage || cancellationRequest.adminResponse.refundPercentage;
         
-        // Use the new RefundPolicyService for consistent calculations
-        const refundCalculation = RefundPolicyService.calculateRefundAmount(
-            order, 
-            cancellationRequest, 
-            customRefundPercentage
-        );
-        
-        if (!refundCalculation.success) {
-            return res.status(500).json({
-                success: false,
-                error: true,
-                message: "Error calculating refund amount",
-                details: refundCalculation.error
-            });
+        // Adjust refund percentage based on delivery status
+        if (action === 'APPROVED' && cancellationRequest.deliveryInfo) {
+            const deliveryInfo = cancellationRequest.deliveryInfo;
+            
+            // If cancellation is requested after estimated delivery date, reduce refund
+            if (deliveryInfo.wasPastDeliveryDate) {
+                baseRefundPercentage = Math.max(50, baseRefundPercentage - 15); // Reduce by 15% but minimum 50%
+            }
+            
+            // If order was already delivered, significantly reduce refund
+            if (deliveryInfo.actualDeliveryDate) {
+                const daysSinceDelivery = Math.floor((new Date() - new Date(deliveryInfo.actualDeliveryDate)) / (1000 * 60 * 60 * 24));
+                if (daysSinceDelivery > 7) {
+                    baseRefundPercentage = Math.max(25, baseRefundPercentage - 30); // Reduce by 30% but minimum 25%
+                } else {
+                    baseRefundPercentage = Math.max(40, baseRefundPercentage - 20); // Reduce by 20% but minimum 40%
+                }
+            }
         }
         
-        // Validate the refund calculation
-        const validation = RefundPolicyService.validateRefundCalculation(refundCalculation);
-        if (!validation.isValid) {
-            console.error('Refund calculation validation failed:', validation.errors);
-            return res.status(400).json({
-                success: false,
-                error: true,
-                message: "Invalid refund calculation",
-                details: validation.errors
-            });
-        }
-        
-        const refundPercentage = refundCalculation.refundPercentage;
-        const refundAmount = action === 'APPROVED' ? refundCalculation.refundAmount : 0;
+        const refundPercentage = baseRefundPercentage;
+        const refundAmount = action === 'APPROVED' ? (order.totalAmt * refundPercentage / 100) : 0;
 
         // Update cancellation request
         cancellationRequest.status = action;
@@ -504,12 +530,56 @@ export const processCancellationRequest = async (req, res) => {
         if (action === 'APPROVED') {
             cancellationRequest.refundDetails.refundStatus = 'PROCESSING';
             
-            // Update order status to cancelled
-            await orderModel.findByIdAndUpdate(order._id, {
+            // Mark all items as cancelled in full order cancellation
+            await updateFullOrderCancellation(order._id, cancellationRequest._id, refundPercentage);
+        }
+        
+// Helper function to update all items in a full order cancellation
+const updateFullOrderCancellation = async (orderId, cancellationId, refundPercentage) => {
+    try {
+        // Get the order with items to update each item status
+        const fullOrder = await orderModel.findById(orderId);
+        
+        if (fullOrder) {
+            // Update order status
+            fullOrder.orderStatus = 'CANCELLED';
+            fullOrder.paymentStatus = 'REFUND_PROCESSING';
+            fullOrder.isFullOrderCancelled = true;
+            
+            // Update each item's status and prepare refundSummary
+            const refundSummary = [];
+            
+            fullOrder.items.forEach(item => {
+                // Update item status fields
+                item.status = 'Cancelled';
+                item.cancelApproved = true;
+                item.refundStatus = 'Processing';
+                item.refundAmount = (item.itemTotal * refundPercentage / 100);
+                item.cancellationId = cancellationId;
+                
+                // Add to refundSummary
+                refundSummary.push({
+                    itemId: item._id,
+                    amount: item.refundAmount,
+                    status: 'Processing'
+                });
+            });
+            
+            fullOrder.refundSummary = refundSummary;
+            await fullOrder.save();
+        } else {
+            // Fallback if order not found
+            await orderModel.findByIdAndUpdate(orderId, {
                 orderStatus: 'CANCELLED',
-                paymentStatus: 'REFUND_PROCESSING'
+                paymentStatus: 'REFUND_PROCESSING',
+                isFullOrderCancelled: true
             });
         }
+    } catch (error) {
+        console.error("Error updating full order cancellation:", error);
+        throw error;
+    }
+}
 
         await cancellationRequest.save();
 
@@ -646,19 +716,64 @@ export const completeRefund = async (req, res) => {
         
         await cancellationRequest.save();
 
-        // Update order status
-        const order = cancellationRequest.orderId;
-        await orderModel.findByIdAndUpdate(order._id, {
-            orderStatus: 'CANCELLED',
-            paymentStatus: 'REFUND_SUCCESSFUL', // This status will be used to calculate net revenue in payment stats
-            refundDetails: {
-                refundId: cancellationRequest.refundDetails.refundId,
-                refundAmount: cancellationRequest.adminResponse.refundAmount,
-                refundPercentage: cancellationRequest.adminResponse.refundPercentage,
-                refundDate: new Date(),
-                retainedAmount: order.totalAmt - cancellationRequest.adminResponse.refundAmount // Calculate retained amount
+        // Update order status and items' refund status
+        const order = await orderModel.findById(cancellationRequest.orderId._id);
+        
+        if (!order) {
+            return res.status(404).json({
+                success: false,
+                error: true,
+                message: "Order not found"
+            });
+        }
+        
+        // Update main order status
+        order.paymentStatus = 'REFUND_SUCCESSFUL';
+        order.refundDetails = {
+            refundId: cancellationRequest.refundDetails.refundId,
+            refundAmount: cancellationRequest.adminResponse.refundAmount,
+            refundPercentage: cancellationRequest.adminResponse.refundPercentage,
+            refundDate: new Date(),
+            retainedAmount: order.totalAmt - cancellationRequest.adminResponse.refundAmount
+        };
+        
+        // Handle item-level refund status updates
+        if (cancellationRequest.cancellationType === 'PARTIAL_ITEMS') {
+            // Update only the specific cancelled items
+            const cancelledItemIds = cancellationRequest.itemsToCancel.map(item => item.itemId.toString());
+            
+            // Update item status
+            order.items.forEach(item => {
+                if (cancelledItemIds.includes(item._id.toString())) {
+                    item.refundStatus = 'Completed';
+                }
+            });
+            
+            // Update refundSummary status
+            if (order.refundSummary && order.refundSummary.length > 0) {
+                order.refundSummary.forEach(refund => {
+                    if (cancelledItemIds.includes(refund.itemId.toString())) {
+                        refund.status = 'Completed';
+                        refund.processedDate = new Date();
+                    }
+                });
             }
-        });
+        } else {
+            // Full order cancellation - update all items
+            order.items.forEach(item => {
+                item.refundStatus = 'Completed';
+            });
+            
+            // Update all refund summary entries
+            if (order.refundSummary && order.refundSummary.length > 0) {
+                order.refundSummary.forEach(refund => {
+                    refund.status = 'Completed';
+                    refund.processedDate = new Date();
+                });
+            }
+        }
+        
+        await order.save();
 
         // Send email to user with invoice attachment
         const user = cancellationRequest.userId;
@@ -1444,36 +1559,74 @@ export const processPartialItemCancellation = async (req, res) => {
             cancellationRequest.adminResponse.refundAmount = totalRefundAmount;
             cancellationRequest.adminResponse.refundPercentage = finalRefundPercentage;
 
-            // Update order - remove cancelled items and adjust totals
-            const itemsToRemove = cancellationRequest.itemsToCancel.map(item => item.itemId.toString());
-            order.items = order.items.filter(item => !itemsToRemove.includes(item._id.toString()));
-
+            // Update order - mark cancelled items and adjust totals
+            const order = await orderModel.findById(cancellationRequest.orderId._id);
+            if (!order) {
+                throw new Error("Order not found during processing");
+            }
+            
+            const itemsToCancel = cancellationRequest.itemsToCancel.map(item => item.itemId.toString());
+            const refundSummary = [];
+            
             // Recalculate order totals
             let newSubTotal = 0;
             let newTotalQuantity = 0;
-
+            
+            // Update each item's status
             order.items.forEach(item => {
-                newSubTotal += item.itemTotal || (item.sizeAdjustedPrice || item.productDetails?.price || 0) * item.quantity;
-                newTotalQuantity += item.quantity;
+                if (itemsToCancel.includes(item._id.toString())) {
+                    // Mark item as cancelled
+                    item.status = 'Cancelled';
+                    item.cancelApproved = true;
+                    item.refundStatus = 'Processing';
+                    
+                    // Find the cancellation item to get refund amount
+                    const cancelItem = cancellationRequest.itemsToCancel.find(
+                        ci => ci.itemId.toString() === item._id.toString()
+                    );
+                    
+                    if (cancelItem) {
+                        item.refundAmount = cancelItem.refundAmount;
+                        item.cancellationId = cancellationRequest._id;
+                        
+                        // Add to refundSummary
+                        refundSummary.push({
+                            itemId: item._id,
+                            amount: cancelItem.refundAmount,
+                            status: 'Processing'
+                        });
+                    }
+                } else {
+                    // Count only active items for order totals
+                    newSubTotal += item.itemTotal || (item.sizeAdjustedPrice || item.productDetails?.price || 0) * item.quantity;
+                    newTotalQuantity += item.quantity;
+                }
             });
-
-            order.subTotalAmt = newSubTotal;
-            order.totalAmt = newSubTotal; // Assuming no additional charges
-            order.totalQuantity = newTotalQuantity;
-
-            // If no items left, mark order as cancelled
-            if (order.items.length === 0) {
-                order.orderStatus = 'CANCELLED';
+            
+            // Add refund summary to order
+            order.refundSummary = [...(order.refundSummary || []), ...refundSummary];
+            
+            // Count active and cancelled items
+            const activeItems = order.items.filter(item => item.status === 'Active').length;
+            const cancelledItems = order.items.filter(item => item.status === 'Cancelled').length;
+            
+            // Only adjust totals if there are active items left
+            if (activeItems > 0) {
+                order.subTotalAmt = newSubTotal;
+                order.totalAmt = newSubTotal; // Assuming no additional charges
+                order.totalQuantity = newTotalQuantity;
             }
-
-            // Set up refund details
-            cancellationRequest.refundDetails = {
-                refundId: `REF_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-                refundDate: new Date(),
-                refundMethod: 'ORIGINAL_PAYMENT_METHOD',
-                refundStatus: 'PENDING'
-            };
-
+            
+            // If all items cancelled, mark order as cancelled
+            if (activeItems === 0 && cancelledItems > 0) {
+                order.orderStatus = 'CANCELLED';
+                order.isFullOrderCancelled = true;
+                
+                // If everything is cancelled, we need to preserve the original totals for accounting
+                // but mark it clearly as cancelled
+                order.paymentStatus = 'REFUND_PROCESSING';
+            }
+            
             await order.save();
         }
 

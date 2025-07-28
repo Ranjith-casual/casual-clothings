@@ -310,20 +310,104 @@ const RefundManagement = () => {
                             {/* Refund Details */}
                             <div className="bg-gray-50 p-4 rounded-lg">
                                 <h3 className="font-semibold text-lg mb-3">Refund Information</h3>
-                                <p><span className="font-medium">Refund Status:</span> {refundDetails.refundStatus || 'PROCESSING'}</p>
-                                <p><span className="font-medium">Refund Percentage:</span> {adminResponse.refundPercentage}%</p>
-                                <p><span className="font-medium">Refund Amount:</span> {DisplayPriceInRupees(adminResponse.refundAmount)}</p>
-                                
-                                {refundDetails.refundId && (
-                                    <>
-                                        <p><span className="font-medium">Refund ID:</span> {refundDetails.refundId}</p>
-                                        <p><span className="font-medium">Refund Date:</span> {formatDate(refundDetails.refundDate)}</p>
-                                    </>
-                                )}
+                                <div className="space-y-2">
+                                    <div className="flex justify-between items-center px-3 py-1.5 bg-blue-50 border border-blue-100 rounded-md">
+                                        <span className="font-medium text-blue-700">Refund Status:</span>
+                                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(refundDetails.refundStatus || 'PROCESSING')}`}>
+                                            {refundDetails.refundStatus || 'PROCESSING'}
+                                        </span>
+                                    </div>
+                                    
+                                    <div className="flex justify-between items-center px-3 py-1.5 bg-blue-50 border border-blue-100 rounded-md">
+                                        <span className="font-medium text-blue-700">Refund Policy:</span>
+                                        <span className="text-blue-800">{adminResponse.refundPercentage || 75}% of item price</span>
+                                    </div>
+                                    
+                                    {/* Calculate total refund by summing up individual item refunds if available */}
+                                    {(() => {
+                                        // First try to use adminResponse.refundAmount
+                                        let totalRefundAmount = parseFloat(adminResponse.refundAmount || 0);
+                                        
+                                        // If it's zero or very small, try to calculate from item refund amounts
+                                        if (totalRefundAmount < 1 && order.items && Array.isArray(order.items)) {
+                                            const cancelledItems = order.items.filter(item => item?.status === 'Cancelled' || item?.cancelApproved === true);
+                                            
+                                            // Sum up individual refund amounts
+                                            let calculatedTotal = 0;
+                                            cancelledItems.forEach(item => {
+                                                // Use item's refundAmount if available, otherwise calculate it
+                                                if (item.refundAmount && parseFloat(item.refundAmount) > 0) {
+                                                    calculatedTotal += parseFloat(item.refundAmount);
+                                                } else {
+                                                    const refundPercentage = adminResponse.refundPercentage || 75;
+                                                    const itemPrice = 
+                                                        item.productId?.price || 
+                                                        item.productDetails?.price || 
+                                                        item.price || 
+                                                        (item.itemTotal / (item.quantity || 1)) || 
+                                                        0;
+                                                        
+                                                    calculatedTotal += parseFloat(itemPrice) * (item.quantity || 1) * (refundPercentage / 100);
+                                                }
+                                            });
+                                            
+                                            if (calculatedTotal > 0) {
+                                                totalRefundAmount = calculatedTotal;
+                                                console.log(`Calculated total refund from items: ${totalRefundAmount}`);
+                                            }
+                                        }
+                                        
+                                        return (
+                                            <div className="flex justify-between items-center px-3 py-1.5 bg-green-50 border border-green-100 rounded-md">
+                                                <span className="font-medium text-green-700">Total Refund Amount:</span>
+                                                <span className="text-green-800 font-bold">{DisplayPriceInRupees(totalRefundAmount)}</span>
+                                            </div>
+                                        );
+                                    })()}
+                                    
+                                    {refundDetails.refundId && (
+                                        <>
+                                            <div className="flex justify-between items-center px-3 py-1.5 bg-purple-50 border border-purple-100 rounded-md">
+                                                <span className="font-medium text-purple-700">Refund ID:</span>
+                                                <span className="text-purple-800">{refundDetails.refundId}</span>
+                                            </div>
+                                            
+                                            <div className="flex justify-between items-center px-3 py-1.5 bg-purple-50 border border-purple-100 rounded-md">
+                                                <span className="font-medium text-purple-700">Refund Date:</span>
+                                                <span className="text-purple-800">{formatDate(refundDetails.refundDate)}</span>
+                                            </div>
+                                        </>
+                                    )}
 
-                                {adminResponse.adminComments && (
-                                    <p><span className="font-medium">Admin Comments:</span> {adminResponse.adminComments}</p>
-                                )}
+                                    {/* Cancellation Type - Full or Partial */}
+                                    <div className="flex justify-between items-center px-3 py-1.5 bg-orange-50 border border-orange-100 rounded-md">
+                                        <span className="font-medium text-orange-700">Cancellation Type:</span>
+                                        <span className="text-orange-800">
+                                            {order.items && Array.isArray(order.items) && 
+                                             order.items.some(item => item?.status !== 'Cancelled' && item?.cancelApproved !== true) 
+                                             ? 'Partial Cancellation' : 'Full Order Cancellation'}
+                                        </span>
+                                    </div>
+                                    
+                                    {/* Count of cancelled items */}
+                                    {order.items && Array.isArray(order.items) && (
+                                        <div className="flex justify-between items-center px-3 py-1.5 bg-orange-50 border border-orange-100 rounded-md">
+                                            <span className="font-medium text-orange-700">Items Cancelled:</span>
+                                            <span className="text-orange-800">
+                                                {order.items.filter(item => item?.status === 'Cancelled' || item?.cancelApproved === true).length} 
+                                                {' of '} 
+                                                {order.items.length}
+                                            </span>
+                                        </div>
+                                    )}
+                                    
+                                    {adminResponse.adminComments && (
+                                        <div className="px-3 py-1.5 bg-gray-50 border border-gray-200 rounded-md">
+                                            <p className="font-medium text-gray-700">Admin Comments:</p>
+                                            <p className="text-gray-800 mt-1">{adminResponse.adminComments}</p>
+                                        </div>
+                                    )}
+                                </div>
                             </div>
                             
                             {/* Products Details */}
@@ -334,6 +418,9 @@ const RefundManagement = () => {
                                         {order.items.map((item, index) => {
                                             // Debug: Log item structure to console
                                             console.log(`Item ${index}:`, item);
+                                            
+                                            // Check if item is cancelled
+                                            const isItemCancelled = item?.status === 'Cancelled' || item?.cancelApproved === true;
                                             
                                             // Get item name with enhanced fallback logic
                                             let itemName = 'Product';
@@ -385,15 +472,48 @@ const RefundManagement = () => {
                                                 }
                                             }
                                             
-                                            console.log(`Extracted name: ${itemName}, price: ${itemPrice}`);
+                                            // Calculate refund amount for this item if it's cancelled
+                                            const refundPercentage = adminResponse.refundPercentage || 75;
+                                            
+                                            // Use item's saved refundAmount if available, otherwise calculate it
+                                            let itemRefundAmount = 0;
+                                            if (isItemCancelled) {
+                                                // First check if the item already has a refund amount set
+                                                if (item.refundAmount && parseFloat(item.refundAmount) > 0) {
+                                                    itemRefundAmount = parseFloat(item.refundAmount).toFixed(2);
+                                                    console.log(`Using saved refund amount: ${itemRefundAmount}`);
+                                                } else {
+                                                    // If not, calculate it from the item price and percentage
+                                                    // Make sure we're using the correct price from productId if available
+                                                    const actualPrice = item.productId?.price || 
+                                                                        item.productDetails?.price || 
+                                                                        itemPrice || 
+                                                                        (item.itemTotal / (item.quantity || 1)) || 
+                                                                        0;
+                                                    
+                                                    itemRefundAmount = (parseFloat(actualPrice) * (item.quantity || 1) * (refundPercentage / 100)).toFixed(2);
+                                                    console.log(`Calculated refund amount: ${itemRefundAmount} from price ${actualPrice}`);
+                                                }
+                                            }
+                                            
+                                            console.log(`Extracted name: ${itemName}, price: ${itemPrice}, actual price: ${item.productId?.price}, cancelled: ${isItemCancelled}, refund: ${itemRefundAmount}`);
                                             
                                             return (
-                                                <div key={index} className="border border-gray-200 rounded-lg p-3 flex items-center bg-white">
+                                                <div key={index} className={`border rounded-lg p-3 flex items-center relative ${
+                                                    isItemCancelled ? 'bg-red-50 border-red-200' : 'bg-white border-gray-200'
+                                                }`}>
+                                                    {isItemCancelled && (
+                                                        <div className="absolute top-0 right-0 transform -translate-y-1/3 translate-x-1/3">
+                                                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800 border border-red-200">
+                                                                Cancelled
+                                                            </span>
+                                                        </div>
+                                                    )}
                                                     <div className="flex-shrink-0 w-16 h-16 mr-4">
                                                         <img 
                                                             src={getImageSource(item)}
                                                             alt={itemName}
-                                                            className="w-full h-full object-cover rounded"
+                                                            className={`w-full h-full object-cover rounded ${isItemCancelled ? 'opacity-75' : ''}`}
                                                             onError={(e) => {
                                                                 console.log("Image error, falling back to noCart");
                                                                 e.target.onerror = null; 
@@ -402,7 +522,7 @@ const RefundManagement = () => {
                                                         />
                                                     </div>
                                                     <div className="flex-grow">
-                                                        <h4 className="font-medium">
+                                                        <h4 className={`font-medium ${isItemCancelled ? 'line-through text-red-700' : ''}`}>
                                                             {itemName}
                                                         </h4>
                                                         <div className="text-sm text-gray-600 mt-1">
@@ -413,6 +533,21 @@ const RefundManagement = () => {
                                                         <div className="text-sm font-medium mt-1">
                                                             Subtotal: {DisplayPriceInRupees(item.itemTotal || (itemPrice * (item.quantity || 1)))}
                                                         </div>
+                                                        
+                                                        {isItemCancelled && (
+                                                            <div className="mt-2 pt-2 border-t border-red-200">
+                                                                <div className="text-sm font-medium text-red-700">
+                                                                    <div className="flex justify-between">
+                                                                        <span>Refund Percentage:</span>
+                                                                        <span>{refundPercentage}%</span>
+                                                                    </div>
+                                                                    <div className="flex justify-between">
+                                                                        <span>Refund Amount:</span>
+                                                                        <span>{DisplayPriceInRupees(itemRefundAmount)}</span>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        )}
                                                     </div>
                                                 </div>
                                             );
@@ -478,7 +613,7 @@ const RefundManagement = () => {
                                 <span className="font-medium">Customer:</span> {selectedRefund.userId?.name}
                             </p>
                             <p className="mb-2">
-                                <span className="font-medium">Refund Amount:</span> {DisplayPriceInRupees(selectedRefund.adminResponse?.refundAmount)}
+                                <span className="font-medium">Refund Amount:</span> {DisplayPriceInRupees(parseFloat(selectedRefund.adminResponse?.refundAmount || 0))}
                             </p>
                         </div>
                         
@@ -600,7 +735,10 @@ const RefundManagement = () => {
                                     Customer
                                 </th>
                                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    Amount
+                                    Items Cancelled
+                                </th>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    Refund Amount
                                 </th>
                                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                     Date
@@ -616,7 +754,7 @@ const RefundManagement = () => {
                         <tbody className="bg-white divide-y divide-gray-200">
                             {loading ? (
                                 <tr>
-                                    <td colSpan={6} className="px-6 py-4 text-center">
+                                    <td colSpan={7} className="px-6 py-4 text-center">
                                         <div className="flex justify-center items-center">
                                             <FaSpinner className="animate-spin mr-2" />
                                             Loading refunds...
@@ -625,7 +763,7 @@ const RefundManagement = () => {
                                 </tr>
                             ) : refunds.length === 0 ? (
                                 <tr>
-                                    <td colSpan={6} className="px-6 py-4 text-center text-gray-500">
+                                    <td colSpan={7} className="px-6 py-4 text-center text-gray-500">
                                         No refund requests found
                                     </td>
                                 </tr>
@@ -646,8 +784,64 @@ const RefundManagement = () => {
                                             </div>
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap">
+                                            <div className="text-gray-900">
+                                                {refund.orderId?.items && Array.isArray(refund.orderId.items) ? (
+                                                    <div className="flex flex-col">
+                                                        <span className="font-medium">
+                                                            {refund.orderId.items.filter(item => item?.status === 'Cancelled' || item?.cancelApproved === true).length} 
+                                                            {' of '} 
+                                                            {refund.orderId.items.length}
+                                                        </span>
+                                                        <span className="text-xs text-gray-500 mt-1">
+                                                            {refund.orderId.items.filter(item => item?.status === 'Cancelled' || item?.cancelApproved === true).length === refund.orderId.items.length
+                                                                ? 'Full Order' : 'Partial Cancel'}
+                                                        </span>
+                                                    </div>
+                                                ) : (
+                                                    <span className="text-gray-500">Unknown</span>
+                                                )}
+                                            </div>
+                                        </td>
+                                        <td className="px-6 py-4 whitespace-nowrap">
                                             <div className="text-gray-900 font-medium">
-                                                {DisplayPriceInRupees(refund.adminResponse?.refundAmount || 0)}
+                                                {(() => {
+                                                    // First try to use adminResponse.refundAmount
+                                                    let totalRefundAmount = parseFloat(refund.adminResponse?.refundAmount || 0);
+                                                    
+                                                    // If it's zero or very small, try to calculate from item refund amounts
+                                                    if (totalRefundAmount < 1 && refund.orderId?.items && Array.isArray(refund.orderId.items)) {
+                                                        const cancelledItems = refund.orderId.items.filter(
+                                                            item => item?.status === 'Cancelled' || item?.cancelApproved === true
+                                                        );
+                                                        
+                                                        // Sum up individual refund amounts
+                                                        let calculatedTotal = 0;
+                                                        cancelledItems.forEach(item => {
+                                                            // Use item's refundAmount if available, otherwise calculate it
+                                                            if (item.refundAmount && parseFloat(item.refundAmount) > 0) {
+                                                                calculatedTotal += parseFloat(item.refundAmount);
+                                                            } else {
+                                                                const refundPercentage = refund.adminResponse?.refundPercentage || 75;
+                                                                const itemPrice = 
+                                                                    item.productId?.price || 
+                                                                    item.productDetails?.price || 
+                                                                    item.price || 
+                                                                    0;
+                                                                    
+                                                                calculatedTotal += parseFloat(itemPrice || 0) * (item.quantity || 1) * (refundPercentage / 100);
+                                                            }
+                                                        });
+                                                        
+                                                        if (calculatedTotal > 0) {
+                                                            totalRefundAmount = calculatedTotal;
+                                                        }
+                                                    }
+                                                    
+                                                    return DisplayPriceInRupees(totalRefundAmount);
+                                                })()}
+                                            </div>
+                                            <div className="text-xs text-gray-500 mt-0.5">
+                                                {refund.adminResponse?.refundPercentage || 75}% of price
                                             </div>
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap">

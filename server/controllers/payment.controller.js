@@ -797,7 +797,8 @@ const generateInvoicePDF = async (order, type = 'order') => {
             drawRect(summaryX, currentY, summaryWidth, 5, accentColor);
             currentY += 15;
             
-            const deliveryCharge = (order.totalAmt || 0) - (order.subTotalAmt || subtotal);
+            // Use actual delivery charge from order instead of calculating difference
+            const deliveryCharge = order.deliveryCharge || 0;
             
             // Subtotal
             addStyledText('Subtotal:', summaryX, currentY, {
@@ -1051,6 +1052,21 @@ export const sendRefundInvoiceEmail = async (order, refundDetails) => {
                             <p><strong>Refund Amount:</strong> <span class="amount">₹${refundDetails.refundAmount?.toFixed(2)}</span></p>
                             <p><strong>Refund Percentage:</strong> ${refundDetails.refundPercentage}%</p>
                             <p><strong>Processing Time:</strong> 5-7 business days</p>
+                            <p><strong>Cancellation Type:</strong> ${order.isFullOrderCancelled ? 'Full Order Cancellation' : 'Partial Order Cancellation'}</p>
+                            
+                            ${order.isFullOrderCancelled ? 
+                              '<p>All items in this order have been cancelled and refunded.</p>' :
+                              `<p>The following items have been cancelled and refunded:</p>
+                              <ul style="margin-left: 20px;">
+                                  ${order.items
+                                    .filter(item => item.status === 'Cancelled')
+                                    .map(item => {
+                                        const itemName = item.productDetails?.name || item.bundleDetails?.title || 'Item';
+                                        return `<li>${itemName} ${item.size ? `(Size: ${item.size})` : ''} - ₹${item.refundAmount}</li>`;
+                                    })
+                                    .join('')}
+                              </ul>`
+                            }
                         </div>
                         
                         <p>The refund amount will be credited to your original payment method within 5-7 business days.</p>

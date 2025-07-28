@@ -184,7 +184,12 @@ function Header() {
                 }
                 toast.success("Logged out successfully")
                 dispatch(logout())
-                localStorage.clear()
+                // Make sure to specifically remove userId along with clearing storage
+                localStorage.removeItem("userId")
+                localStorage.removeItem("accessToken")
+                localStorage.removeItem("refreshToken")
+                localStorage.removeItem("userSession")
+                localStorage.clear() // Clear any remaining items
                 navigate("/")
             }
         } catch (error) {

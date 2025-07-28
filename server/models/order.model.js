@@ -52,9 +52,41 @@ const orderSchema = mongoose.Schema({
             required: true,
             default: 1
         },
+        // Price tracking fields
+        unitPrice: {
+            type: Number,
+            default: 0
+        },
+        sizeAdjustedPrice: {
+            type: Number,
+            default: 0
+        },
         itemTotal: {
             type: Number,
             required: true
+        },
+        // Item-level status tracking
+        status: {
+            type: String,
+            enum: ['Active', 'Cancelled', 'Returned'],
+            default: 'Active'
+        },
+        cancelApproved: {
+            type: Boolean,
+            default: false
+        },
+        refundStatus: {
+            type: String,
+            enum: ['Not Applicable', 'Pending', 'Processing', 'Completed'],
+            default: 'Not Applicable'
+        },
+        refundAmount: {
+            type: Number,
+            default: 0
+        },
+        cancellationId: {
+            type: mongoose.Schema.ObjectId,
+            ref: 'orderCancellation'
         }
     }],
     orderDate: {
@@ -81,6 +113,10 @@ const orderSchema = mongoose.Schema({
         type: String,
         default: "ORDER PLACED"
     },
+    isFullOrderCancelled: {
+        type: Boolean,
+        default: false
+    },
     deliveryAddress: {
         type: mongoose.Schema.ObjectId,
         ref: 'address'
@@ -97,6 +133,10 @@ const orderSchema = mongoose.Schema({
         default: 0
     },
     deliveryDays: {
+        type: Number,
+        default: 0
+    },
+    deliveryCharge: {
         type: Number,
         default: 0
     },
@@ -128,7 +168,24 @@ const orderSchema = mongoose.Schema({
         retainedAmount: {
             type: Number
         }
-    }
+    },
+    refundSummary: [{
+        itemId: {
+            type: mongoose.Schema.ObjectId
+        },
+        amount: {
+            type: Number,
+            default: 0
+        },
+        status: {
+            type: String,
+            enum: ['Pending', 'Processing', 'Completed'],
+            default: 'Pending'
+        },
+        processedDate: {
+            type: Date
+        }
+    }]
 }, {
     timestamps: true
 });

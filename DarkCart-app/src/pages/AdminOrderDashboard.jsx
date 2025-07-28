@@ -115,6 +115,92 @@ const AdminOrderDashboard = () => {
     const totalPrice = calculateSizeBasedPrice(item, productInfo);
     return totalPrice / (item?.quantity || 1);
   };
+
+  // Filter out cancelled items and calculate remaining totals
+  const getActiveOrderInfo = (order) => {
+    try {
+      // Check for multiple sources of cancellation data
+      const hasOrderCancellation = order.cancellationData && 
+                                   order.cancellationData.itemsToCancel && 
+                                   order.cancellationData.itemsToCancel.length > 0;
+      
+      const hasRefundSummary = order.refundSummary && 
+                               Array.isArray(order.refundSummary) && 
+                               order.refundSummary.length > 0;
+
+      // If no cancellation data from any source, return original order
+      if (!hasOrderCancellation && !hasRefundSummary) {
+        return {
+          activeItems: order.items || [],
+          activeItemCount: order.totalQuantity || order.items?.length || 0,
+          remainingTotal: order.totalAmt || 0,
+          remainingSubtotal: order.subTotalAmt || 0,
+          hasCancelledItems: false
+        };
+      }
+
+      // Get cancelled item IDs for quick lookup from all sources
+      const cancelledItemIds = new Set();
+      
+      // Add from order cancellation data
+      if (hasOrderCancellation) {
+        order.cancellationData.itemsToCancel.forEach(cancelledItem => {
+          const itemId = cancelledItem.itemId?.toString() || cancelledItem._id?.toString();
+          if (itemId) cancelledItemIds.add(itemId);
+        });
+      }
+      
+      // Add from refund summary (completed refunds)
+      if (hasRefundSummary) {
+        order.refundSummary.forEach(refundItem => {
+          if (refundItem.status === 'Completed') {
+            const itemId = refundItem.itemId?.toString();
+            if (itemId) cancelledItemIds.add(itemId);
+          }
+        });
+      }
+
+      // Filter out cancelled items
+      const activeItems = (order.items || []).filter(item => {
+        const itemId = item._id?.toString() || item.id?.toString();
+        return !cancelledItemIds.has(itemId);
+      });
+
+      // Calculate remaining totals
+      let remainingSubtotal = 0;
+      let activeItemCount = 0;
+
+      activeItems.forEach(item => {
+        const itemTotal = calculateSizeBasedPrice(item);
+        remainingSubtotal += itemTotal;
+        activeItemCount += item.quantity || 1;
+      });
+
+      // Add delivery charge if any
+      const deliveryCharge = order.deliveryCharge || 0;
+      const remainingTotal = remainingSubtotal + deliveryCharge;
+
+      return {
+        activeItems,
+        activeItemCount,
+        remainingTotal,
+        remainingSubtotal,
+        deliveryCharge,
+        hasCancelledItems: cancelledItemIds.size > 0
+      };
+
+    } catch (error) {
+      console.error('Error calculating active order info:', error);
+      // Fallback to original order data
+      return {
+        activeItems: order.items || [],
+        activeItemCount: order.totalQuantity || order.items?.length || 0,
+        remainingTotal: order.totalAmt || 0,
+        remainingSubtotal: order.subTotalAmt || 0,
+        hasCancelledItems: false
+      };
+    }
+  };
   
   useEffect(() => {
     console.log("Current user state:", user);
@@ -476,6 +562,16 @@ const AdminOrderDashboard = () => {
           refundStatus = 'NOT_APPLICABLE';
         } else {
           refundStatus = 'AWAITING_APPROVAL';
+        }
+
+        // Also check the order's payment status directly
+        const orderFromList = orders.find(order => order.orderId === orderId);
+        if (orderFromList?.paymentStatus === 'REFUND_SUCCESSFUL') {
+          refundStatus = 'COMPLETED';
+        } else if (orderFromList?.paymentStatus === 'REFUND_PROCESSING') {
+          refundStatus = 'PROCESSING';
+        } else if (orderFromList?.paymentStatus === 'REFUND_FAILED') {
+          refundStatus = 'FAILED';
         }
 
         setRefundStatuses(prev => ({
@@ -921,7 +1017,7 @@ const AdminOrderDashboard = () => {
                     Order Details
                   </th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                    Amount
+                    Remaining Amount
                   </th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
                     Date
@@ -1067,6 +1163,8 @@ const AdminOrderDashboard = () => {
                                 <span className="font-medium text-gray-900">
                                   {/* Enhanced product name resolution */}
                                   {(() => {
+                                    const activeOrderInfo = getActiveOrderInfo(order);
+                                    
                                     // Check for items array first (new order structure)
                                     if (order.items && order.items.length > 0) {
                                       const firstItem = order.items[0];
@@ -1099,9 +1197,15 @@ const AdminOrderDashboard = () => {
                                         productName = 'Product Item';
                                       }
                                       
-                                      // If multiple items, show count
-                                      if (order.items.length > 1) {
-                                        productName += ` (+${order.items.length - 1} more)`;
+                                      // Show active items count
+                                      if (activeOrderInfo.activeItems.length > 1) {
+                                        productName += ` (+${activeOrderInfo.activeItems.length - 1} more)`;
+                                      }
+                                      
+                                      // Add cancellation indicator
+                                      if (activeOrderInfo.hasCancelledItems) {
+                                        const cancelledCount = order.items.length - activeOrderInfo.activeItems.length;
+                                        productName += ` (${cancelledCount} cancelled)`;
                                       }
                                       
                                       return productName;
@@ -1113,7 +1217,7 @@ const AdminOrderDashboard = () => {
                                     }
                                     
                                     // Last resort
-                                    return `${order.items?.length || 1} Item${order.items?.length > 1 ? 's' : ''}`;
+                                    return `${activeOrderInfo.activeItems?.length || 1} Item${activeOrderInfo.activeItems?.length > 1 ? 's' : ''}`;
                                   })()}
                                 </span>
                                 
@@ -1175,7 +1279,21 @@ const AdminOrderDashboard = () => {
                           </div>
                         </td>
                         <td className="px-4 py-4">
-                          <span className="font-medium text-gray-900">₹{order.totalAmt.toFixed(2)}</span>
+                          {(() => {
+                            const activeOrderInfo = getActiveOrderInfo(order);
+                            
+                            return (
+                              <div className="flex flex-col">
+                                <span className="font-medium text-gray-900">₹{activeOrderInfo.remainingTotal.toFixed(2)}</span>
+                                {activeOrderInfo.hasCancelledItems && (
+                                  <div className="text-xs text-amber-600 mt-1">
+                                    <span className="line-through">₹{order.totalAmt.toFixed(2)}</span>
+                                    <span className="ml-1">(adjusted)</span>
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })()}
                         </td>
                         <td className="px-4 py-4">
                           <span className="text-gray-500">{formatDate(order.orderDate)}</span>

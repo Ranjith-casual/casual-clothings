@@ -100,8 +100,8 @@ export class OrderDataValidator {
                 });
             }
             
-            // Check delivery charge consistency
-            const deliveryCharge = (order.totalAmt || 0) - (order.subTotalAmt || 0);
+            // Check delivery charge consistency - use actual delivery charge field
+            const deliveryCharge = order.deliveryCharge || 0;
             if (deliveryCharge < 0) {
                 validation.isValid = false;
                 validation.errors.push('Negative delivery charge detected');
@@ -246,8 +246,8 @@ export class OrderDataValidator {
                 newSubTotal += calculatedTotal;
             }
             
-            // Calculate new delivery charge (keep the difference between total and subtotal)
-            const deliveryCharge = (order.totalAmt || 0) - (order.subTotalAmt || 0);
+            // Use existing delivery charge from order
+            const deliveryCharge = order.deliveryCharge || 0;
             const newTotalAmt = newSubTotal + deliveryCharge;
             
             // Update the order in database

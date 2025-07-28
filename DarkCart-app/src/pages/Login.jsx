@@ -86,6 +86,12 @@ function Login() {
         // Generate new session ID for notification tracking
         const sessionId = Date.now().toString() + Math.random().toString(36).substr(2, 9);
         localStorage.setItem("userSession", sessionId);
+        
+        // Fetch user details and store user ID in localStorage
+        const userData = await FetchUserInfo();
+        if (userData && userData.data && userData.data._id) {
+          localStorage.setItem("userId", userData.data._id);
+        }
 
         const userDetails = await FetchUserInfo()
         dispatch(setUserDetails(userDetails.data))
@@ -132,6 +138,12 @@ function Login() {
         // Generate new session ID for notification tracking
         const sessionId = Date.now().toString() + Math.random().toString(36).substr(2, 9);
         localStorage.setItem("userSession", sessionId);
+        
+        // Fetch user details and store user ID in localStorage
+        const userData = await FetchUserInfo();
+        if (userData && userData.data && userData.data._id) {
+          localStorage.setItem("userId", userData.data._id);
+        }
 
         const userDetails = await FetchUserInfo();
         dispatch(setUserDetails(userDetails.data));

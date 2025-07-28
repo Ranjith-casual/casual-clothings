@@ -23,6 +23,29 @@ const DisplayPriceInRupees = (price) => {
     }).format(price || 0);
 };
 
+// Enhanced payment status function for consistent display
+const getPaymentStatusDisplay = (order) => {
+    if (!order) return 'N/A';
+    
+    const isOnlinePayment = order.paymentMethod === "Online Payment" || order.paymentMethod === "ONLINE";
+    const status = order.paymentStatus;
+    
+    // Debug log for payment status detection
+    console.log('MyRefunds Payment Status Debug:', {
+        orderId: order.orderId,
+        paymentMethod: order.paymentMethod,
+        paymentStatus: order.paymentStatus,
+        isOnlinePayment
+    });
+    
+    // If it's online payment and status shows PAID, display as PAID
+    if (isOnlinePayment && status === 'PAID') {
+        return 'PAID';
+    }
+    
+    return status || 'N/A';
+};
+
 // Helper function to get color based on request or refund status
 const getStatusColor = (status, refundStatus) => {
     // First check cancellation request status
@@ -208,7 +231,7 @@ const RefundDetailsModal = ({ refund, onClose, onShowBundleItems }) => {
                             <p><span className="font-medium">Order Date:</span> {formatDate(order.orderDate)}</p>
                             <p><span className="font-medium">Order Status:</span> {order.orderStatus}</p>
                             <p><span className="font-medium">Payment Method:</span> {order.paymentMethod}</p>
-                            <p><span className="font-medium">Payment Status:</span> {order.paymentStatus}</p>
+                            <p><span className="font-medium">Payment Status:</span> {getPaymentStatusDisplay(order)}</p>
                             <p><span className="font-medium">Total Amount:</span> {DisplayPriceInRupees(order.totalAmt)}</p>
                         </div>
 

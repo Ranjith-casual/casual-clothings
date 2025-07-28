@@ -88,6 +88,96 @@ const AdminOrderDetails = ({ order, onClose }) => {
     return totalPrice / (item?.quantity || 1);
   };
 
+  // Filter out cancelled items and calculate remaining totals
+  const getActiveOrderInfo = (order) => {
+    try {
+      // Check all sources of cancellation data
+      const hasOrderCancellation = order.cancellationData && order.cancellationData.itemsToCancel && order.cancellationData.itemsToCancel.length > 0;
+      const hasApprovedCancellation = modificationPermission.approvedCancellation && modificationPermission.approvedCancellation.itemsToCancel && modificationPermission.approvedCancellation.itemsToCancel.length > 0;
+      const hasRefundSummary = order.refundSummary && order.refundSummary.length > 0;
+      
+      // If no cancellation data, return original order
+      if (!hasOrderCancellation && !hasApprovedCancellation && !hasRefundSummary) {
+        return {
+          activeItems: order.items || [],
+          activeItemCount: order.totalQuantity || order.items?.length || 0,
+          remainingTotal: order.totalAmt || 0,
+          remainingSubtotal: order.subTotalAmt || 0,
+          hasCancelledItems: false
+        };
+      }
+
+      // Get cancelled item IDs for quick lookup from all sources
+      const cancelledItemIds = new Set();
+      
+      // Add from order cancellation data
+      if (hasOrderCancellation) {
+        order.cancellationData.itemsToCancel.forEach(cancelledItem => {
+          const itemId = cancelledItem.itemId?.toString() || cancelledItem._id?.toString();
+          if (itemId) cancelledItemIds.add(itemId);
+        });
+      }
+      
+      // Add from approved cancellation data
+      if (hasApprovedCancellation) {
+        modificationPermission.approvedCancellation.itemsToCancel.forEach(cancelledItem => {
+          const itemId = cancelledItem.itemId?.toString() || cancelledItem._id?.toString();
+          if (itemId) cancelledItemIds.add(itemId);
+        });
+      }
+      
+      // Add from refund summary (completed refunds)
+      if (hasRefundSummary) {
+        order.refundSummary.forEach(refundItem => {
+          if (refundItem.status === 'Completed') {
+            const itemId = refundItem.itemId?.toString();
+            if (itemId) cancelledItemIds.add(itemId);
+          }
+        });
+      }
+
+      // Filter out cancelled items
+      const activeItems = (order.items || []).filter(item => {
+        const itemId = item._id?.toString() || item.id?.toString();
+        return !cancelledItemIds.has(itemId);
+      });
+
+      // Calculate remaining totals
+      let remainingSubtotal = 0;
+      let activeItemCount = 0;
+
+      activeItems.forEach(item => {
+        const itemTotal = calculateSizeBasedPrice(item);
+        remainingSubtotal += itemTotal;
+        activeItemCount += item.quantity || 1;
+      });
+
+      // Add delivery charge if any
+      const deliveryCharge = order.deliveryCharge || 0;
+      const remainingTotal = remainingSubtotal + deliveryCharge;
+
+      return {
+        activeItems,
+        activeItemCount,
+        remainingTotal,
+        remainingSubtotal,
+        deliveryCharge,
+        hasCancelledItems: cancelledItemIds.size > 0
+      };
+
+    } catch (error) {
+      console.error('Error calculating active order info:', error);
+      // Fallback to original order data
+      return {
+        activeItems: order.items || [],
+        activeItemCount: order.totalQuantity || order.items?.length || 0,
+        remainingTotal: order.totalAmt || 0,
+        remainingSubtotal: order.subTotalAmt || 0,
+        hasCancelledItems: false
+      };
+    }
+  };
+
   // Status options for dropdown
   const statusOptions = [
     { value: 'ORDER PLACED', label: 'Order Placed', icon: <FaBoxOpen className="text-blue-500" /> },
@@ -164,7 +254,8 @@ const AdminOrderDetails = ({ order, onClose }) => {
         setModificationPermission({
           canModify: result.canModify,
           reason: result.reason,
-          cancellationRequest: result.cancellationRequest
+          cancellationRequest: result.cancellationRequest,
+          approvedCancellation: result.approvedCancellation
         });
       } else {
         setModificationPermission({
@@ -477,7 +568,7 @@ const AdminOrderDetails = ({ order, onClose }) => {
                 <span className="text-blue-700 font-medium">Checking order modification permission...</span>
               </div>
             </div>
-          ) : !modificationPermission.canModify && (
+          ) : !modificationPermission.canModify ? (
             <div className="mb-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
               <div className="flex items-start gap-3">
                 <FaExclamationTriangle className="text-yellow-600 mt-1 flex-shrink-0" />
@@ -492,6 +583,24 @@ const AdminOrderDetails = ({ order, onClose }) => {
                       <br />Date: {new Date(modificationPermission.cancellationRequest.requestDate).toLocaleDateString()}
                     </div>
                   )}
+                </div>
+              </div>
+            </div>
+          ) : modificationPermission.approvedCancellation && (
+            <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+              <div className="flex items-start gap-3">
+                <FaInfoCircle className="text-blue-600 mt-1 flex-shrink-0" />
+                <div>
+                  <h4 className="font-semibold text-blue-800 mb-1">Partial Cancellation Applied</h4>
+                  <p className="text-blue-700 text-sm mb-2">
+                    Some items have been cancelled from this order. You can still update the status for the remaining active items.
+                  </p>
+                  <div className="text-xs text-blue-600 bg-blue-100 p-2 rounded border">
+                    <strong>Cancellation Details:</strong>
+                    <br />Items Cancelled: {modificationPermission.approvedCancellation.itemsToCancel?.length || 0}
+                    <br />Reason: {modificationPermission.approvedCancellation.reason}
+                    <br />Date: {new Date(modificationPermission.approvedCancellation.requestDate).toLocaleDateString()}
+                  </div>
                 </div>
               </div>
             </div>
@@ -532,7 +641,7 @@ const AdminOrderDetails = ({ order, onClose }) => {
             </div>
             {!modificationPermission.canModify && (
               <p className="text-sm text-red-600 mt-2">
-                Order status cannot be modified due to active cancellation request.
+                Order status cannot be modified due to pending cancellation request.
               </p>
             )}
           </div>
@@ -614,36 +723,117 @@ const AdminOrderDetails = ({ order, onClose }) => {
                     <span className="font-medium text-gray-800 tracking-wide">{order.paymentStatus}</span>
                     
                     {/* Payment Status Badge */}
-                    {order.orderStatus === "DELIVERED" && order.paymentStatus === "CASH ON DELIVERY" ? (
-                      <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-800 border border-green-200 shadow-sm">
-                        Will be marked as PAID on delivery
-                      </span>
-                    ) : order.paymentStatus === "PAID" ? (
-                      <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-800 border border-green-200 shadow-sm">
-                        ✓ Paid
-                      </span>
-                    ) : order.paymentStatus === "CANCELLED" || order.orderStatus === "CANCELLED" ? (
-                      <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-800 border border-red-200 shadow-sm">
-                        ✗ Cancelled
-                      </span>
-                    ) : (
-                      <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-yellow-100 text-yellow-800 border border-yellow-200 shadow-sm">
-                        ⏱ Pending
-                      </span>
-                    )}
+                    {(() => {
+                      // Check if there's a successful refund
+                      const hasSuccessfulRefund = order.paymentStatus === "REFUND_SUCCESSFUL" || 
+                                                  (cancellationDetails?.refundDetails?.refundStatus === 'COMPLETED') ||
+                                                  (modificationPermission?.approvedCancellation?.adminResponse?.refundAmount > 0);
+                      
+                      // Check if refund is processing
+                      const isRefundProcessing = order.paymentStatus === "REFUND_PROCESSING" ||
+                                                (cancellationDetails?.refundDetails?.refundStatus === 'PROCESSING');
+                      
+                      // Check if refund failed
+                      const isRefundFailed = order.paymentStatus === "REFUND_FAILED" ||
+                                            (cancellationDetails?.refundDetails?.refundStatus === 'FAILED');
+                      
+                      if (hasSuccessfulRefund) {
+                        return (
+                          <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-800 border border-blue-200 shadow-sm">
+                            ✓ Refunded
+                          </span>
+                        );
+                      } else if (isRefundProcessing) {
+                        return (
+                          <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-orange-100 text-orange-800 border border-orange-200 shadow-sm">
+                            🔄 Refund Processing
+                          </span>
+                        );
+                      } else if (isRefundFailed) {
+                        return (
+                          <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-800 border border-red-200 shadow-sm">
+                            ✗ Refund Failed
+                          </span>
+                        );
+                      } else if (order.orderStatus === "DELIVERED" && order.paymentStatus === "CASH ON DELIVERY") {
+                        return (
+                          <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-800 border border-green-200 shadow-sm">
+                            Will be marked as PAID on delivery
+                          </span>
+                        );
+                      } else if (order.paymentStatus === "PAID") {
+                        return (
+                          <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-800 border border-green-200 shadow-sm">
+                            ✓ Paid
+                          </span>
+                        );
+                      } else if (order.paymentStatus === "CANCELLED" || order.orderStatus === "CANCELLED") {
+                        return (
+                          <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-800 border border-red-200 shadow-sm">
+                            ✗ Cancelled
+                          </span>
+                        );
+                      } else {
+                        return (
+                          <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-yellow-100 text-yellow-800 border border-yellow-200 shadow-sm">
+                            ⏱ Pending
+                          </span>
+                        );
+                      }
+                    })()}
                   </div>
                 </div>
                 <div className="mb-4">
                   <span className="block text-sm font-medium text-gray-500 mb-1.5">Total Quantity</span>
-                  <span className="font-medium text-gray-800 tracking-wide">{order.totalQuantity} items</span>
+                  {(() => {
+                    const activeOrderInfo = getActiveOrderInfo(order);
+                    return (
+                      <div className="flex flex-col">
+                        <span className="font-medium text-gray-800 tracking-wide">{activeOrderInfo.activeItemCount} items</span>
+                        {activeOrderInfo.hasCancelledItems && (
+                          <span className="text-xs text-amber-600">
+                            (was {order.totalQuantity} items)
+                          </span>
+                        )}
+                      </div>
+                    );
+                  })()}
                 </div>
                 <div className="mb-4">
                   <span className="block text-sm font-medium text-gray-500 mb-1.5">Subtotal</span>
-                  <span className="font-medium text-gray-800 tracking-wide">₹{order.subTotalAmt?.toFixed(2)}</span>
+                  {(() => {
+                    const activeOrderInfo = getActiveOrderInfo(order);
+                    return (
+                      <div className="flex flex-col">
+                        <span className="font-medium text-gray-800 tracking-wide">₹{activeOrderInfo.remainingSubtotal?.toFixed(2)}</span>
+                        {activeOrderInfo.hasCancelledItems && (
+                          <span className="text-xs text-amber-600">
+                            <span className="line-through">₹{order.subTotalAmt?.toFixed(2)}</span> (adjusted)
+                          </span>
+                        )}
+                      </div>
+                    );
+                  })()}
                 </div>
                 <div>
-                  <span className="block text-sm font-medium text-gray-500 mb-1.5">Total Amount</span>
-                  <span className="font-bold text-lg text-gray-800 tracking-wide">₹{order.totalAmt?.toFixed(2)}</span>
+                  {(() => {
+                    const activeOrderInfo = getActiveOrderInfo(order);
+                    return (
+                      <>
+                        <span className="block text-sm font-medium text-gray-500 mb-1.5">
+                          Remaining Amount
+                        </span>
+                        <div className="flex flex-col">
+                          <span className="font-bold text-lg text-gray-800 tracking-wide">₹{activeOrderInfo.remainingTotal?.toFixed(2)}</span>
+                          {activeOrderInfo.hasCancelledItems && (
+                            <span className="text-xs text-amber-600">
+                              <span className="line-through">₹{order.totalAmt?.toFixed(2)}</span> (original total)
+                            </span>
+                          )}
+                        </div>
+                      </>
+                    );
+                  })()}
                 </div>
               </div>
             </div>
@@ -651,15 +841,59 @@ const AdminOrderDetails = ({ order, onClose }) => {
 
           {/* Products Information - Fixed for Multiple Items */}
           <div className="mt-8">
-            <h3 className="font-bold text-lg text-gray-800 mb-4 flex items-center tracking-tight">
-              <FaBox className="text-gray-600 mr-2.5" />
-              Products Information ({order.items?.length || 0} items)
-            </h3>
-            
-            {/* Check if order has items array (new structure) or single product (old structure) */}
-            {order.items && order.items.length > 0 ? (
-              <div className="space-y-4">
-                {order.items.map((item, index) => {
+            {(() => {
+              const activeOrderInfo = getActiveOrderInfo(order);
+              return (
+                <>
+                  <h3 className="font-bold text-lg text-gray-800 mb-4 flex items-center tracking-tight">
+                    <FaBox className="text-gray-600 mr-2.5" />
+                    Products Information ({activeOrderInfo.activeItems?.length || 0} active items)
+                    {activeOrderInfo.hasCancelledItems && (
+                      <span className="ml-2 text-sm text-amber-600 font-normal">
+                        ({(order.items?.length || 0) - (activeOrderInfo.activeItems?.length || 0)} cancelled)
+                      </span>
+                    )}
+                  </h3>
+                  
+                  {/* Check if order has items array (new structure) or single product (old structure) */}
+                  {order.items && order.items.length > 0 ? (
+                    <div className="space-y-4">
+                      {order.items.map((item, index) => {
+                        // Check if this item is cancelled - check both sources
+                        const activeOrderInfo = getActiveOrderInfo(order);
+                        
+                        // Debug logging for cancellation detection
+                        console.log('Checking cancellation for item:', {
+                          itemId: item._id?.toString() || item.id?.toString(),
+                          orderCancellationData: order.cancellationData?.itemsToCancel,
+                          approvedCancellationData: modificationPermission.approvedCancellation?.itemsToCancel,
+                          hasCancelledItems: activeOrderInfo.hasCancelledItems
+                        });
+                        
+                        const isCancelled = activeOrderInfo.hasCancelledItems && (
+                          order.cancellationData?.itemsToCancel?.some(cancelledItem => {
+                            const itemId = item._id?.toString() || item.id?.toString();
+                            const cancelledItemId = cancelledItem.itemId?.toString() || cancelledItem._id?.toString();
+                            return itemId === cancelledItemId;
+                          }) ||
+                          modificationPermission.approvedCancellation?.itemsToCancel?.some(cancelledItem => {
+                            const itemId = item._id?.toString() || item.id?.toString();
+                            const cancelledItemId = cancelledItem.itemId?.toString() || cancelledItem._id?.toString();
+                            return itemId === cancelledItemId;
+                          }) ||
+                          // Check refundSummary for cancelled items
+                          order.refundSummary?.some(refundItem => {
+                            const itemId = item._id?.toString() || item.id?.toString();
+                            const refundItemId = refundItem.itemId?.toString();
+                            return itemId === refundItemId && refundItem.status === 'Completed';
+                          })
+                        );
+                        
+                        console.log('Item cancellation status:', {
+                          itemId: item._id?.toString() || item.id?.toString(),
+                          isCancelled: isCancelled,
+                          productName: item.productId?.name || item.productDetails?.name
+                        });
                   // Determine item type
                   const isBundle = item.itemType === 'bundle';
                   
@@ -709,9 +943,9 @@ const AdminOrderDetails = ({ order, onClose }) => {
                   const bundleItems = getBundleItems();
                   
                   return (
-                    <div key={index} className="bg-white border border-gray-200 rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow">
+                    <div key={index} className={`bg-white border border-gray-200 rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow ${isCancelled ? 'opacity-60 bg-gray-50' : ''}`}>
                       <div className="flex flex-col md:flex-row items-start p-4 sm:p-5 gap-4">
-                        <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-md overflow-hidden bg-gray-100 flex-shrink-0 border border-gray-100 shadow-sm">
+                        <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-md overflow-hidden bg-gray-100 flex-shrink-0 border border-gray-100 shadow-sm relative">
                           {((isBundle && (productInfo?.images?.[0] || productInfo?.image?.[0])) || 
                             (!isBundle && productInfo?.image?.[0])) && (
                             <img 
@@ -720,16 +954,23 @@ const AdminOrderDetails = ({ order, onClose }) => {
                                 : productInfo.image[0]
                               } 
                               alt={productInfo?.name || productInfo?.title} 
-                              className="w-full h-full object-cover"
+                              className={`w-full h-full object-cover ${isCancelled ? 'grayscale' : ''}`}
                               onError={(e) => {
                                 e.target.style.display = 'none';
                               }}
                             />
                           )}
+                          {isCancelled && (
+                            <div className="absolute inset-0 bg-red-500 bg-opacity-20 flex items-center justify-center">
+                              <span className="text-red-600 font-bold text-xs bg-white px-2 py-1 rounded">
+                                CANCELLED
+                              </span>
+                            </div>
+                          )}
                         </div>
                         <div className="flex-grow">
                           <div className="flex items-center gap-2 mb-3">
-                            <h4 className="font-semibold text-gray-900 tracking-tight text-base sm:text-lg">
+                            <h4 className={`font-semibold tracking-tight text-base sm:text-lg ${isCancelled ? 'text-gray-500 line-through' : 'text-gray-900'}`}>
                               {productInfo?.name || productInfo?.title || (isBundle ? 'Bundle Product' : 'Product Name')}
                             </h4>
                             {isBundle && (
@@ -737,19 +978,25 @@ const AdminOrderDetails = ({ order, onClose }) => {
                                 Bundle
                               </span>
                             )}
+                            {isCancelled && (
+                              <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800 border border-red-300">
+                                <FaBan className="mr-1" size={10} />
+                                CANCELLED
+                              </span>
+                            )}
                           </div>
                           
                           <div className="grid grid-cols-2 md:grid-cols-5 gap-4 sm:gap-5 text-sm mb-4">
                             <div className="bg-gray-50 p-2.5 rounded-md border border-gray-100">
                               <span className="text-gray-500 font-medium block mb-1">Quantity</span>
-                              <p className="font-semibold text-gray-800">{item.quantity}</p>
+                              <p className={`font-semibold ${isCancelled ? 'text-gray-500' : 'text-gray-800'}`}>{item.quantity}</p>
                             </div>
                   
                             <div className="bg-gray-50 p-2.5 rounded-md border border-gray-100">
                               <span className="text-gray-500 font-medium block mb-1">Size</span>
-                              <p className="font-semibold text-gray-800">
+                              <p className={`font-semibold ${isCancelled ? 'text-gray-500' : 'text-gray-800'}`}>
                                 {item.size ? (
-                                  <span className="inline-block bg-green-100 text-green-800 px-2 py-1 rounded-md text-xs font-semibold">
+                                  <span className={`inline-block px-2 py-1 rounded-md text-xs font-semibold ${isCancelled ? 'bg-gray-100 text-gray-600' : 'bg-green-100 text-green-800'}`}>
                                     {item.size}
                                   </span>
                                 ) : (
@@ -758,11 +1005,31 @@ const AdminOrderDetails = ({ order, onClose }) => {
                               </p>
                             </div>
                             <div className="bg-gray-50 p-2.5 rounded-md border border-gray-100">
+                              <span className="text-gray-500 font-medium block mb-1">Unit Price</span>
+                              <p className={`font-semibold ${isCancelled ? 'text-gray-500 line-through' : 'text-gray-800'}`}>
+                                ₹{unitPrice?.toFixed(2)}
+                              </p>
+                            </div>
+                            <div className="bg-gray-50 p-2.5 rounded-md border border-gray-100">
+                              <span className="text-gray-500 font-medium block mb-1">Total Price</span>
+                              <p className={`font-semibold ${isCancelled ? 'text-gray-500 line-through' : 'text-gray-800'}`}>
+                                ₹{itemTotal?.toFixed(2)}
+                              </p>
+                            </div>
+                            <div className="bg-gray-50 p-2.5 rounded-md border border-gray-100">
                               <span className="text-gray-500 font-medium block mb-1">{isBundle ? 'Bundle ID' : 'Product ID'}</span>
-                              <p className="font-medium text-gray-800 text-xs break-all">
+                              <p className={`font-medium text-xs break-all ${isCancelled ? 'text-gray-500' : 'text-gray-800'}`}>
                                 {typeof productId === 'string' ? productId : productId?.toString()}
                               </p>
                             </div>
+                            {isCancelled && (
+                              <div className="md:col-span-5 bg-red-50 border border-red-200 rounded-md p-3">
+                                <div className="flex items-center text-red-700 text-sm">
+                                  <FaBan className="mr-2 text-red-600" />
+                                  <span className="font-medium">This item has been cancelled and refunded</span>
+                                </div>
+                              </div>
+                            )}
                           </div>
                           
                           {/* Bundle Items Details */}
@@ -923,6 +1190,9 @@ const AdminOrderDetails = ({ order, onClose }) => {
                 );
               })()
             )}
+                </>
+              );
+            })()}
           </div>
 
           {/* Shipping Address */}

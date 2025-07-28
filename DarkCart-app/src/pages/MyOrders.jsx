@@ -117,6 +117,22 @@ function MyOrders() {
 
   // Get size-based unit price with proper discount application
   const getSizeBasedUnitPrice = (item, productInfo = null) => {
+    // First priority: Use stored sizeAdjustedPrice if available (this is the actual charged price)
+    if (item?.sizeAdjustedPrice && item.sizeAdjustedPrice > 0) {
+      return item.sizeAdjustedPrice;
+    }
+    
+    // Second priority: Use stored unit price if available
+    if (item?.unitPrice && item.unitPrice > 0) {
+      return item.unitPrice;
+    }
+    
+    // Third priority: Use stored itemTotal divided by quantity
+    if (item?.itemTotal && item.itemTotal > 0 && item?.quantity && item.quantity > 0) {
+      return item.itemTotal / item.quantity;
+    }
+    
+    // Fallback: Calculate based on total price (only if no stored prices available)
     const totalPrice = calculateSizeBasedPrice(item, productInfo);
     return totalPrice / (item?.quantity || 1);
   };
@@ -124,13 +140,24 @@ function MyOrders() {
   // Function to fetch current user's orders specifically (not all orders for admin)
   const fetchCurrentUserOrders = async () => {
     try {
+      // Debug current user info
+      const currentUserId = localStorage.getItem('userId');
+      console.log('fetchCurrentUserOrders - Current user ID from localStorage:', currentUserId);
+      console.log('fetchCurrentUserOrders - Redux user state:', user);
+      
       const response = await Axios({
         url: SummaryApi.getOrderList.url,
         method: SummaryApi.getOrderList.method
       });
       
       if (response.data.success) {
-        console.log('Fetched current user orders:', response.data.data.length);
+        console.log('fetchCurrentUserOrders - Fetched orders count:', response.data.data.length);
+        console.log('fetchCurrentUserOrders - First order details:', response.data.data[0]);
+        if (response.data.data.length > 0) {
+          console.log('fetchCurrentUserOrders - First order user ID:', response.data.data[0]?.userId?._id || response.data.data[0]?.userId);
+          console.log('fetchCurrentUserOrders - Does order belong to current user?', 
+            (response.data.data[0]?.userId?._id || response.data.data[0]?.userId) === currentUserId);
+        }
         dispatch(setOrders(response.data.data));
       }
     } catch (error) {
@@ -169,9 +196,22 @@ function MyOrders() {
   useEffect(() => {
     if (allOrders && allOrders.length > 0 && user && user._id) {
       const filteredOrders = allOrders.filter(order => {
+        // Get user IDs in both string and object form
         const orderUserId = order.userId?._id || order.userId;
         const currentUserId = user._id;
-        const isMatch = orderUserId === currentUserId;
+        
+        // More flexible comparison - compare as strings if types don't match
+        let isMatch = false;
+        
+        if (orderUserId && currentUserId) {
+          // First try direct comparison
+          isMatch = orderUserId === currentUserId;
+          
+          // If no match, try string comparison
+          if (!isMatch) {
+            isMatch = orderUserId.toString() === currentUserId.toString();
+          }
+        }
         
         // More detailed debugging
         if (!isMatch) {
@@ -397,6 +437,11 @@ function MyOrders() {
   const isOrderCancelled = (orderData) => {
     return orderData?.orderStatus === 'CANCELLED';
   };
+  
+  // Check if a specific item has been cancelled
+  const isItemCancelled = (item) => {
+    return item?.status === 'Cancelled' || item?.cancelApproved === true;
+  };
 
   // Helper function to determine payment status display
   const getPaymentStatus = (orderData) => {
@@ -405,8 +450,15 @@ function MyOrders() {
       return "CANCELLATION_REQUESTED";
     }
     
-    // If payment is explicitly set to PAID
+    // If payment is explicitly set to PAID (highest priority)
     if (orderData?.paymentStatus === "PAID") {
+      return "PAID";
+    }
+    
+    // For online payments - if payment method is online and order is placed successfully
+    if ((orderData?.paymentMethod === "ONLINE" || 
+         orderData?.paymentMethod === "Online Payment") && 
+        orderData?.orderStatus !== "CANCELLED") {
       return "PAID";
     }
     
@@ -415,12 +467,17 @@ function MyOrders() {
       return "PAID";
     }
     
+    // For processing and out for delivery orders (likely already paid)
+    if (orderData?.orderStatus === "PROCESSING" || orderData?.orderStatus === "OUT FOR DELIVERY") {
+      return "PAID";
+    }
+    
     // For cancelled orders
     if (orderData?.orderStatus === "CANCELLED") {
       return "CANCELLED";
     }
     
-    // For all other cases (ORDER PLACED, PROCESSING, OUT FOR DELIVERY)
+    // For all other cases (ORDER PLACED with COD)
     return "PENDING";
   };
 
@@ -762,15 +819,29 @@ function MyOrders() {
                   <div>
                     {/* Display all items in the order */}
                     <div className="space-y-2 sm:space-y-3">
-                      {order?.items?.map((item, itemIndex) => (
+                      {order?.items?.map((item, itemIndex) => {
+                        // Check if this specific item is cancelled
+                        const isItemCancelled = item?.status === 'Cancelled' || item?.cancelApproved === true;
+                        
+                        return (
                         <div key={`${order._id}-item-${itemIndex}`} className={`rounded-lg p-2 sm:p-3 border ${
-                          isCancelled ? 'bg-red-50 border-red-200' : 'bg-gray-50 border-gray-200'
-                        }`}>
+                          isCancelled ? 'bg-red-50 border-red-200' : 
+                          isItemCancelled ? 'bg-orange-50 border-orange-200' : 
+                          'bg-gray-50 border-gray-200'
+                        } relative`}>
+                          {/* Item cancellation indicator */}
+                          {isItemCancelled && !isCancelled && (
+                            <div className="absolute top-0 right-0 transform -translate-y-1/3 translate-x-1/3">
+                              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800 border border-red-200">
+                                Cancelled
+                              </span>
+                            </div>
+                          )}
                           <div className="flex items-start gap-2 sm:gap-3">
                             {/* Item image */}
                             <div 
                               className={`w-12 h-12 sm:w-16 sm:h-16 rounded-md overflow-hidden border flex-shrink-0 ${
-                                isCancelled ? 'border-red-300' : 'border-gray-200'
+                                isCancelled || isItemCancelled ? 'border-red-300' : 'border-gray-200'
                               }`}
                             >
                               {(() => {
@@ -933,7 +1004,7 @@ function MyOrders() {
                                   </div>
                                 </div>
                                 <div className="text-right">
-                                  {/* Enhanced pricing display with size-based pricing */}
+                                  {/* Enhanced pricing display with size-based pricing - Following PaymentPage logic */}
                                   <div className="space-y-1">
                                     {(() => {
                                       const isBundle = item?.itemType === 'bundle';
@@ -947,31 +1018,37 @@ function MyOrders() {
                                         finalPrice = item?.bundleId?.bundlePrice || item?.bundleDetails?.bundlePrice || 0;
                                         hasDiscount = originalPrice > finalPrice && originalPrice > 0;
                                       } else {
-                                        // For products, use size-based pricing
+                                        // For products, follow PaymentPage logic: Calculate both original and final prices correctly
                                         const productInfo = item?.productId || item?.productDetails;
-                                        finalPrice = getSizeBasedUnitPrice(item, productInfo);
-                                        
-                                        // Calculate original price with size adjustments
                                         const basePrice = productInfo?.price || 0;
                                         const discount = productInfo?.discount || 0;
                                         const size = item?.size;
                                         
-                                        // Apply size multiplier to original price
+                                        // Step 1: Calculate original price with size adjustments (this should be the higher price)
                                         const sizeMultipliers = {
                                           'XS': 0.9, 'S': 1.0, 'M': 1.1, 'L': 1.2, 'XL': 1.3, 'XXL': 1.4,
                                           '28': 0.9, '30': 1.0, '32': 1.1, '34': 1.2, '36': 1.3, '38': 1.4, '40': 1.5, '42': 1.6
                                         };
                                         const multiplier = size ? (sizeMultipliers[size] || sizeMultipliers[size.toUpperCase()] || 1.0) : 1.0;
-                                        originalPrice = basePrice * multiplier;
                                         
-                                        // Check if there's a difference between original and final (due to discount or size adjustment)
-                                        const baseDiscountedPrice = discount > 0 ? originalPrice * (1 - discount/100) : originalPrice;
-                                        hasDiscount = discount > 0 || Math.abs(baseDiscountedPrice - finalPrice) > 0.01;
+                                        // Use stored sizeAdjustedPrice as original if available, otherwise calculate
+                                        if (item?.sizeAdjustedPrice && item.sizeAdjustedPrice > 0) {
+                                          originalPrice = item.sizeAdjustedPrice;
+                                          // Apply discount to get final price
+                                          finalPrice = discount > 0 ? originalPrice * (1 - discount/100) : originalPrice;
+                                        } else {
+                                          // Calculate original price (before discount)
+                                          originalPrice = basePrice * multiplier;
+                                          // Apply discount to get final price
+                                          finalPrice = discount > 0 ? originalPrice * (1 - discount/100) : originalPrice;
+                                        }
+                                        
+                                        hasDiscount = discount > 0 && originalPrice > finalPrice;
                                       }
                                       
                                       return (
                                         <>
-                                          {/* Show original price per unit if there's a discount */}
+                                          {/* Show original price per unit if there's a discount (this should be the higher price) */}
                                           {hasDiscount && (
                                             <div className={`text-xs ${
                                               isCancelled ? 'text-red-500 line-through' : 'text-gray-500 line-through'
@@ -989,27 +1066,11 @@ function MyOrders() {
                                             </div>
                                           )}
                                           
-                                          {/* Show size info for products without discount but with size multiplier */}
-                                          {!hasDiscount && !isBundle && item?.size && (() => {
-                                            const sizeMultipliers = {
-                                              'XS': 0.9, 'S': 1.0, 'M': 1.1, 'L': 1.2, 'XL': 1.3, 'XXL': 1.4,
-                                              '28': 0.9, '30': 1.0, '32': 1.1, '34': 1.2, '36': 1.3, '38': 1.4, '40': 1.5, '42': 1.6
-                                            };
-                                            const multiplier = sizeMultipliers[item.size] || sizeMultipliers[item.size.toUpperCase()] || 1.0;
-                                            return multiplier !== 1.0;
-                                          })() && (
-                                            <div className={`text-xs ${
-                                              isCancelled ? 'text-red-600' : 'text-purple-600'
-                                            }`}>
-                                              Size {item.size} Adjusted Price
-                                            </div>
-                                          )}
-                                          
-                                          {/* Final/Adjusted Price per unit */}
+                                          {/* Final/Discounted Price per unit (this should be the lower price after discount) */}
                                           <div className={`font-bold text-sm sm:text-base ${
                                             isCancelled ? 'text-red-800 line-through' : 'text-black'
                                           }`}>
-                                            Unit Price: ₹{finalPrice?.toFixed(2)}
+                                            {hasDiscount ? 'Discounted' : 'Unit'} Price: ₹{finalPrice?.toFixed(2)}
                                             {!isBundle && item?.size && (() => {
                                               const sizeMultipliers = {
                                                 'XS': 0.9, 'S': 1.0, 'M': 1.1, 'L': 1.2, 'XL': 1.3, 'XXL': 1.4,
@@ -1062,7 +1123,7 @@ function MyOrders() {
                             </div>
                           </div>
                         </div>
-                      ))}
+                      )})}
                     </div>
                     
                     {/* Price Details */}
@@ -1082,18 +1143,9 @@ function MyOrders() {
                               isCancelled ? 'text-red-800' : 'text-gray-900'
                             }`}>
                               {(() => {
-                                // Calculate delivery charge properly
-                                const totalAmt = order?.totalAmt || 0;
-                                const subTotalAmt = order?.subTotalAmt || 0;
-                                
-                                // If we have both values, calculate the difference
-                                if (totalAmt > 0 && subTotalAmt > 0) {
-                                  const deliveryCharge = totalAmt - subTotalAmt;
-                                  return deliveryCharge > 0 ? `₹${deliveryCharge.toFixed(2)}` : 'FREE';
-                                }
-                                
-                                // Fallback: assume no delivery charge if we can't calculate properly
-                                return 'FREE';
+                                // Use actual delivery charge from order data
+                                const deliveryCharge = order?.deliveryCharge || 0;
+                                return deliveryCharge > 0 ? `₹${deliveryCharge.toFixed(2)}` : 'FREE';
                               })()}
                             </span>
                           </div>
@@ -1110,47 +1162,78 @@ function MyOrders() {
                                 isCancelled ? 'text-red-800 line-through' : 'text-black'
                               }`}>
                                 {(() => {
-                                  // Use the stored total amount from the order for consistency
-                                  // The order total was calculated at the time of order placement with proper logic
-                                  const storedTotal = order?.totalAmt || 0;
+                                  // Use order.totalAmt as the primary source since it's what was actually charged
+                                  const originalOrderTotal = order?.totalAmt || 0;
                                   
-                                  // Optionally verify with calculated total for debugging
-                                  if (process.env.NODE_ENV === 'development') {
-                                    let calculatedTotal = 0;
+                                  // If order is fully cancelled, show original amount with strikethrough
+                                  if (isCancelled) {
+                                    return `₹${originalOrderTotal.toFixed(2)}`;
+                                  }
+                                  
+                                  // Check if any items are cancelled
+                                  const hasCancelledItems = order?.items?.some(item => 
+                                    item?.status === 'Cancelled' || item?.cancelApproved === true
+                                  );
+                                  
+                                  if (hasCancelledItems) {
+                                    // Calculate current total excluding cancelled items
+                                    let currentTotal = 0;
+                                    
                                     order?.items?.forEach(item => {
-                                      if (item?.itemType === 'bundle') {
-                                        const bundlePrice = item?.bundleId?.bundlePrice || item?.bundleDetails?.bundlePrice || 0;
-                                        calculatedTotal += bundlePrice * (item.quantity || 1);
-                                      } else {
-                                        // Use itemTotal if available, otherwise calculate
-                                        if (item.itemTotal) {
-                                          calculatedTotal += item.itemTotal;
-                                        } else {
-                                          const productInfo = item?.productId || item?.productDetails;
-                                          const sizeBasedPrice = calculateSizeBasedPrice(item, productInfo);
-                                          calculatedTotal += sizeBasedPrice;
-                                        }
+                                      const isItemCancelled = item?.status === 'Cancelled' || item?.cancelApproved === true;
+                                      
+                                      if (!isItemCancelled) {
+                                        // Use stored item total or calculate from unit price
+                                        const itemTotal = item?.itemTotal || 
+                                                        (item?.unitPrice || 0) * (item?.quantity || 1);
+                                        currentTotal += itemTotal;
                                       }
                                     });
                                     
-                                    // Add delivery charge if any (calculated properly)
-                                    const subTotalAmt = order?.subTotalAmt || 0;
-                                    if (storedTotal > subTotalAmt) {
-                                      const deliveryCharge = storedTotal - subTotalAmt;
-                                      // No need to add separately as it's already in storedTotal
-                                    }
+                                    // Add delivery charge to current total
+                                    const deliveryCharge = order?.deliveryCharge || 0;
+                                    currentTotal += deliveryCharge;
                                     
-                                    // Log discrepancy if any (for debugging)
-                                    const totalWithDelivery = calculatedTotal + (storedTotal - (order?.subTotalAmt || 0));
-                                    if (Math.abs(storedTotal - totalWithDelivery) > 0.01) {
-                                      console.warn(`Order ${order.orderId}: Total discrepancy - Stored: ${storedTotal}, Calculated: ${totalWithDelivery}`);
-                                    }
+                                    return (
+                                      <>
+                                        <span className="line-through text-gray-500 text-sm mr-2">
+                                          ₹{originalOrderTotal.toFixed(2)}
+                                        </span>
+                                        <span className="text-green-700">
+                                          ₹{currentTotal.toFixed(2)}
+                                        </span>
+                                      </>
+                                    );
                                   }
                                   
-                                  return `₹${storedTotal.toFixed(2)}`;
+                                  // No cancelled items, show original total
+                                  return `₹${originalOrderTotal.toFixed(2)}`;
                                 })()}
                               </span>
                             </div>
+                            
+                            {/* Show cancelled items info */}
+                            {(() => {
+                              // Check if any items are cancelled but the order is not fully cancelled
+                              const hasCancelledItems = order?.items?.some(item => 
+                                (item?.status === 'Cancelled' || item?.cancelApproved === true)
+                              );
+                              
+                              if (hasCancelledItems && !isCancelled) {
+                                const cancelledItems = order?.items?.filter(item => 
+                                  item?.status === 'Cancelled' || item?.cancelApproved === true
+                                );
+                                
+                                return (
+                                  <div className="mt-2 text-xs text-red-600 flex items-center">
+                                    <FaInfoCircle className="mr-1" /> 
+                                    <span>{cancelledItems.length} item(s) cancelled - amount reduced</span>
+                                  </div>
+                                );
+                              }
+                              
+                              return null;
+                            })()}
                           </div>
                         </div>
                       </div>
@@ -1490,7 +1573,7 @@ function MyOrders() {
                             </button>
 
                             {/* Partial Item Cancellation - only show if order has multiple items */}
-                            {order.items && order.items.length > 1 && (
+                            {/* {order.items && order.items.length > 1 && (
                               <button
                                 onClick={() => handlePartialCancelOrder(order)}
                                 disabled={cancellingOrderId === order.orderId}
@@ -1503,7 +1586,7 @@ function MyOrders() {
                                 <FaListAlt className='inline w-4 h-4 mr-2' />
                                 Cancel Items
                               </button>
-                            )}
+                            )} */}
                           </div>
                         )}
                       </div>

@@ -63,7 +63,7 @@ const ProductDetails = ({ data, className = "" }) => {
             <div className="flex">
               <div className="font-medium text-gray-600 w-32 font-['Poppins']">Customer Care Address</div>
               <div className="text-gray-800 font-['Poppins']">
-                : Tower-B, 7th Floor, casualclothings Office, Knowledge Park, Main Road, Bengaluru, Karnataka - 560029
+                : Sivsakthi Nagar, 5th Street, Tirupur, Tamil Nadu - 641604
               </div>
             </div>
           </div>

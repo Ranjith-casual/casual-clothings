@@ -11,9 +11,11 @@ import fs from 'fs';
 export const checkActiveCancellationRequest = async (orderId) => {
     try {
         const { default: orderCancellationModel } = await import('../models/orderCancellation.model.js');
+        // Only consider PENDING cancellation requests as blocking
+        // APPROVED cancellations should allow admin to modify remaining items
         const activeCancellationRequest = await orderCancellationModel.findOne({
             orderId: orderId,
-            status: { $in: ['PENDING', 'APPROVED'] },
+            status: 'PENDING', // Only PENDING requests block modifications
             isActive: true
         });
         return activeCancellationRequest;
@@ -39,10 +41,25 @@ export const checkOrderModificationPermissionController = async (req, res) => {
             });
         }
 
-        // Check for active cancellation request
+        // Check for active (PENDING) cancellation request
         const activeCancellationRequest = await checkActiveCancellationRequest(order._id);
         
-        const canModify = !activeCancellationRequest;
+        // Also check for approved cancellations for informational purposes
+        const { default: orderCancellationModel } = await import('../models/orderCancellation.model.js');
+        const approvedCancellation = await orderCancellationModel.findOne({
+            orderId: order._id,
+            status: 'APPROVED',
+            isActive: true
+        });
+        
+        const canModify = !activeCancellationRequest; // Only PENDING requests block modifications
+        
+        let reason = "No restrictions";
+        if (activeCancellationRequest) {
+            reason = "Active cancellation request pending approval";
+        } else if (approvedCancellation) {
+            reason = "Cancellation approved - can modify remaining items";
+        }
         
         return res.json({
             success: true,
@@ -51,11 +68,17 @@ export const checkOrderModificationPermissionController = async (req, res) => {
             data: {
                 orderId: orderId,
                 canModify: canModify,
-                reason: activeCancellationRequest ? "Active cancellation request exists" : "No restrictions",
+                reason: reason,
                 cancellationRequest: activeCancellationRequest ? {
                     status: activeCancellationRequest.status,
                     requestDate: activeCancellationRequest.requestDate,
                     reason: activeCancellationRequest.reason
+                } : null,
+                approvedCancellation: approvedCancellation ? {
+                    status: approvedCancellation.status,
+                    requestDate: approvedCancellation.requestDate,
+                    reason: approvedCancellation.reason,
+                    itemsToCancel: approvedCancellation.itemsToCancel
                 } : null
             }
         });
@@ -490,6 +513,7 @@ export const onlinePaymentOrderController = async (req, res) => {
       estimatedDeliveryDate: estimatedDeliveryDate ? new Date(estimatedDeliveryDate) : calculateEstimatedDeliveryDate(),
       deliveryDistance: deliveryDistance || 0,
       deliveryDays: deliveryDays || 0,
+      deliveryCharge: deliveryCharge || 0, // Add deliveryCharge field
       paymentStatus: "PAID", // Always PAID for online payments
       paymentMethod: paymentMethod || "Online Payment",
       deliveryAddress: addressId,
