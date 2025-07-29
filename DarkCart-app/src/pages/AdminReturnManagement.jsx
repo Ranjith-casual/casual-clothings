@@ -528,7 +528,10 @@ const AdminReturnManagement = () => {
                                                                     {returnReq.status.replace('_', ' ')}
                                                                 </span>
                                                                 <p className="text-sm font-semibold mt-2 text-gray-900">
-                                                                    Refund: ₹{returnReq.refundDetails?.actualRefundAmount || (returnReq.itemDetails.refundAmount * returnReq.itemDetails.quantity)}
+                                                                    {returnReq.status === 'REQUESTED' 
+                                                                        ? 'Refund: Admin will verify and update' 
+                                                                        : `Refund: ₹${returnReq.refundDetails?.actualRefundAmount || (returnReq.itemDetails.refundAmount * returnReq.itemDetails.quantity)}`
+                                                                    }
                                                                 </p>
                                                             </div>
                                                         </div>
@@ -911,7 +914,10 @@ const AdminReturnManagement = () => {
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap">
                                         <span className="text-sm font-semibold text-gray-900">
-                                            ₹{returnRequest.refundDetails?.actualRefundAmount || (returnRequest.itemDetails?.refundAmount * (returnRequest.itemDetails?.quantity || 1)) || 0}
+                                            {returnRequest.status === 'REQUESTED' 
+                                                ? 'Admin will verify and update' 
+                                                : `₹${returnRequest.refundDetails?.actualRefundAmount || (returnRequest.itemDetails?.refundAmount * (returnRequest.itemDetails?.quantity || 1)) || 0}`
+                                            }
                                         </span>
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap">

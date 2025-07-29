@@ -249,6 +249,80 @@ const AdminOrderDashboard = () => {
     );
   };
 
+  // State to track return information for orders
+  const [orderReturnInfo, setOrderReturnInfo] = useState({});
+
+  // Check if an order has any return requests (simplified check)
+  const hasReturnRequests = (orderId) => {
+    return orderReturnInfo[orderId]?.hasReturns || false;
+  };
+
+  // Get return summary for an order
+  const getReturnSummary = (orderId) => {
+    return orderReturnInfo[orderId] || { totalReturns: 0, totalRefunded: 0, hasReturns: false };
+  };
+
+  // Fetch return information for delivered orders
+  const fetchReturnInfoForDeliveredOrders = async () => {
+    const deliveredOrders = orders.filter(order => 
+      order.orderStatus === 'DELIVERED' && !orderReturnInfo[order.orderId]
+    );
+    
+    if (deliveredOrders.length === 0) return;
+    
+    const returnInfoPromises = deliveredOrders.map(async (order) => {
+      try {
+        const response = await Axios({
+          ...SummaryApi.getOrderWithReturnDetails,
+          url: `${SummaryApi.getOrderWithReturnDetails.url}/${order._id}`
+        });
+        
+        if (response.data.success && response.data.data.items) {
+          const items = response.data.data.items;
+          let totalReturns = 0;
+          let totalRefunded = 0;
+          let hasReturns = false;
+          
+          items.forEach(item => {
+            if (item.returnRequests && item.returnRequests.length > 0) {
+              hasReturns = true;
+              totalReturns += item.returnRequests.length;
+              item.returnRequests.forEach(req => {
+                if (['APPROVED', 'PICKUP_SCHEDULED', 'PICKED_UP', 'INSPECTED', 'REFUND_PROCESSED', 'COMPLETED'].includes(req.status)) {
+                  totalRefunded += req.refundDetails?.actualRefundAmount || 0;
+                }
+              });
+            }
+          });
+          
+          return { orderId: order.orderId, totalReturns, totalRefunded, hasReturns };
+        }
+        return { orderId: order.orderId, totalReturns: 0, totalRefunded: 0, hasReturns: false };
+      } catch (error) {
+        console.error('Error fetching return info for order:', order.orderId, error);
+        return { orderId: order.orderId, totalReturns: 0, totalRefunded: 0, hasReturns: false };
+      }
+    });
+
+    const returnInfoResults = await Promise.all(returnInfoPromises);
+    const newReturnInfo = {};
+    returnInfoResults.forEach(info => {
+      newReturnInfo[info.orderId] = info;
+    });
+    
+    setOrderReturnInfo(prev => ({ ...prev, ...newReturnInfo }));
+  };
+
+  // Fetch return information when orders change
+  useEffect(() => {
+    if (orders.length > 0) {
+      const deliveredOrdersCount = orders.filter(order => order.orderStatus === 'DELIVERED').length;
+      if (deliveredOrdersCount > 0) {
+        fetchReturnInfoForDeliveredOrders();
+      }
+    }
+  }, [orders]); // Depend on orders, not filteredOrders
+
   // Get pending cancellation items count for an order
   const getPendingCancellationCount = (order) => {
     if (!order.items) return 0;
@@ -273,9 +347,15 @@ const AdminOrderDashboard = () => {
   useEffect(() => {
     if (orderData && orderData.length > 0) {
       setOrders(orderData);
+    }
+  }, [orderData]);
+
+  // Apply filters whenever orders or filter criteria change
+  useEffect(() => {
+    if (orders.length > 0) {
       applyFilters();
     }
-  }, [orderData]); // Only depends on orderData changes, other filters are handled in the dedicated effect
+  }, [orders, activeTab, searchQuery, selectedCountry, selectedState, selectedCity, dateFilter]);
   
   // Handle clicks outside of dropdown
   useEffect(() => {
@@ -348,18 +428,6 @@ const AdminOrderDashboard = () => {
     // Filter by tab (status)
     if (activeTab !== 'ALL') {
       result = result.filter(order => order.orderStatus === activeTab);
-    } else {
-      // For "All Orders" tab, sort so DELIVERED and CANCELLED appear at bottom
-      result.sort((a, b) => {
-        const statusPriority = {
-          'DELIVERED': 1,
-          'CANCELLED': 1,
-          'ORDER PLACED': 0,
-          'PROCESSING': 0,
-          'OUT FOR DELIVERY': 0
-        };
-        return (statusPriority[a.orderStatus] || 0) - (statusPriority[b.orderStatus] || 0);
-      });
     }
     
     // Filter by location
@@ -398,6 +466,9 @@ const AdminOrderDashboard = () => {
         order.userId?.email?.toLowerCase().includes(query)
       );
     }
+
+    // Sort by order date (newest first) to maintain consistent ordering
+    result.sort((a, b) => new Date(b.orderDate) - new Date(a.orderDate));
 
     setFilteredOrders(result);
   };
@@ -456,16 +527,22 @@ const AdminOrderDashboard = () => {
       
       if (result.success) {
         // Update local state to reflect the change immediately for better UX
-        setOrders(orders.map(order => 
+        const updateOrder = (ordersList) => ordersList.map(order => 
           order.orderId === orderId 
             ? { ...order, orderStatus: newStatus }
             : order
-        ));
-        setFilteredOrders(filteredOrders.map(order => 
-          order.orderId === orderId 
-            ? { ...order, orderStatus: newStatus }
-            : order
-        ));
+        );
+        
+        setOrders(prevOrders => updateOrder(prevOrders));
+        setFilteredOrders(prevFiltered => updateOrder(prevFiltered));
+        
+        // Show success message
+        toast.success(`Order status updated to ${newStatus}`);
+        
+        // Force re-apply filters after a short delay to ensure consistency
+        setTimeout(() => {
+          applyFilters();
+        }, 100);
         
         // The global context will refresh all orders to ensure consistency
       } else {
@@ -475,7 +552,7 @@ const AdminOrderDashboard = () => {
             duration: 5000
           });
         } else {
-          // toast.error(result.message || 'Failed to update order status');
+          toast.error(result.message || 'Failed to update order status');
         }
       }
     } catch (error) {
@@ -1139,6 +1216,7 @@ const AdminOrderDashboard = () => {
                         className={`hover:bg-gray-50 transition-colors ${
                           order.hasCancellationRequest ? 'bg-yellow-50 border-l-4 border-yellow-400' : 
                           hasAnyPendingCancellationRequest(order.orderId) ? 'bg-orange-50 border-l-4 border-orange-400' :
+                          order.orderStatus === 'DELIVERED' && hasReturnRequests(order.orderId) ? 'bg-blue-50 border-l-4 border-blue-400' :
                           ''
                         }`}
                       >
@@ -1415,10 +1493,25 @@ const AdminOrderDashboard = () => {
                           )}
                         </td>
                         <td className="px-4 py-4">
-                          <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium ${statusDisplay.color} border`}>
-                            {statusDisplay.icon}
-                            {order.orderStatus.replace(/_/g, ' ')}
-                          </span>
+                          <div className="flex flex-col gap-1">
+                            <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium ${statusDisplay.color} border`}>
+                              {statusDisplay.icon}
+                              {order.orderStatus.replace(/_/g, ' ')}
+                            </span>
+                            {/* Return indicator for delivered orders */}
+                            {order.orderStatus === 'DELIVERED' && hasReturnRequests(order.orderId) && (() => {
+                              const returnSummary = getReturnSummary(order.orderId);
+                              return (
+                                <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 border border-blue-200">
+                                  <FaUndo className="w-3 h-3" />
+                                  {returnSummary.totalReturns} Return{returnSummary.totalReturns !== 1 ? 's' : ''}
+                                  {returnSummary.totalRefunded > 0 && (
+                                    <span className="ml-1 font-semibold">• ₹{returnSummary.totalRefunded.toFixed(0)}</span>
+                                  )}
+                                </span>
+                              );
+                            })()}
+                          </div>
                         </td>
                         <td className="px-4 py-4">
                           {getRefundStatusDisplay(order.orderId, order.orderStatus)}

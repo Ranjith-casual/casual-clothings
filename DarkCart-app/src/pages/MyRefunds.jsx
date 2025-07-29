@@ -252,8 +252,12 @@ const RefundDetailsModal = ({ refund, onClose, onShowBundleItems }) => {
                         <div className="bg-gray-50 p-4 rounded-lg">
                             <h3 className="font-semibold text-lg mb-3">Refund Information</h3>
                             <p><span className="font-medium">Refund Status:</span> {refundDetails.refundStatus || 'PROCESSING'}</p>
-                            <p><span className="font-medium">Refund Percentage:</span> {adminResponse.refundPercentage}%</p>
-                            <p><span className="font-medium">Refund Amount:</span> {DisplayPriceInRupees(adminResponse.refundAmount)}</p>
+                            <p><span className="font-medium">Refund Percentage:</span> {adminResponse.refundPercentage ? `${adminResponse.refundPercentage}%` : 'Admin will verify and update'}</p>
+                            <p><span className="font-medium">Refund Amount:</span> {
+                                (refund.status === 'PENDING' || !adminResponse.refundAmount || adminResponse.refundAmount <= 0) 
+                                    ? 'Admin will verify and update' 
+                                    : DisplayPriceInRupees(adminResponse.refundAmount)
+                            }</p>
                             
                             {refundDetails.refundId && (
                                 <>
@@ -546,10 +550,13 @@ const MyRefunds = () => {
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap">
                                         {refund.status === 'APPROVED' ? 
-                                          DisplayPriceInRupees(refund.adminResponse?.refundAmount) :
+                                          (refund.adminResponse?.refundAmount && refund.adminResponse.refundAmount > 0 
+                                            ? DisplayPriceInRupees(refund.adminResponse.refundAmount) 
+                                            : 'Admin will verify and update'
+                                          ) :
                                           (refund.status === 'REJECTED' ? 
                                             formatDate(refund.adminResponse?.processedDate) : 
-                                            'Pending')}
+                                            'Admin will verify and update')}
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                                         <button

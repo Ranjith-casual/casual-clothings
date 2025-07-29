@@ -371,7 +371,7 @@ const ReturnProduct = () => {
                                             <h3 className="font-semibold text-yellow-900 mb-1">Return Policy & Requirements</h3>
                                             <ul className="text-sm text-yellow-800 space-y-1">
                                                 <li>• Items can be returned within 24 hours of delivery</li>
-                                                <li>• 65% refund on original price</li>
+                                                <li>• Price will be calculated according to admin decision</li>
                                                 <li>• Items must be in original condition</li>
                                                 <li>• <strong>Return reason is mandatory for each selected item</strong></li>
                                                 <li>• Return pickup will be scheduled after approval</li>
@@ -474,12 +474,12 @@ const ReturnProduct = () => {
                                                                     </div>
                                                                     <div>
                                                                         <span className="text-gray-600">Refund Amount:</span>
-                                                                        <p className="font-semibold text-green-600">₹{item.refundAmount}</p>
+                                                                        <p className="font-semibold text-green-600">Admin will verify and update</p>
                                                                     </div>
                                                                     <div>
                                                                         <span className="text-gray-600">Time Left:</span>
                                                                         <p className="font-semibold text-orange-600">
-                                                                            {item.timeLeftForReturn || 'Calculating...'}
+                                                                            {item.timeLeftForReturn || 'Admin will verify and update'}
                                                                         </p>
                                                                     </div>
                                                                 </div>
@@ -651,11 +651,17 @@ const ReturnProduct = () => {
                                                                 <div className="grid grid-cols-2 gap-4 text-sm">
                                                                     <div>
                                                                         <span className="text-green-700">Status:</span>
-                                                                        <p className="font-medium">{returnItem.refundDetails.refundStatus}</p>
+                                                                        <p className="font-medium">{returnItem.status === 'REQUESTED' ? 'Admin will verify and update' : (returnItem.refundDetails.refundStatus || 'Admin will verify and update')}</p>
                                                                     </div>
                                                                     <div>
                                                                         <span className="text-green-700">Amount:</span>
-                                                                        <p className="font-medium">₹{returnItem.refundDetails.actualRefundAmount}</p>
+                                                                        <p className="font-medium">{
+                                                                            returnItem.status === 'REQUESTED' || 
+                                                                            !returnItem.refundDetails?.actualRefundAmount || 
+                                                                            returnItem.refundDetails.actualRefundAmount <= 0
+                                                                                ? 'Admin will verify and update' 
+                                                                                : `₹${returnItem.refundDetails.actualRefundAmount}`
+                                                                        }</p>
                                                                     </div>
                                                                 </div>
                                                             </div>

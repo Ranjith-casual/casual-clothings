@@ -369,7 +369,7 @@ const ReturnProduct = () => {
                                             <h3 className="font-semibold text-yellow-900 mb-1">Return Policy</h3>
                                             <ul className="text-sm text-yellow-800 space-y-1">
                                                 <li>• Items can be returned within 24 hours of delivery</li>
-                                                <li>• 65% refund on original price</li>
+                                                <li>• Price will be calculated according to admin decision</li>
                                                 <li>• Items must be in original condition</li>
                                                 <li>• Return pickup will be scheduled after approval</li>
                                             </ul>
@@ -433,12 +433,12 @@ const ReturnProduct = () => {
                                                                     </div>
                                                                     <div>
                                                                         <span className="text-gray-600">Refund Amount:</span>
-                                                                        <p className="font-semibold text-green-600">₹{item.refundAmount}</p>
+                                                                        <p className="font-semibold text-green-600">Admin will verify and update</p>
                                                                     </div>
                                                                     <div>
                                                                         <span className="text-gray-600">Time Left:</span>
                                                                         <p className="font-semibold text-orange-600">
-                                                                            {item.timeLeftForReturn || 'Calculating...'}
+                                                                            {item.timeLeftForReturn || 'Admin will verify and update'}
                                                                         </p>
                                                                     </div>
                                                                 </div>

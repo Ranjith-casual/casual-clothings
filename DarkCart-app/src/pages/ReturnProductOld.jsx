@@ -354,7 +354,7 @@ const ReturnProduct = () => {
                                     <h3 className="font-medium text-blue-900 mb-2">Return Policy</h3>
                                     <ul className="text-sm text-blue-800 space-y-1">
                                         <li>• Items can be returned within 1 day of delivery</li>
-                                        <li>• You will receive 65% refund of the original amount</li>
+                                        <li>• Refund amount will be calculated according to admin decision</li>
                                         <li>• Items must be in original condition</li>
                                         <li>• Return requests require admin approval</li>
                                     </ul>
@@ -400,7 +400,7 @@ const ReturnProduct = () => {
                                                     </p>
                                                     <p className="text-sm text-gray-600">
                                                         Original Price: ₹{item.unitPrice} | 
-                                                        Refund Amount: ₹{calculateRefundAmount(item.unitPrice, item.quantity)}
+                                                        Refund Amount: Admin will be calculating
                                                     </p>
                                                     <p className="text-xs text-gray-500 mt-1">
                                                         Delivered on: {formatDate(item.deliveredAt)}
@@ -541,10 +541,16 @@ const ReturnProduct = () => {
                                                 <h4 className="font-medium text-green-900 mb-2">Refund Details</h4>
                                                 <div className="space-y-1">
                                                     <p className="text-sm text-green-800">
-                                                        Status: <span className="font-medium">{returnRequest.refundDetails.refundStatus || 'Pending'}</span>
+                                                        Status: <span className="font-medium">{returnRequest.status === 'REQUESTED' ? 'Admin will verify and update' : (returnRequest.refundDetails?.refundStatus || 'Admin will verify and update')}</span>
                                                     </p>
                                                     <p className="text-sm text-green-800">
-                                                        Amount: <span className="font-medium">₹{returnRequest.refundDetails.actualRefundAmount || returnRequest.refundDetails.amount || (returnRequest.itemDetails?.refundAmount * returnRequest.itemDetails?.quantity)}</span>
+                                                        Amount: <span className="font-medium">{
+                                                            returnRequest.status === 'REQUESTED' || 
+                                                            !returnRequest.refundDetails?.actualRefundAmount || 
+                                                            returnRequest.refundDetails.actualRefundAmount <= 0
+                                                                ? 'Admin will verify and update' 
+                                                                : `₹${returnRequest.refundDetails.actualRefundAmount || returnRequest.refundDetails.amount || (returnRequest.itemDetails?.refundAmount * returnRequest.itemDetails?.quantity)}`
+                                                        }</span>
                                                     </p>
                                                     {returnRequest.refundDetails.refundMethod && (
                                                         <p className="text-sm text-green-800">

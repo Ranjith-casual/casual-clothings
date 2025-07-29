@@ -15,6 +15,12 @@ const AdminOrderDetails = ({ order, onClose }) => {
   const [modificationPermission, setModificationPermission] = useState({ canModify: true, reason: '' });
   const [checkingPermission, setCheckingPermission] = useState(false);
   const [orderCancellationRequests, setOrderCancellationRequests] = useState([]);
+  
+  // Return management states
+  const [orderReturnData, setOrderReturnData] = useState(null);
+  const [loadingReturnData, setLoadingReturnData] = useState(false);
+  const [lastReturnDataUpdate, setLastReturnDataUpdate] = useState(null);
+  
   const { updateOrderStatus, checkOrderModificationPermission } = useGlobalContext();
 
   // Size-based price calculation utility function - calculates base price with size adjustment, then applies discount
@@ -135,19 +141,9 @@ const AdminOrderDetails = ({ order, onClose }) => {
       const hasApprovedCancellation = modificationPermission.approvedCancellation && modificationPermission.approvedCancellation.itemsToCancel && modificationPermission.approvedCancellation.itemsToCancel.length > 0;
       const hasRefundSummary = order.refundSummary && order.refundSummary.length > 0;
       
-      // If no cancellation data, return original order
-      if (!hasOrderCancellation && !hasApprovedCancellation && !hasRefundSummary) {
-        return {
-          activeItems: order.items || [],
-          activeItemCount: order.totalQuantity || order.items?.length || 0,
-          remainingTotal: order.totalAmt || 0,
-          remainingSubtotal: order.subTotalAmt || 0,
-          hasCancelledItems: false
-        };
-      }
-
       // Get cancelled item IDs for quick lookup from all sources
       const cancelledItemIds = new Set();
+      const returnedItemIds = new Set();
       
       // Add from order cancellation data
       if (hasOrderCancellation) {
@@ -175,10 +171,32 @@ const AdminOrderDetails = ({ order, onClose }) => {
         });
       }
 
-      // Filter out cancelled items
+      // Check for returned items and add them to returnedItemIds
+      if (order.items && orderReturnData?.items) {
+        order.items.forEach(item => {
+          const itemId = item._id?.toString() || item.id?.toString();
+          if (hasItemBeenReturned(itemId)) {
+            returnedItemIds.add(itemId);
+          }
+        });
+      }
+
+      // If no cancellation or return data, return original order
+      if (cancelledItemIds.size === 0 && returnedItemIds.size === 0) {
+        return {
+          activeItems: order.items || [],
+          activeItemCount: order.totalQuantity || order.items?.length || 0,
+          remainingTotal: order.totalAmt || 0,
+          remainingSubtotal: order.subTotalAmt || 0,
+          hasCancelledItems: false,
+          hasReturnedItems: false
+        };
+      }
+
+      // Filter out cancelled and returned items
       const activeItems = (order.items || []).filter(item => {
         const itemId = item._id?.toString() || item.id?.toString();
-        return !cancelledItemIds.has(itemId);
+        return !cancelledItemIds.has(itemId) && !returnedItemIds.has(itemId);
       });
 
       // Calculate remaining totals
@@ -201,7 +219,8 @@ const AdminOrderDetails = ({ order, onClose }) => {
         remainingTotal,
         remainingSubtotal,
         deliveryCharge,
-        hasCancelledItems: cancelledItemIds.size > 0
+        hasCancelledItems: cancelledItemIds.size > 0,
+        hasReturnedItems: returnedItemIds.size > 0
       };
 
     } catch (error) {
@@ -212,7 +231,8 @@ const AdminOrderDetails = ({ order, onClose }) => {
         activeItemCount: order.totalQuantity || order.items?.length || 0,
         remainingTotal: order.totalAmt || 0,
         remainingSubtotal: order.subTotalAmt || 0,
-        hasCancelledItems: false
+        hasCancelledItems: false,
+        hasReturnedItems: false
       };
     }
   };
@@ -335,6 +355,29 @@ const AdminOrderDetails = ({ order, onClose }) => {
     }
   };
 
+  // Fetch return data for this order
+  const fetchOrderReturnData = async () => {
+    if (!order?.orderId) return;
+    
+    try {
+      setLoadingReturnData(true);
+      const response = await Axios({
+        ...SummaryApi.getOrderWithReturnDetails,
+        url: `${SummaryApi.getOrderWithReturnDetails.url}/${order._id}?t=${Date.now()}` // Add timestamp to prevent caching
+      });
+
+      if (response.data.success) {
+        setOrderReturnData(response.data.data);
+        setLastReturnDataUpdate(new Date());
+        console.log('Fetched fresh return data:', response.data.data);
+      }
+    } catch (error) {
+      console.error('Error fetching return data:', error);
+    } finally {
+      setLoadingReturnData(false);
+    }
+  };
+
   // Fetch cancellation details when component mounts if order is cancelled
   useEffect(() => {
     if ((localOrderStatus === 'CANCELLED' || order?.orderStatus === 'CANCELLED')) {
@@ -346,7 +389,20 @@ const AdminOrderDetails = ({ order, onClose }) => {
     
     // Fetch cancellation requests to detect pending items
     fetchUserCancellationRequests();
+    
+    // Fetch return data if order is delivered - always refresh when modal opens
+    if (order?.orderStatus === 'DELIVERED') {
+      fetchOrderReturnData();
+    }
   }, [order?.orderId, localOrderStatus]);
+
+  // Additional useEffect to refresh return data when the modal is opened
+  useEffect(() => {
+    if (order && order.orderStatus === 'DELIVERED') {
+      // Always fetch fresh return data when order details modal is opened
+      fetchOrderReturnData();
+    }
+  }, [order]); // This will run whenever the order prop changes (i.e., when modal opens)
 
   const formatDate = (dateString) => {
     const date = new Date(dateString);
@@ -364,6 +420,54 @@ const AdminOrderDetails = ({ order, onClose }) => {
     }).format(amount);
   };
 
+  // Helper function to check if an item has a return request
+  const hasItemReturnRequest = (itemId) => {
+    if (!orderReturnData?.items) return [];
+    const item = orderReturnData.items.find(item => 
+      item._id === itemId && item.returnRequests && item.returnRequests.length > 0
+    );
+    return item ? item.returnRequests : [];
+  };
+
+  // Helper function to get return status display info
+  const getReturnStatusInfo = (status) => {
+    switch (status) {
+      case 'REQUESTED':
+        return { color: 'text-yellow-700 bg-yellow-100 border-yellow-300', icon: 'FaClock', label: 'Return Requested' };
+      case 'APPROVED':
+        return { color: 'text-green-700 bg-green-100 border-green-300', icon: 'FaCheck', label: 'Return Approved' };
+      case 'REJECTED':
+        return { color: 'text-red-700 bg-red-100 border-red-300', icon: 'FaTimes', label: 'Return Rejected' };
+      case 'PICKUP_SCHEDULED':
+        return { color: 'text-blue-700 bg-blue-100 border-blue-300', icon: 'FaTruck', label: 'Pickup Scheduled' };
+      case 'PICKED_UP':
+        return { color: 'text-indigo-700 bg-indigo-100 border-indigo-300', icon: 'FaBox', label: 'Item Picked Up' };
+      case 'INSPECTED':
+        return { color: 'text-purple-700 bg-purple-100 border-purple-300', icon: 'FaEye', label: 'Item Inspected' };
+      case 'REFUND_PROCESSED':
+        return { color: 'text-teal-700 bg-teal-100 border-teal-300', icon: 'FaRupeeSign', label: 'Refund Processed' };
+      case 'COMPLETED':
+        return { color: 'text-emerald-700 bg-emerald-100 border-emerald-300', icon: 'FaCheckCircle', label: 'Return Completed' };
+      case 'CANCELLED':
+        return { color: 'text-gray-700 bg-gray-100 border-gray-300', icon: 'FaTimes', label: 'Return Cancelled' };
+      default:
+        return { color: 'text-gray-700 bg-gray-100 border-gray-300', icon: 'FaInfoCircle', label: status?.replace('_', ' ') || 'Unknown Status' };
+    }
+  };
+
+  // Helper function to check if an item has been returned (approved or completed returns)
+  const hasItemBeenReturned = (itemId) => {
+    const returnRequests = hasItemReturnRequest(itemId);
+    return returnRequests.some(req => [
+      'APPROVED', 
+      'PICKUP_SCHEDULED', 
+      'PICKED_UP', 
+      'INSPECTED', 
+      'REFUND_PROCESSED', 
+      'COMPLETED'
+    ].includes(req.status));
+  };
+
   if (!order) return null;
 
   return (
@@ -375,13 +479,29 @@ const AdminOrderDetails = ({ order, onClose }) => {
             <FaBox className="text-xl sm:text-2xl mr-2.5 text-gray-700" />
             <h2 className="text-xl sm:text-2xl font-bold text-gray-800 tracking-tight">Order Details</h2>
           </div>
-          <button 
-            onClick={onClose}
-            className="text-gray-400 hover:text-gray-800 focus:outline-none transition-all hover:scale-110 hover:rotate-90 duration-300"
-            aria-label="Close"
-          >
-            <FaTimes size={24} />
-          </button>
+          <div className="flex items-center gap-3">
+            {order?.orderStatus === 'DELIVERED' && (
+              <button
+                onClick={() => {
+                  fetchOrderReturnData();
+                  toast.success('Return data refreshed');
+                }}
+                disabled={loadingReturnData}
+                className="flex items-center gap-2 px-3 py-2 text-sm bg-blue-50 text-blue-600 border border-blue-200 rounded-lg hover:bg-blue-100 transition-colors disabled:opacity-50"
+                title="Refresh return information"
+              >
+                <FaUndo className={`w-3 h-3 ${loadingReturnData ? 'animate-spin' : ''}`} />
+                {loadingReturnData ? 'Refreshing...' : 'Refresh Returns'}
+              </button>
+            )}
+            <button 
+              onClick={onClose}
+              className="text-gray-400 hover:text-gray-800 focus:outline-none transition-all hover:scale-110 hover:rotate-90 duration-300"
+              aria-label="Close"
+            >
+              <FaTimes size={24} />
+            </button>
+          </div>
         </div>
 
         <div className="p-5 sm:p-6">
@@ -938,9 +1058,11 @@ const AdminOrderDetails = ({ order, onClose }) => {
                     return (
                       <div className="flex flex-col">
                         <span className="font-medium text-gray-800 tracking-wide">{activeOrderInfo.activeItemCount} items</span>
-                        {activeOrderInfo.hasCancelledItems && (
+                        {(activeOrderInfo.hasCancelledItems || activeOrderInfo.hasReturnedItems) && (
                           <span className="text-xs text-amber-600">
-                            (was {order.totalQuantity} items)
+                            (was {order.totalQuantity} items
+                            {activeOrderInfo.hasCancelledItems && activeOrderInfo.hasReturnedItems ? ', cancelled & returned' :
+                             activeOrderInfo.hasCancelledItems ? ', cancelled' : ', returned'})
                           </span>
                         )}
                       </div>
@@ -954,9 +1076,11 @@ const AdminOrderDetails = ({ order, onClose }) => {
                     return (
                       <div className="flex flex-col">
                         <span className="font-medium text-gray-800 tracking-wide">₹{activeOrderInfo.remainingSubtotal?.toFixed(2)}</span>
-                        {activeOrderInfo.hasCancelledItems && (
+                        {(activeOrderInfo.hasCancelledItems || activeOrderInfo.hasReturnedItems) && (
                           <span className="text-xs text-amber-600">
-                            <span className="line-through">₹{order.subTotalAmt?.toFixed(2)}</span> (adjusted)
+                            <span className="line-through">₹{order.subTotalAmt?.toFixed(2)}</span> (adjusted for 
+                            {activeOrderInfo.hasCancelledItems && activeOrderInfo.hasReturnedItems ? ' cancellations & returns' :
+                             activeOrderInfo.hasCancelledItems ? ' cancellations' : ' returns'})
                           </span>
                         )}
                       </div>
@@ -973,7 +1097,7 @@ const AdminOrderDetails = ({ order, onClose }) => {
                         </span>
                         <div className="flex flex-col">
                           <span className="font-bold text-lg text-gray-800 tracking-wide">₹{activeOrderInfo.remainingTotal?.toFixed(2)}</span>
-                          {activeOrderInfo.hasCancelledItems && (
+                          {(activeOrderInfo.hasCancelledItems || activeOrderInfo.hasReturnedItems) && (
                             <span className="text-xs text-amber-600">
                               <span className="line-through">₹{order.totalAmt?.toFixed(2)}</span> (original total)
                             </span>
@@ -986,6 +1110,47 @@ const AdminOrderDetails = ({ order, onClose }) => {
               </div>
             </div>
           </div>
+
+          {/* Return Summary for Delivered Orders */}
+          {order?.orderStatus === 'DELIVERED' && orderReturnData && (() => {
+            const totalRefundAmount = orderReturnData.items?.reduce((total, item) => {
+              return total + (item.returnRequests?.reduce((itemTotal, req) => {
+                if (['APPROVED', 'PICKUP_SCHEDULED', 'PICKED_UP', 'INSPECTED', 'REFUND_PROCESSED', 'COMPLETED'].includes(req.status)) {
+                  return itemTotal + (req.refundDetails?.actualRefundAmount || 0);
+                }
+                return itemTotal;
+              }, 0) || 0);
+            }, 0) || 0;
+
+            const totalReturnRequests = orderReturnData.items?.reduce((total, item) => 
+              total + (item.returnRequests?.length || 0), 0) || 0;
+
+            if (totalReturnRequests > 0) {
+              return (
+                <div className="mt-6 bg-orange-50 border border-orange-200 rounded-lg p-4">
+                  <h3 className="font-semibold text-orange-800 mb-3 flex items-center">
+                    <FaUndo className="mr-2" />
+                    Return Summary
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                    <div className="bg-white p-3 rounded-lg border border-orange-200">
+                      <span className="text-orange-600 font-medium">Total Return Requests:</span>
+                      <span className="ml-2 font-bold text-orange-800">{totalReturnRequests}</span>
+                    </div>
+                    <div className="bg-white p-3 rounded-lg border border-orange-200">
+                      <span className="text-orange-600 font-medium">Total Refunded:</span>
+                      <span className="ml-2 font-bold text-orange-800">₹{totalRefundAmount.toFixed(2)}</span>
+                    </div>
+                    <div className="bg-white p-3 rounded-lg border border-orange-200">
+                      <span className="text-orange-600 font-medium">Net Amount:</span>
+                      <span className="ml-2 font-bold text-orange-800">₹{(order.totalAmt - totalRefundAmount).toFixed(2)}</span>
+                    </div>
+                  </div>
+                </div>
+              );
+            }
+            return null;
+          })()}
 
           {/* Products Information - Fixed for Multiple Items */}
           <div className="mt-8">
@@ -1093,13 +1258,17 @@ const AdminOrderDetails = ({ order, onClose }) => {
 
                   const bundleItems = getBundleItems();
                   
+                  const isReturned = hasItemBeenReturned(item.productId._id);
+
                   return (
                     <div key={index} className={`bg-white border rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow relative ${
                       isCancelled 
                         ? 'opacity-60 bg-red-50 border-red-200' 
-                        : hasPendingRequest 
-                          ? 'bg-gradient-to-r from-yellow-50 to-orange-50 border-orange-300 border-2 shadow-lg' 
-                          : 'border-gray-200'
+                        : isReturned
+                          ? 'bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-300 border-2'
+                          : hasPendingRequest 
+                            ? 'bg-gradient-to-r from-yellow-50 to-orange-50 border-orange-300 border-2 shadow-lg' 
+                            : 'border-gray-200'
                     }`}>
                       {/* Background pattern for cancelled items */}
                       {isCancelled && (
@@ -1133,6 +1302,30 @@ const AdminOrderDetails = ({ order, onClose }) => {
                           </div>
                         </div>
                       )}
+                      
+                      {/* Return status header for delivered items */}
+                      {order?.orderStatus === 'DELIVERED' && (() => {
+                        const itemId = item._id?.toString() || item.id?.toString();
+                        const returnRequests = hasItemReturnRequest(itemId);
+                        
+                        if (returnRequests.length > 0) {
+                          const latestReturn = returnRequests[returnRequests.length - 1];
+                          const statusInfo = getReturnStatusInfo(latestReturn.status);
+                          
+                          return (
+                            <div className={`${statusInfo.color} px-4 py-2 text-sm font-bold flex items-center gap-2 border-b`}>
+                              <FaUndo className="animate-pulse" />
+                              <span>{statusInfo.label}</span>
+                              {latestReturn.refundDetails?.actualRefundAmount && (
+                                <div className="ml-auto bg-white text-gray-800 px-2 py-1 rounded-full text-xs font-bold">
+                                  ₹{latestReturn.refundDetails.actualRefundAmount} Refund
+                                </div>
+                              )}
+                            </div>
+                          );
+                        }
+                        return null;
+                      })()}
                       
                       <div className="flex flex-col md:flex-row items-start p-4 sm:p-5 gap-4">
                         <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-md overflow-hidden bg-gray-100 flex-shrink-0 border border-gray-100 shadow-sm relative">
@@ -1431,6 +1624,81 @@ const AdminOrderDetails = ({ order, onClose }) => {
                               </span>
                             </div>
                           )}
+                          
+                          {/* Return Information for Delivered Items */}
+                          {order?.orderStatus === 'DELIVERED' && (() => {
+                            const itemId = item._id?.toString() || item.id?.toString();
+                            const returnRequests = hasItemReturnRequest(itemId);
+                            
+                            if (returnRequests.length > 0) {
+                              return (
+                                <div className="mt-4 bg-blue-50 border border-blue-200 rounded-md p-4">
+                                  <h5 className="text-sm font-semibold text-blue-800 mb-3 flex items-center justify-between">
+                                    <div className="flex items-center">
+                                      <FaUndo className="mr-2" />
+                                      Return History ({returnRequests.length})
+                                    </div>
+                                    {lastReturnDataUpdate && (
+                                      <span className="text-xs text-blue-600 font-normal">
+                                        Updated: {lastReturnDataUpdate.toLocaleTimeString()}
+                                      </span>
+                                    )}
+                                  </h5>
+                                  <div className="space-y-3">
+                                    {returnRequests.map((returnReq, idx) => {
+                                      const statusInfo = getReturnStatusInfo(returnReq.status);
+                                      const formattedDate = new Date(returnReq.createdAt).toLocaleDateString('en-IN', {
+                                        day: '2-digit',
+                                        month: 'short',
+                                        year: 'numeric'
+                                      });
+                                      
+                                      return (
+                                        <div key={idx} className="bg-white border border-blue-200 rounded-lg p-3">
+                                          <div className="flex justify-between items-start mb-2">
+                                            <div className="flex-1">
+                                              <div className="flex items-center gap-2 mb-1">
+                                                <span className={`px-2 py-1 rounded-full text-xs font-semibold border ${statusInfo.color}`}>
+                                                  {statusInfo.label}
+                                                </span>
+                                                <span className="text-xs text-gray-500">
+                                                  {formattedDate}
+                                                </span>
+                                              </div>
+                                              <p className="text-sm text-gray-700">
+                                                <span className="font-medium">Reason:</span> {returnReq.returnReason}
+                                              </p>
+                                              {returnReq.returnDescription && (
+                                                <p className="text-xs text-gray-600 mt-1">
+                                                  <span className="font-medium">Comment:</span> {returnReq.returnDescription}
+                                                </p>
+                                              )}
+                                              {returnReq.adminResponse?.adminComments && (
+                                                <p className="text-xs text-blue-600 mt-1 bg-blue-50 p-2 rounded">
+                                                  <span className="font-medium">Admin Notes:</span> {returnReq.adminResponse.adminComments}
+                                                </p>
+                                              )}
+                                            </div>
+                                            <div className="text-right ml-3">
+                                              <div className="text-sm font-semibold text-gray-900">
+                                                Qty: {returnReq.itemDetails?.quantity || 1}
+                                              </div>
+                                              {returnReq.refundDetails?.actualRefundAmount && (
+                                                <div className="text-sm font-semibold text-green-600">
+                                                  ₹{returnReq.refundDetails.actualRefundAmount}
+                                                </div>
+                                              )}
+                                            </div>
+                                          </div>
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                </div>
+                              );
+                            }
+                            return null;
+                          })()}
                         </div>
                       </div>
                     </div>
