@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';  
-import { FaMapMarkerAlt, FaCity, FaFlag, FaTimes, FaUser, FaCalendarAlt, FaBox, FaMoneyBillWave, FaTruck, FaCheck, FaCog, FaBan, FaBoxOpen, FaInfoCircle, FaExclamationCircle, FaEnvelope, FaUndo, FaCreditCard, FaSpinner, FaExclamationTriangle } from 'react-icons/fa';
+import { FaMapMarkerAlt, FaCity, FaFlag, FaTimes, FaUser, FaCalendarAlt, FaBox, FaMoneyBillWave, FaTruck, FaCheck, FaCog, FaBan, FaBoxOpen, FaInfoCircle, FaExclamationCircle, FaEnvelope, FaUndo, FaCreditCard, FaSpinner, FaExclamationTriangle, FaClock } from 'react-icons/fa';
 import OrderTimeline from './OrderTimeline';
 import { useGlobalContext } from '../provider/GlobalProvider';
 import toast from 'react-hot-toast';
@@ -14,6 +14,7 @@ const AdminOrderDetails = ({ order, onClose }) => {
   const [loadingCancellation, setLoadingCancellation] = useState(false);
   const [modificationPermission, setModificationPermission] = useState({ canModify: true, reason: '' });
   const [checkingPermission, setCheckingPermission] = useState(false);
+  const [orderCancellationRequests, setOrderCancellationRequests] = useState([]);
   const { updateOrderStatus, checkOrderModificationPermission } = useGlobalContext();
 
   // Size-based price calculation utility function - calculates base price with size adjustment, then applies discount
@@ -86,6 +87,44 @@ const AdminOrderDetails = ({ order, onClose }) => {
   const getSizeBasedUnitPrice = (item, productInfo = null) => {
     const totalPrice = calculateSizeBasedPrice(item, productInfo);
     return totalPrice / (item?.quantity || 1);
+  };
+
+  // Function to fetch user's cancellation requests
+  const fetchUserCancellationRequests = async () => {
+    try {
+      const token = localStorage.getItem('accessToken')
+      const response = await Axios({
+        ...SummaryApi.getUserCancellationRequests,
+        headers: {
+          authorization: `Bearer ${token}`
+        }
+      });
+      
+      if (response.data.success) {
+        setOrderCancellationRequests(response.data.data);
+      }
+    } catch (error) {
+      console.error("Error fetching cancellation requests:", error);
+    }
+  };
+
+  // Check if a specific item has a pending cancellation request
+  const hasItemPendingCancellationRequest = (orderId, itemId) => {
+    return orderCancellationRequests.some(request => {
+      const matchesOrder = request.orderId === orderId || request.orderId?._id === orderId;
+      const isPending = request.status === 'pending';
+      const hasItem = request.items && request.items.some(item => item.itemId === itemId || item.itemId?._id === itemId);
+      return matchesOrder && isPending && hasItem;
+    });
+  };
+
+  // Check if the full order has a pending cancellation request
+  const hasFullOrderPendingCancellationRequest = (orderId) => {
+    return orderCancellationRequests.some(request => 
+      (request.orderId === orderId || request.orderId?._id === orderId) && 
+      request.status === 'pending' && 
+      (!request.items || request.items.length === 0) // Full order cancellation typically has no specific items
+    );
   };
 
   // Filter out cancelled items and calculate remaining totals
@@ -304,6 +343,9 @@ const AdminOrderDetails = ({ order, onClose }) => {
     
     // Check modification permission for all orders
     checkModificationPermission();
+    
+    // Fetch cancellation requests to detect pending items
+    fetchUserCancellationRequests();
   }, [order?.orderId, localOrderStatus]);
 
   const formatDate = (dateString) => {
@@ -606,6 +648,112 @@ const AdminOrderDetails = ({ order, onClose }) => {
             </div>
           )}
 
+          {/* Order Status Information Panel */}
+          {(() => {
+            const pendingCancellationCount = order.items?.filter(item => 
+              hasItemPendingCancellationRequest(order.orderId, item._id?.toString() || item.id?.toString())
+            ).length || 0;
+            
+            const cancelledCount = order.items?.filter(item => {
+              const activeOrderInfo = getActiveOrderInfo(order);
+              return activeOrderInfo.hasCancelledItems && (
+                order.cancellationData?.itemsToCancel?.some(cancelledItem => {
+                  const itemId = item._id?.toString() || item.id?.toString();
+                  const cancelledItemId = cancelledItem.itemId?.toString() || cancelledItem._id?.toString();
+                  return itemId === cancelledItemId;
+                }) ||
+                modificationPermission.approvedCancellation?.itemsToCancel?.some(cancelledItem => {
+                  const itemId = item._id?.toString() || item.id?.toString();
+                  const cancelledItemId = cancelledItem.itemId?.toString() || cancelledItem._id?.toString();
+                  return itemId === cancelledItemId;
+                }) ||
+                order.refundSummary?.some(refundItem => {
+                  const itemId = item._id?.toString() || item.id?.toString();
+                  const refundItemId = refundItem.itemId?.toString();
+                  return itemId === refundItemId && refundItem.status === 'Completed';
+                })
+              );
+            }).length || 0;
+
+            const hasFullOrderPending = hasFullOrderPendingCancellationRequest(order.orderId);
+            
+            if (pendingCancellationCount > 0 || cancelledCount > 0 || hasFullOrderPending) {
+              return (
+                <div className="mb-6 p-4 bg-gradient-to-r from-gray-50 to-blue-50 border-l-4 border-blue-500 rounded-lg shadow-sm">
+                  <div className="flex items-start gap-3">
+                    <FaInfoCircle className="text-blue-600 mt-1 flex-shrink-0" />
+                    <div className="flex-grow">
+                      <h4 className="font-semibold text-gray-800 mb-2 flex items-center gap-2">
+                        Order Status Summary
+                      </h4>
+                      
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
+                        {/* Cancelled Items */}
+                        {cancelledCount > 0 && (
+                          <div className="bg-red-50 border border-red-200 rounded-md p-3">
+                            <div className="flex items-center gap-2 mb-1">
+                              <FaBan className="text-red-600 w-4 h-4" />
+                              <span className="font-medium text-red-800">Cancelled Items</span>
+                            </div>
+                            <p className="text-red-700">{cancelledCount} item{cancelledCount > 1 ? 's' : ''} cancelled</p>
+                          </div>
+                        )}
+                        
+                        {/* Pending Cancellation Items */}
+                        {pendingCancellationCount > 0 && (
+                          <div className="bg-orange-50 border border-orange-200 rounded-md p-3">
+                            <div className="flex items-center gap-2 mb-1">
+                              <FaClock className="text-orange-600 w-4 h-4" />
+                              <span className="font-medium text-orange-800">Pending Cancellation</span>
+                            </div>
+                            <p className="text-orange-700">{pendingCancellationCount} item{pendingCancellationCount > 1 ? 's' : ''} pending</p>
+                          </div>
+                        )}
+                        
+                        {/* Full Order Pending */}
+                        {hasFullOrderPending && (
+                          <div className="bg-yellow-50 border border-yellow-200 rounded-md p-3">
+                            <div className="flex items-center gap-2 mb-1">
+                              <FaExclamationTriangle className="text-yellow-600 w-4 h-4" />
+                              <span className="font-medium text-yellow-800">Full Order Pending</span>
+                            </div>
+                            <p className="text-yellow-700">Complete order cancellation requested</p>
+                          </div>
+                        )}
+                        
+                        {/* Active Items */}
+                        {(() => {
+                          const activeOrderInfo = getActiveOrderInfo(order);
+                          const activeCount = activeOrderInfo.activeItemCount;
+                          if (activeCount > 0) {
+                            return (
+                              <div className="bg-green-50 border border-green-200 rounded-md p-3">
+                                <div className="flex items-center gap-2 mb-1">
+                                  <FaCheck className="text-green-600 w-4 h-4" />
+                                  <span className="font-medium text-green-800">Active Items</span>
+                                </div>
+                                <p className="text-green-700">{activeCount} item{activeCount > 1 ? 's' : ''} active</p>
+                              </div>
+                            );
+                          }
+                          return null;
+                        })()}
+                      </div>
+                      
+                      {(pendingCancellationCount > 0 || hasFullOrderPending) && (
+                        <div className="mt-3 p-2 bg-blue-100 border border-blue-300 rounded text-xs text-blue-800">
+                          <strong>Note:</strong> Items with pending cancellation requests are highlighted in orange/yellow. 
+                          Review cancellation requests in the admin cancellation management section.
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            }
+            return null;
+          })()}
+
           {/* Order Status Update Section */}
           <div className="mb-8 p-5 bg-gray-50 rounded-lg border border-gray-200 shadow-sm">
             <h3 className="font-bold text-lg text-gray-800 mb-4 tracking-tight">Update Order Status</h3>
@@ -888,6 +1036,9 @@ const AdminOrderDetails = ({ order, onClose }) => {
                             return itemId === refundItemId && refundItem.status === 'Completed';
                           })
                         );
+
+                        // Check if this item has a pending cancellation request
+                        const hasPendingRequest = hasItemPendingCancellationRequest(order.orderId, item._id?.toString() || item.id?.toString());
                         
                         console.log('Item cancellation status:', {
                           itemId: item._id?.toString() || item.id?.toString(),
@@ -943,7 +1094,46 @@ const AdminOrderDetails = ({ order, onClose }) => {
                   const bundleItems = getBundleItems();
                   
                   return (
-                    <div key={index} className={`bg-white border border-gray-200 rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow ${isCancelled ? 'opacity-60 bg-gray-50' : ''}`}>
+                    <div key={index} className={`bg-white border rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow relative ${
+                      isCancelled 
+                        ? 'opacity-60 bg-red-50 border-red-200' 
+                        : hasPendingRequest 
+                          ? 'bg-gradient-to-r from-yellow-50 to-orange-50 border-orange-300 border-2 shadow-lg' 
+                          : 'border-gray-200'
+                    }`}>
+                      {/* Background pattern for cancelled items */}
+                      {isCancelled && (
+                        <div className="absolute inset-0 opacity-10 pointer-events-none">
+                          <div className="w-full h-full bg-red-500 bg-opacity-20" 
+                               style={{
+                                 backgroundImage: 'repeating-linear-gradient(45deg, transparent, transparent 10px, rgba(239, 68, 68, 0.1) 10px, rgba(239, 68, 68, 0.1) 20px)'
+                               }}>
+                          </div>
+                        </div>
+                      )}
+                      
+                      {/* Enhanced background pattern for pending cancellation items */}
+                      {hasPendingRequest && !isCancelled && (
+                        <div className="absolute inset-0 opacity-15 pointer-events-none">
+                          <div className="w-full h-full bg-gradient-to-r from-yellow-500 to-orange-500 bg-opacity-20"
+                               style={{
+                                 backgroundImage: 'repeating-linear-gradient(45deg, transparent, transparent 8px, rgba(251, 191, 36, 0.2) 8px, rgba(251, 191, 36, 0.2) 16px)'
+                               }}>
+                          </div>
+                        </div>
+                      )}
+                      
+                      {/* Prominent header bar for pending cancellation requests */}
+                      {hasPendingRequest && !isCancelled && (
+                        <div className="bg-gradient-to-r from-orange-400 to-yellow-400 text-white px-4 py-2 text-sm font-bold flex items-center gap-2">
+                          <FaClock className="animate-pulse" />
+                          <span>CANCELLATION REQUEST PENDING</span>
+                          <div className="ml-auto bg-white text-orange-600 px-2 py-1 rounded-full text-xs font-bold">
+                            PENDING REVIEW
+                          </div>
+                        </div>
+                      )}
+                      
                       <div className="flex flex-col md:flex-row items-start p-4 sm:p-5 gap-4">
                         <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-md overflow-hidden bg-gray-100 flex-shrink-0 border border-gray-100 shadow-sm relative">
                           {((isBundle && (productInfo?.images?.[0] || productInfo?.image?.[0])) || 
@@ -954,7 +1144,13 @@ const AdminOrderDetails = ({ order, onClose }) => {
                                 : productInfo.image[0]
                               } 
                               alt={productInfo?.name || productInfo?.title} 
-                              className={`w-full h-full object-cover ${isCancelled ? 'grayscale' : ''}`}
+                              className={`w-full h-full object-cover ${
+                                isCancelled 
+                                  ? 'grayscale' 
+                                  : hasPendingRequest 
+                                    ? 'opacity-75 saturate-75' 
+                                    : ''
+                              }`}
                               onError={(e) => {
                                 e.target.style.display = 'none';
                               }}
@@ -967,14 +1163,38 @@ const AdminOrderDetails = ({ order, onClose }) => {
                               </span>
                             </div>
                           )}
+                          {hasPendingRequest && !isCancelled && (
+                            <div className="absolute inset-0 bg-gradient-to-br from-orange-500 to-yellow-500 bg-opacity-40 flex items-center justify-center">
+                              <div className="bg-white rounded-full p-2 shadow-lg">
+                                <FaClock className="text-orange-600 text-lg animate-pulse" />
+                              </div>
+                            </div>
+                          )}
                         </div>
                         <div className="flex-grow">
                           <div className="flex items-center gap-2 mb-3">
-                            <h4 className={`font-semibold tracking-tight text-base sm:text-lg ${isCancelled ? 'text-gray-500 line-through' : 'text-gray-900'}`}>
+                            <h4 className={`font-semibold tracking-tight text-base sm:text-lg ${
+                              isCancelled 
+                                ? 'text-gray-500 line-through' 
+                                : hasPendingRequest 
+                                  ? 'text-orange-800 font-bold' 
+                                  : 'text-gray-900'
+                            }`}>
                               {productInfo?.name || productInfo?.title || (isBundle ? 'Bundle Product' : 'Product Name')}
+                              {hasPendingRequest && !isCancelled && (
+                                <span className="ml-2 text-orange-600 font-normal text-sm">
+                                  (Cancellation Requested)
+                                </span>
+                              )}
                             </h4>
                             {isBundle && (
-                              <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                              <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                                isCancelled 
+                                  ? 'bg-gray-100 text-gray-600' 
+                                  : hasPendingRequest 
+                                    ? 'bg-orange-100 text-orange-800' 
+                                    : 'bg-blue-100 text-blue-800'
+                              }`}>
                                 Bundle
                               </span>
                             )}
@@ -987,16 +1207,46 @@ const AdminOrderDetails = ({ order, onClose }) => {
                           </div>
                           
                           <div className="grid grid-cols-2 md:grid-cols-5 gap-4 sm:gap-5 text-sm mb-4">
-                            <div className="bg-gray-50 p-2.5 rounded-md border border-gray-100">
+                            <div className={`p-2.5 rounded-md border ${
+                              isCancelled 
+                                ? 'bg-gray-50 border-gray-100' 
+                                : hasPendingRequest 
+                                  ? 'bg-yellow-50 border-yellow-200' 
+                                  : 'bg-gray-50 border-gray-100'
+                            }`}>
                               <span className="text-gray-500 font-medium block mb-1">Quantity</span>
-                              <p className={`font-semibold ${isCancelled ? 'text-gray-500' : 'text-gray-800'}`}>{item.quantity}</p>
+                              <p className={`font-semibold ${
+                                isCancelled 
+                                  ? 'text-gray-500' 
+                                  : hasPendingRequest 
+                                    ? 'text-orange-800' 
+                                    : 'text-gray-800'
+                              }`}>{item.quantity}</p>
                             </div>
                   
-                            <div className="bg-gray-50 p-2.5 rounded-md border border-gray-100">
+                            <div className={`p-2.5 rounded-md border ${
+                              isCancelled 
+                                ? 'bg-gray-50 border-gray-100' 
+                                : hasPendingRequest 
+                                  ? 'bg-yellow-50 border-yellow-200' 
+                                  : 'bg-gray-50 border-gray-100'
+                            }`}>
                               <span className="text-gray-500 font-medium block mb-1">Size</span>
-                              <p className={`font-semibold ${isCancelled ? 'text-gray-500' : 'text-gray-800'}`}>
+                              <p className={`font-semibold ${
+                                isCancelled 
+                                  ? 'text-gray-500' 
+                                  : hasPendingRequest 
+                                    ? 'text-orange-800' 
+                                    : 'text-gray-800'
+                              }`}>
                                 {item.size ? (
-                                  <span className={`inline-block px-2 py-1 rounded-md text-xs font-semibold ${isCancelled ? 'bg-gray-100 text-gray-600' : 'bg-green-100 text-green-800'}`}>
+                                  <span className={`inline-block px-2 py-1 rounded-md text-xs font-semibold ${
+                                    isCancelled 
+                                      ? 'bg-gray-100 text-gray-600' 
+                                      : hasPendingRequest 
+                                        ? 'bg-orange-100 text-orange-800' 
+                                        : 'bg-green-100 text-green-800'
+                                  }`}>
                                     {item.size}
                                   </span>
                                 ) : (
@@ -1004,21 +1254,57 @@ const AdminOrderDetails = ({ order, onClose }) => {
                                 )}
                               </p>
                             </div>
-                            <div className="bg-gray-50 p-2.5 rounded-md border border-gray-100">
+                            <div className={`p-2.5 rounded-md border ${
+                              isCancelled 
+                                ? 'bg-gray-50 border-gray-100' 
+                                : hasPendingRequest 
+                                  ? 'bg-yellow-50 border-yellow-200' 
+                                  : 'bg-gray-50 border-gray-100'
+                            }`}>
                               <span className="text-gray-500 font-medium block mb-1">Unit Price</span>
-                              <p className={`font-semibold ${isCancelled ? 'text-gray-500 line-through' : 'text-gray-800'}`}>
+                              <p className={`font-semibold ${
+                                isCancelled 
+                                  ? 'text-gray-500 line-through' 
+                                  : hasPendingRequest 
+                                    ? 'text-orange-800' 
+                                    : 'text-gray-800'
+                              }`}>
                                 ₹{unitPrice?.toFixed(2)}
                               </p>
                             </div>
-                            <div className="bg-gray-50 p-2.5 rounded-md border border-gray-100">
+                            <div className={`p-2.5 rounded-md border ${
+                              isCancelled 
+                                ? 'bg-gray-50 border-gray-100' 
+                                : hasPendingRequest 
+                                  ? 'bg-yellow-50 border-yellow-200' 
+                                  : 'bg-gray-50 border-gray-100'
+                            }`}>
                               <span className="text-gray-500 font-medium block mb-1">Total Price</span>
-                              <p className={`font-semibold ${isCancelled ? 'text-gray-500 line-through' : 'text-gray-800'}`}>
+                              <p className={`font-semibold ${
+                                isCancelled 
+                                  ? 'text-gray-500 line-through' 
+                                  : hasPendingRequest 
+                                    ? 'text-orange-800' 
+                                    : 'text-gray-800'
+                              }`}>
                                 ₹{itemTotal?.toFixed(2)}
                               </p>
                             </div>
-                            <div className="bg-gray-50 p-2.5 rounded-md border border-gray-100">
+                            <div className={`p-2.5 rounded-md border ${
+                              isCancelled 
+                                ? 'bg-gray-50 border-gray-100' 
+                                : hasPendingRequest 
+                                  ? 'bg-yellow-50 border-yellow-200' 
+                                  : 'bg-gray-50 border-gray-100'
+                            }`}>
                               <span className="text-gray-500 font-medium block mb-1">{isBundle ? 'Bundle ID' : 'Product ID'}</span>
-                              <p className={`font-medium text-xs break-all ${isCancelled ? 'text-gray-500' : 'text-gray-800'}`}>
+                              <p className={`font-medium text-xs break-all ${
+                                isCancelled 
+                                  ? 'text-gray-500' 
+                                  : hasPendingRequest 
+                                    ? 'text-orange-800' 
+                                    : 'text-gray-800'
+                              }`}>
                                 {typeof productId === 'string' ? productId : productId?.toString()}
                               </p>
                             </div>
@@ -1027,6 +1313,21 @@ const AdminOrderDetails = ({ order, onClose }) => {
                                 <div className="flex items-center text-red-700 text-sm">
                                   <FaBan className="mr-2 text-red-600" />
                                   <span className="font-medium">This item has been cancelled and refunded</span>
+                                </div>
+                              </div>
+                            )}
+                            {hasPendingRequest && !isCancelled && (
+                              <div className="md:col-span-5 bg-gradient-to-r from-orange-50 to-yellow-50 border-2 border-orange-300 rounded-md p-4 shadow-lg">
+                                <div className="flex items-center text-orange-700 text-sm">
+                                  <div className="bg-orange-200 rounded-full p-2 mr-3">
+                                    <FaClock className="text-orange-600 animate-pulse" />
+                                  </div>
+                                  <div>
+                                    <span className="font-bold text-orange-800">CANCELLATION REQUEST PENDING</span>
+                                    <p className="text-orange-600 text-xs mt-1">
+                                      This item has a pending cancellation request that requires admin review and approval.
+                                    </p>
+                                  </div>
                                 </div>
                               </div>
                             )}

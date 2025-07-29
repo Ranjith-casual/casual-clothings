@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useSelector } from 'react-redux';
-import { FaSearch, FaRedo, FaSortAmountDown,FaBox ,FaSortAmountUp, FaFilter, FaEllipsisV, FaBoxOpen, FaCheck, FaTruck, FaCog, FaBan, FaEye, FaUndo, FaTimes, FaSpinner, FaCreditCard, FaExclamationTriangle } from 'react-icons/fa';
+import { FaSearch, FaRedo, FaSortAmountDown,FaBox ,FaSortAmountUp, FaFilter, FaEllipsisV, FaBoxOpen, FaCheck, FaTruck, FaCog, FaBan, FaEye, FaUndo, FaTimes, FaSpinner, FaCreditCard, FaExclamationTriangle, FaClock } from 'react-icons/fa';
 import toast from 'react-hot-toast';
 import Axios from '../utils/Axios';
 import SummaryApi from '../common/SummaryApi';
@@ -19,6 +19,7 @@ const AdminOrderDashboard = () => {
   const [showOrderDetails, setShowOrderDetails] = useState(false);
   const [openDropdownId, setOpenDropdownId] = useState(null);
   const [refundStatuses, setRefundStatuses] = useState({}); // Track refund status for each order
+  const [orderCancellationRequests, setOrderCancellationRequests] = useState([]);
   
   // New filter states
   const [activeTab, setActiveTab] = useState('ALL');
@@ -201,6 +202,60 @@ const AdminOrderDashboard = () => {
       };
     }
   };
+
+  // Function to fetch user's cancellation requests
+  const fetchUserCancellationRequests = async () => {
+    try {
+      const token = localStorage.getItem('accessToken')
+      const response = await Axios({
+        ...SummaryApi.getUserCancellationRequests,
+        headers: {
+          authorization: `Bearer ${token}`
+        }
+      });
+      
+      if (response.data.success) {
+        setOrderCancellationRequests(response.data.data);
+      }
+    } catch (error) {
+      console.error("Error fetching cancellation requests:", error);
+    }
+  };
+
+  // Check if a specific item has a pending cancellation request
+  const hasItemPendingCancellationRequest = (orderId, itemId) => {
+    return orderCancellationRequests.some(request => {
+      const matchesOrder = request.orderId === orderId || request.orderId?._id === orderId;
+      const isPending = request.status === 'pending';
+      const hasItem = request.items && request.items.some(item => item.itemId === itemId || item.itemId?._id === itemId);
+      return matchesOrder && isPending && hasItem;
+    });
+  };
+
+  // Check if the full order has a pending cancellation request
+  const hasFullOrderPendingCancellationRequest = (orderId) => {
+    return orderCancellationRequests.some(request => 
+      (request.orderId === orderId || request.orderId?._id === orderId) && 
+      request.status === 'pending' && 
+      (!request.items || request.items.length === 0) // Full order cancellation typically has no specific items
+    );
+  };
+
+  // Check if order has any pending cancellation requests (items or full order)
+  const hasAnyPendingCancellationRequest = (orderId) => {
+    return orderCancellationRequests.some(request => 
+      (request.orderId === orderId || request.orderId?._id === orderId) && 
+      request.status === 'pending'
+    );
+  };
+
+  // Get pending cancellation items count for an order
+  const getPendingCancellationCount = (order) => {
+    if (!order.items) return 0;
+    return order.items.filter(item => 
+      hasItemPendingCancellationRequest(order.orderId, item._id?.toString() || item.id?.toString())
+    ).length;
+  };
   
   useEffect(() => {
     console.log("Current user state:", user);
@@ -210,6 +265,7 @@ const AdminOrderDashboard = () => {
     // Initialize component when user data is available
     if (user && user.role && isAdmin) {
       fetchOrders();
+      fetchUserCancellationRequests(); // Fetch cancellation requests for highlighting
     }
   }, [user, isAdmin]); // eslint-disable-line react-hooks/exhaustive-deps
   
@@ -1081,7 +1137,9 @@ const AdminOrderDashboard = () => {
                       <tr 
                         key={order.orderId} 
                         className={`hover:bg-gray-50 transition-colors ${
-                          order.hasCancellationRequest ? 'bg-yellow-50 border-l-4 border-yellow-400' : ''
+                          order.hasCancellationRequest ? 'bg-yellow-50 border-l-4 border-yellow-400' : 
+                          hasAnyPendingCancellationRequest(order.orderId) ? 'bg-orange-50 border-l-4 border-orange-400' :
+                          ''
                         }`}
                       >
                         <td className="px-4 py-4">
@@ -1094,11 +1152,31 @@ const AdminOrderDashboard = () => {
                                   Cancellation Request
                                 </span>
                               )}
+                              {!order.hasCancellationRequest && hasAnyPendingCancellationRequest(order.orderId) && (
+                                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-orange-100 text-orange-800">
+                                  <FaClock className="w-3 h-3 mr-1" />
+                                  Pending Cancellation
+                                </span>
+                              )}
                             </div>
                             <span className="text-sm text-gray-500">{order.userId?.email}</span>
                             {order.cancellationRequest && (
                               <div className="text-xs text-yellow-600 mt-1">
                                 Status: {order.cancellationRequest.status} | Reason: {order.cancellationRequest.reason}
+                              </div>
+                            )}
+                            {!order.cancellationRequest && hasAnyPendingCancellationRequest(order.orderId) && (
+                              <div className="text-xs text-orange-600 mt-1">
+                                {(() => {
+                                  const pendingCount = getPendingCancellationCount(order);
+                                  const hasFullPending = hasFullOrderPendingCancellationRequest(order.orderId);
+                                  if (hasFullPending) {
+                                    return "Full order cancellation requested";
+                                  } else if (pendingCount > 0) {
+                                    return `${pendingCount} item${pendingCount > 1 ? 's' : ''} cancellation requested`;
+                                  }
+                                  return "";
+                                })()}
                               </div>
                             )}
                           </div>
@@ -1208,6 +1286,12 @@ const AdminOrderDashboard = () => {
                                         productName += ` (${cancelledCount} cancelled)`;
                                       }
                                       
+                                      // Add pending cancellation indicator
+                                      const pendingCount = getPendingCancellationCount(order);
+                                      if (pendingCount > 0) {
+                                        productName += ` (${pendingCount} pending cancellation)`;
+                                      }
+                                      
                                       return productName;
                                     }
                                     
@@ -1239,6 +1323,22 @@ const AdminOrderDashboard = () => {
                                   }
                                   return null;
                                 })()}
+                                
+                                {/* Pending Cancellation Badge */}
+                                {!order.hasCancellationRequest && hasAnyPendingCancellationRequest(order.orderId) && (
+                                  <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-orange-100 text-orange-800">
+                                    <FaClock className="w-3 h-3 mr-1" />
+                                    Pending Cancel
+                                  </span>
+                                )}
+                                
+                                {/* Full Order Pending Badge */}
+                                {hasFullOrderPendingCancellationRequest(order.orderId) && (
+                                  <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                                    <FaExclamationTriangle className="w-3 h-3 mr-1" />
+                                    Full Order Pending
+                                  </span>
+                                )}
                               </div>
                               
                               <span className="text-xs text-gray-500">{order.orderId}</span>

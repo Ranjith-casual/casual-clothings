@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { useSelector, useDispatch } from 'react-redux'
 import { useNavigate } from 'react-router-dom'
-import { FaMapMarkerAlt, FaCity, FaFlag, FaMailBulk, FaBox, FaUser, FaEnvelope, FaCalendar, FaTimes, FaExclamationTriangle, FaBan, FaRedo, FaInfoCircle, FaCheck, FaSpinner, FaCreditCard, FaCog, FaTruck, FaDownload, FaFilePdf, FaUndo, FaListAlt } from 'react-icons/fa'
+import { FaMapMarkerAlt, FaCity, FaFlag, FaMailBulk, FaBox, FaUser, FaEnvelope, FaCalendar, FaTimes, FaExclamationTriangle, FaBan, FaRedo, FaInfoCircle, FaCheck, FaSpinner, FaCreditCard, FaCog, FaTruck, FaDownload, FaFilePdf, FaUndo, FaListAlt, FaClock } from 'react-icons/fa'
 import AnimatedImage from '../components/NoData';
 import toast from 'react-hot-toast';
 import SummaryApi from '../common/SummaryApi';
@@ -189,6 +189,31 @@ function MyOrders() {
     return orderCancellationRequests.some(request => 
       (request.orderId === orderId || request.orderId?._id === orderId) && 
       request.status === 'PENDING'
+    );
+  };
+
+  // Check if a specific item has a pending cancellation request
+  const hasItemPendingCancellationRequest = (orderId, itemId) => {
+    return orderCancellationRequests.some(request => {
+      if ((request.orderId === orderId || request.orderId?._id === orderId) && 
+          request.status === 'PENDING' && 
+          request.cancellationType === 'PARTIAL_ITEMS') {
+        
+        // Check if this specific item is in the cancellation request
+        return request.itemsToCancel?.some(cancelItem => 
+          cancelItem.itemId?.toString() === itemId?.toString()
+        );
+      }
+      return false;
+    });
+  };
+
+  // Check if an entire order has a pending full cancellation request
+  const hasFullOrderPendingCancellationRequest = (orderId) => {
+    return orderCancellationRequests.some(request => 
+      (request.orderId === orderId || request.orderId?._id === orderId) && 
+      request.status === 'PENDING' && 
+      request.cancellationType !== 'PARTIAL_ITEMS'
     );
   };
 
@@ -697,6 +722,57 @@ function MyOrders() {
                 </div>
               )}
 
+              {/* Partial Cancellation Badge for orders with some cancelled items or pending requests */}
+              {!isCancelled && (() => {
+                const hasPartialCancellations = order?.items?.some(item => 
+                  item?.status === 'Cancelled' || item?.cancelApproved === true
+                );
+                
+                const hasPendingPartialRequests = order?.items?.some(item => 
+                  hasItemPendingCancellationRequest(order._id, item._id)
+                );
+                
+                const hasFullOrderPendingRequest = hasFullOrderPendingCancellationRequest(order._id);
+                
+                if (hasPartialCancellations) {
+                  const cancelledCount = order?.items?.filter(item => 
+                    item?.status === 'Cancelled' || item?.cancelApproved === true
+                  ).length;
+                  
+                  return (
+                    <div className="absolute top-2 right-2 sm:top-3 sm:right-3 md:top-4 md:right-4">
+                      <div className="bg-orange-500 text-white px-2 sm:px-3 py-1 rounded-full flex items-center gap-1 text-xs sm:text-sm font-bold shadow-lg animate-pulse">
+                        <FaBan className="w-3 h-3" />
+                        <span>{cancelledCount} ITEM{cancelledCount > 1 ? 'S' : ''} CANCELLED</span>
+                      </div>
+                    </div>
+                  );
+                } else if (hasPendingPartialRequests) {
+                  const pendingCount = order?.items?.filter(item => 
+                    hasItemPendingCancellationRequest(order._id, item._id)
+                  ).length;
+                  
+                  return (
+                    <div className="absolute top-2 right-2 sm:top-3 sm:right-3 md:top-4 md:right-4">
+                      <div className="bg-yellow-500 text-white px-2 sm:px-3 py-1 rounded-full flex items-center gap-1 text-xs sm:text-sm font-bold shadow-lg animate-pulse">
+                        <FaClock className="w-3 h-3" />
+                        <span>{pendingCount} ITEM{pendingCount > 1 ? 'S' : ''} CANCELLATION REQUESTED</span>
+                      </div>
+                    </div>
+                  );
+                } else if (hasFullOrderPendingRequest) {
+                  return (
+                    <div className="absolute top-2 right-2 sm:top-3 sm:right-3 md:top-4 md:right-4">
+                      <div className="bg-yellow-500 text-white px-2 sm:px-3 py-1 rounded-full flex items-center gap-1 text-xs sm:text-sm font-bold shadow-lg animate-pulse">
+                        <FaClock className="w-3 h-3" />
+                        <span>FULL ORDER CANCELLATION REQUESTED</span>
+                      </div>
+                    </div>
+                  );
+                }
+                return null;
+              })()}
+
               {/* Cancelled Order Diagonal Stripe */}
               {isCancelled && (
                 <div className="absolute inset-0 pointer-events-none">
@@ -823,25 +899,58 @@ function MyOrders() {
                         // Check if this specific item is cancelled
                         const isItemCancelled = item?.status === 'Cancelled' || item?.cancelApproved === true;
                         
+                        // Check if this specific item has a pending cancellation request
+                        const isItemCancellationRequested = hasItemPendingCancellationRequest(order._id, item._id);
+                        
                         return (
-                        <div key={`${order._id}-item-${itemIndex}`} className={`rounded-lg p-2 sm:p-3 border ${
+                        <div key={`${order._id}-item-${itemIndex}`} className={`rounded-lg p-2 sm:p-3 border transition-all duration-300 ${
                           isCancelled ? 'bg-red-50 border-red-200' : 
-                          isItemCancelled ? 'bg-orange-50 border-orange-200' : 
+                          isItemCancelled ? 'bg-red-100 border-red-300 shadow-md ring-2 ring-red-200 ring-opacity-50' : 
+                          isItemCancellationRequested ? 'bg-yellow-100 border-yellow-300 shadow-md ring-2 ring-yellow-200 ring-opacity-50' :
                           'bg-gray-50 border-gray-200'
                         } relative`}>
-                          {/* Item cancellation indicator */}
+                          {/* Enhanced Item cancellation and request indicators */}
                           {isItemCancelled && !isCancelled && (
-                            <div className="absolute top-0 right-0 transform -translate-y-1/3 translate-x-1/3">
-                              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800 border border-red-200">
-                                Cancelled
-                              </span>
-                            </div>
+                            <>
+                              <div className="absolute top-0 right-0 transform -translate-y-1/3 translate-x-1/3 z-10">
+                                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-red-500 text-white border-2 border-white shadow-lg">
+                                  <FaBan className="w-3 h-3 mr-1" />
+                                  CANCELLED
+                                </span>
+                              </div>
+                              {/* Red stripe overlay */}
+                              <div className="absolute inset-0 bg-gradient-to-r from-red-200/30 via-transparent to-red-200/30 rounded-lg pointer-events-none"></div>
+                              {/* Diagonal cancelled pattern */}
+                              <div className="absolute inset-0 opacity-10 pointer-events-none" style={{
+                                backgroundImage: 'repeating-linear-gradient(45deg, #ef4444 0, #ef4444 10px, transparent 10px, transparent 20px)'
+                              }}></div>
+                            </>
+                          )}
+                          
+                          {/* Pending cancellation request indicator */}
+                          {isItemCancellationRequested && !isItemCancelled && !isCancelled && (
+                            <>
+                              <div className="absolute top-0 right-0 transform -translate-y-1/3 translate-x-1/3 z-10">
+                                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-orange-500 text-white border-2 border-white shadow-lg animate-pulse">
+                                  <FaClock className="w-3 h-3 mr-1" />
+                                  CANCELLATION REQUESTED
+                                </span>
+                              </div>
+                              {/* Orange stripe overlay */}
+                              <div className="absolute inset-0 bg-gradient-to-r from-orange-200/30 via-transparent to-orange-200/30 rounded-lg pointer-events-none"></div>
+                              {/* Diagonal pending pattern */}
+                              <div className="absolute inset-0 opacity-10 pointer-events-none" style={{
+                                backgroundImage: 'repeating-linear-gradient(45deg, #f97316 0, #f97316 10px, transparent 10px, transparent 20px)'
+                              }}></div>
+                            </>
                           )}
                           <div className="flex items-start gap-2 sm:gap-3">
                             {/* Item image */}
                             <div 
-                              className={`w-12 h-12 sm:w-16 sm:h-16 rounded-md overflow-hidden border flex-shrink-0 ${
-                                isCancelled || isItemCancelled ? 'border-red-300' : 'border-gray-200'
+                              className={`w-12 h-12 sm:w-16 sm:h-16 rounded-md overflow-hidden border flex-shrink-0 relative ${
+                                isCancelled || isItemCancelled ? 'border-red-400 border-2' : 
+                                isItemCancellationRequested ? 'border-orange-400 border-2' :
+                                'border-gray-200'
                               }`}
                             >
                               {(() => {
@@ -859,15 +968,20 @@ function MyOrders() {
                                   itemId = item?.productId?._id || item?.productDetails?._id;
                                 }
                                 
-                                return itemId ? (
-                                  <ProductImageLink 
-                                    imageUrl={imageSrc}
-                                    productId={itemId}
-                                    alt={itemTitle}
-                                    className="w-full h-full"
-                                    imageClassName={`${isCancelled ? 'grayscale opacity-60' : ''}`}
-                                    height="100%"
-                                    width="100%"
+                                return (
+                                  <>
+                                    {itemId ? (
+                                      <ProductImageLink 
+                                        imageUrl={imageSrc}
+                                        productId={itemId}
+                                        alt={itemTitle}
+                                        className="w-full h-full"
+                                        imageClassName={`transition-all duration-300 ${
+                                          isCancelled || isItemCancelled ? 'grayscale opacity-50 blur-sm' : 
+                                          isItemCancellationRequested ? 'opacity-75 saturate-50' : ''
+                                        }`}
+                                        height="100%"
+                                        width="100%"
                                     disableNavigation={isBundle}
                                     onClick={() => handleShowProductDetails(
                                       isBundle ? item?.bundleDetails : item?.productDetails,
@@ -880,7 +994,10 @@ function MyOrders() {
                                   <img
                                     src={imageSrc}
                                     alt={itemTitle}
-                                    className={`w-full h-full object-cover ${isCancelled ? 'grayscale opacity-60' : ''}`}
+                                    className={`w-full h-full object-cover transition-all duration-300 ${
+                                      isCancelled || isItemCancelled ? 'grayscale opacity-50 blur-sm' : 
+                                      isItemCancellationRequested ? 'opacity-75 saturate-50' : ''
+                                    }`}
                                     onError={(e) => handleImageError(e, item)}
                                     onClick={() => handleShowProductDetails(
                                       isBundle ? item?.bundleDetails : item?.productDetails,
@@ -889,9 +1006,25 @@ function MyOrders() {
                                       item
                                     )}
                                   />
-                                );
-                              })()}
-                            </div>
+                                )}
+                                {/* Enhanced cancelled/pending overlay for individual items */}
+                                {(isCancelled || isItemCancelled || isItemCancellationRequested) && (
+                                  <div className="absolute inset-0 flex items-center justify-center bg-black/30 rounded-md">
+                                    {isItemCancelled || isCancelled ? (
+                                      <FaBan className={`drop-shadow-lg ${
+                                        isItemCancelled && !isCancelled 
+                                          ? 'text-red-500 text-lg animate-pulse' 
+                                          : 'text-red-500 text-lg'
+                                      }`} />
+                                    ) : isItemCancellationRequested ? (
+                                      <FaClock className="text-orange-500 text-lg animate-pulse drop-shadow-lg" />
+                                    ) : null}
+                                  </div>
+                                )}
+                              </>
+                            );
+                          })()}
+                        </div>
                             
                             {/* Item details */}
                             <div className="flex-1 min-w-0">
@@ -899,7 +1032,9 @@ function MyOrders() {
                                 <div className="flex-1 min-w-0">
                                   <h4 
                                     className={`font-bold text-sm sm:text-base leading-tight truncate cursor-pointer hover:underline transition-all duration-200 ${
-                                      isCancelled ? 'text-red-800 line-through' : 'text-black hover:text-blue-600'
+                                      isCancelled || isItemCancelled ? 'text-red-800 line-through' : 
+                                      isItemCancellationRequested ? 'text-orange-800' : 
+                                      'text-black hover:text-blue-600'
                                     }`}
                                     onClick={() => handleShowProductDetails(
                                       item?.itemType === 'bundle' ? item?.bundleDetails : item?.productDetails,
@@ -911,10 +1046,29 @@ function MyOrders() {
                                     {item?.itemType === 'bundle' ? item?.bundleDetails?.title : item?.productDetails?.name}
                                   </h4>
                                 <div className="flex items-center gap-2 mt-1 flex-wrap">
+                                    {/* Enhanced cancelled status badge */}
+                                    {isItemCancelled && !isCancelled && (
+                                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-red-500 text-white border border-red-600 animate-pulse">
+                                        <FaBan className="w-3 h-3 mr-1" />
+                                        ITEM CANCELLED
+                                      </span>
+                                    )}
+                                    
+                                    {/* Pending cancellation request badge */}
+                                    {isItemCancellationRequested && !isItemCancelled && !isCancelled && (
+                                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-orange-500 text-white border border-orange-600 animate-pulse">
+                                        <FaClock className="w-3 h-3 mr-1" />
+                                        CANCELLATION REQUESTED
+                                      </span>
+                                    )}
                                     <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
                                       item?.itemType === 'bundle' 
-                                        ? (isCancelled ? 'bg-red-100 text-red-700' : 'bg-blue-100 text-blue-800')
-                                        : (isCancelled ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-800')
+                                        ? (isCancelled || isItemCancelled ? 'bg-red-100 text-red-700' : 
+                                           isItemCancellationRequested ? 'bg-orange-100 text-orange-700' : 
+                                           'bg-blue-100 text-blue-800')
+                                        : (isCancelled || isItemCancelled ? 'bg-red-100 text-red-700' : 
+                                           isItemCancellationRequested ? 'bg-orange-100 text-orange-700' : 
+                                           'bg-green-100 text-green-800')
                                     }`}>
                                       {item?.itemType === 'bundle' ? '📦 Bundle' : '🏷️ Product'}
                                     </span>
@@ -948,11 +1102,18 @@ function MyOrders() {
                                           handleShowBundleItems(bundleData, order);
                                         }}
                                         className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium transition-all duration-200 hover:scale-105 ${
-                                          isCancelled 
-                                            ? 'bg-gray-100 text-gray-600 hover:bg-gray-200' 
+                                          isCancelled || isItemCancelled
+                                            ? 'bg-gray-100 text-gray-600 hover:bg-gray-200 cursor-not-allowed opacity-60' 
+                                            : isItemCancellationRequested 
+                                            ? 'bg-orange-100 text-orange-600 hover:bg-orange-200 cursor-not-allowed opacity-75'
                                             : 'bg-green-100 text-green-800 hover:bg-green-200'
                                         }`}
-                                        title="View all items in this bundle"
+                                        title={
+                                          isItemCancelled ? "Item cancelled - cannot view details" : 
+                                          isItemCancellationRequested ? "Cancellation requested - please wait for admin decision" :
+                                          "View all items in this bundle"
+                                        }
+                                        disabled={isItemCancelled || isItemCancellationRequested}
                                       >
                                         <FaBox className="w-3 h-3 mr-1" />
                                         View Items
@@ -961,13 +1122,17 @@ function MyOrders() {
                                     {/* Display product size if available and item is not a bundle */}
                                     {item?.itemType !== 'bundle' && (item?.size || item?.productDetails?.size) && (
                                       <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium ${
-                                        isCancelled ? 'bg-red-50 text-red-700' : 'bg-purple-50 text-purple-700'
+                                        isCancelled || isItemCancelled ? 'bg-red-50 text-red-700 line-through' : 
+                                        isItemCancellationRequested ? 'bg-orange-50 text-orange-700' :
+                                        'bg-purple-50 text-purple-700'
                                       }`}>
                                         Size: {item?.size || item?.productDetails?.size}
                                       </span>
                                     )}
                                     <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium ${
-                                      isCancelled ? 'bg-red-50 text-red-700' : 'bg-blue-50 text-blue-700'
+                                      isCancelled || isItemCancelled ? 'bg-red-50 text-red-700 line-through' : 
+                                      isItemCancellationRequested ? 'bg-orange-50 text-orange-700' :
+                                      'bg-blue-50 text-blue-700'
                                     }`}>
                                       Qty: {item?.quantity}
                                     </span>
@@ -993,8 +1158,10 @@ function MyOrders() {
                                       
                                       return (
                                         <span className={`text-xs px-1.5 py-0.5 rounded ${
-                                          isCancelled 
-                                            ? 'bg-red-100 text-red-700' 
+                                          isCancelled || isItemCancelled
+                                            ? 'bg-red-100 text-red-700 line-through' 
+                                            : isItemCancellationRequested
+                                            ? 'bg-orange-100 text-orange-700'
                                             : 'bg-gray-100 text-gray-700'
                                         }`}>
                                           ₹{unitPrice?.toFixed(2)}{priceLabel}
@@ -1051,24 +1218,28 @@ function MyOrders() {
                                           {/* Show original price per unit if there's a discount (this should be the higher price) */}
                                           {hasDiscount && (
                                             <div className={`text-xs ${
-                                              isCancelled ? 'text-red-500 line-through' : 'text-gray-500 line-through'
+                                              isCancelled || isItemCancelled ? 'text-red-500 line-through opacity-60' : 
+                                              isItemCancellationRequested ? 'text-orange-500 opacity-75' :
+                                              'text-gray-500 line-through'
                                             }`}>
                                               Original: ₹{originalPrice?.toFixed(2)}
                                               {!isBundle && item?.productId?.discount && (
-                                                <span className="ml-1 text-orange-600">({item.productId.discount}% off)</span>
+                                                <span className={`ml-1 ${isItemCancelled ? 'text-red-600' : 'text-orange-600'}`}>({item.productId.discount}% off)</span>
                                               )}
                                               {!isBundle && item?.size && (
-                                                <span className="ml-1 text-purple-600">(Size: {item.size})</span>
+                                                <span className={`ml-1 ${isItemCancelled ? 'text-red-600' : 'text-purple-600'}`}>(Size: {item.size})</span>
                                               )}
                                               {isBundle && (
-                                                <span className="ml-1 text-blue-600">(Bundle Savings)</span>
+                                                <span className={`ml-1 ${isItemCancelled ? 'text-red-600' : 'text-blue-600'}`}>(Bundle Savings)</span>
                                               )}
                                             </div>
                                           )}
                                           
                                           {/* Final/Discounted Price per unit (this should be the lower price after discount) */}
                                           <div className={`font-bold text-sm sm:text-base ${
-                                            isCancelled ? 'text-red-800 line-through' : 'text-black'
+                                            isCancelled || isItemCancelled ? 'text-red-800 line-through opacity-75' : 
+                                            isItemCancellationRequested ? 'text-orange-800 opacity-90' :
+                                            'text-black'
                                           }`}>
                                             {hasDiscount ? 'Discounted' : 'Unit'} Price: ₹{finalPrice?.toFixed(2)}
                                             {!isBundle && item?.size && (() => {
@@ -1082,7 +1253,7 @@ function MyOrders() {
                                               if (hasDiscount && multiplier !== 1.0) {
                                                 return (
                                                   <span className={`ml-1 text-xs font-normal ${
-                                                    isCancelled ? 'text-red-600' : 'text-green-600'
+                                                    isCancelled || isItemCancelled ? 'text-red-600' : 'text-green-600'
                                                   }`}>
                                                     (Size {item.size} + {item.productId.discount}% Off)
                                                   </span>
@@ -1090,7 +1261,7 @@ function MyOrders() {
                                               } else if (hasDiscount) {
                                                 return (
                                                   <span className={`ml-1 text-xs font-normal ${
-                                                    isCancelled ? 'text-red-600' : 'text-green-600'
+                                                    isCancelled || isItemCancelled ? 'text-red-600' : 'text-green-600'
                                                   }`}>
                                                     ({item.productId.discount}% Off)
                                                   </span>
@@ -1098,7 +1269,7 @@ function MyOrders() {
                                               } else if (multiplier !== 1.0) {
                                                 return (
                                                   <span className={`ml-1 text-xs font-normal ${
-                                                    isCancelled ? 'text-red-600' : 'text-purple-600'
+                                                    isCancelled || isItemCancelled ? 'text-red-600' : 'text-purple-600'
                                                   }`}>
                                                     (Size {item.size})
                                                   </span>
@@ -1108,7 +1279,7 @@ function MyOrders() {
                                             })()}
                                             {isBundle && hasDiscount && (
                                               <span className={`ml-1 text-xs font-normal ${
-                                                isCancelled ? 'text-red-600' : 'text-green-600'
+                                                isCancelled || isItemCancelled ? 'text-red-600' : 'text-green-600'
                                               }`}>
                                                 (Bundle Discount)
                                               </span>
@@ -1176,32 +1347,80 @@ function MyOrders() {
                                   );
                                   
                                   if (hasCancelledItems) {
-                                    // Calculate current total excluding cancelled items
+                                    // FIXED: Calculate current total excluding cancelled items using proper pricing logic
+                                    // This now uses the same price calculation logic as the individual items display
+                                    // to ensure consistency between item prices and total amount
                                     let currentTotal = 0;
+                                    const debugData = {
+                                      orderId: order?._id,
+                                      originalTotal: originalOrderTotal,
+                                      items: []
+                                    };
                                     
-                                    order?.items?.forEach(item => {
+                                    order?.items?.forEach((item, index) => {
                                       const isItemCancelled = item?.status === 'Cancelled' || item?.cancelApproved === true;
                                       
                                       if (!isItemCancelled) {
-                                        // Use stored item total or calculate from unit price
-                                        const itemTotal = item?.itemTotal || 
-                                                        (item?.unitPrice || 0) * (item?.quantity || 1);
+                                        // Use the same calculation logic as used in item display
+                                        // First try to use stored itemTotal, then calculate if needed
+                                        const itemTotal = item?.itemTotal || calculateSizeBasedPrice(item);
                                         currentTotal += itemTotal;
+                                        
+                                        debugData.items.push({
+                                          index,
+                                          name: item?.itemType === 'bundle' ? item?.bundleDetails?.title : item?.productDetails?.name,
+                                          itemType: item?.itemType,
+                                          quantity: item?.quantity,
+                                          calculatedTotal: itemTotal,
+                                          storedItemTotal: item?.itemTotal,
+                                          calculatedPrice: calculateSizeBasedPrice(item),
+                                          priceSource: item?.itemTotal ? 'stored' : 'calculated',
+                                          unitPrice: item?.unitPrice,
+                                          sizeAdjustedPrice: item?.sizeAdjustedPrice,
+                                          size: item?.size,
+                                          isCancelled: isItemCancelled
+                                        });
+                                      } else {
+                                        debugData.items.push({
+                                          index,
+                                          name: item?.itemType === 'bundle' ? item?.bundleDetails?.title : item?.productDetails?.name,
+                                          itemType: item?.itemType,
+                                          quantity: item?.quantity,
+                                          isCancelled: isItemCancelled,
+                                          status: 'EXCLUDED_FROM_TOTAL'
+                                        });
                                       }
                                     });
                                     
-                                    // Add delivery charge to current total
+                                    // Add delivery charge to current total (only if there are remaining items)
                                     const deliveryCharge = order?.deliveryCharge || 0;
-                                    currentTotal += deliveryCharge;
+                                    const remainingItemsCount = order?.items?.filter(item => 
+                                      !(item?.status === 'Cancelled' || item?.cancelApproved === true)
+                                    ).length || 0;
+                                    
+                                    // Only add delivery charge if there are remaining items to deliver
+                                    if (remainingItemsCount > 0) {
+                                      currentTotal += deliveryCharge;
+                                    }
+                                    
+                                    debugData.deliveryCharge = deliveryCharge;
+                                    debugData.remainingItemsCount = remainingItemsCount;
+                                    debugData.deliveryChargeApplied = remainingItemsCount > 0;
+                                    debugData.finalCurrentTotal = currentTotal;
+                                    
+                                    console.log('💰 Price Calculation Debug:', debugData);
                                     
                                     return (
                                       <>
                                         <span className="line-through text-gray-500 text-sm mr-2">
                                           ₹{originalOrderTotal.toFixed(2)}
                                         </span>
-                                        <span className="text-green-700">
+                                        <span className="text-green-700 font-bold">
                                           ₹{currentTotal.toFixed(2)}
                                         </span>
+                                        <div className="text-xs text-green-600 mt-1">
+                                          Updated due to cancelled items
+                                        </div>
                                       </>
                                     );
                                   }
@@ -1212,22 +1431,74 @@ function MyOrders() {
                               </span>
                             </div>
                             
-                            {/* Show cancelled items info */}
+                            {/* Enhanced cancelled items and pending requests info */}
                             {(() => {
                               // Check if any items are cancelled but the order is not fully cancelled
                               const hasCancelledItems = order?.items?.some(item => 
                                 (item?.status === 'Cancelled' || item?.cancelApproved === true)
                               );
                               
-                              if (hasCancelledItems && !isCancelled) {
+                              // Check if any items have pending cancellation requests
+                              const hasPendingItemRequests = order?.items?.some(item => 
+                                hasItemPendingCancellationRequest(order._id, item._id)
+                              );
+                              
+                              // Check if full order has pending cancellation request
+                              const hasFullOrderPendingRequest = hasFullOrderPendingCancellationRequest(order._id);
+                              
+                              if ((hasCancelledItems || hasPendingItemRequests || hasFullOrderPendingRequest) && !isCancelled) {
                                 const cancelledItems = order?.items?.filter(item => 
                                   item?.status === 'Cancelled' || item?.cancelApproved === true
                                 );
                                 
+                                const pendingItems = order?.items?.filter(item => 
+                                  hasItemPendingCancellationRequest(order._id, item._id)
+                                );
+                                
                                 return (
-                                  <div className="mt-2 text-xs text-red-600 flex items-center">
-                                    <FaInfoCircle className="mr-1" /> 
-                                    <span>{cancelledItems.length} item(s) cancelled - amount reduced</span>
+                                  <div className="mt-3 p-3 bg-gradient-to-r from-red-50 via-orange-50 to-yellow-50 border border-orange-200 rounded-lg">
+                                    <div className="flex items-center text-gray-800 font-semibold text-sm mb-2">
+                                      {hasCancelledItems && <FaBan className="mr-2 text-red-500" />}
+                                      {(hasPendingItemRequests || hasFullOrderPendingRequest) && <FaClock className="mr-2 text-orange-500 animate-pulse" />}
+                                      <span>Order Status Updates</span>
+                                    </div>
+                                    
+                                    <div className="space-y-2">
+                                      {/* Cancelled items info */}
+                                      {hasCancelledItems && (
+                                        <div className="text-xs text-red-600 flex flex-wrap items-center gap-2">
+                                          <span className="bg-red-100 px-2 py-1 rounded-full font-medium">
+                                            {cancelledItems.length} of {order?.items?.length} item(s) cancelled
+                                          </span>
+                                          <span className="text-red-500">• Order amount has been reduced accordingly</span>
+                                        </div>
+                                      )}
+                                      
+                                      {/* Pending item requests info */}
+                                      {hasPendingItemRequests && (
+                                        <div className="text-xs text-orange-600 flex flex-wrap items-center gap-2">
+                                          <span className="bg-orange-100 px-2 py-1 rounded-full font-medium animate-pulse">
+                                            {pendingItems.length} of {order?.items?.length} item(s) cancellation requested
+                                          </span>
+                                          <span className="text-orange-500">• Awaiting admin approval</span>
+                                        </div>
+                                      )}
+                                      
+                                      {/* Full order pending request info */}
+                                      {hasFullOrderPendingRequest && (
+                                        <div className="text-xs text-yellow-600 flex flex-wrap items-center gap-2">
+                                          <span className="bg-yellow-100 px-2 py-1 rounded-full font-medium animate-pulse">
+                                            Full order cancellation requested
+                                          </span>
+                                          <span className="text-yellow-600">• Awaiting admin approval</span>
+                                        </div>
+                                      )}
+                                    </div>
+                                    
+                                    <div className="mt-2 text-xs text-gray-600">
+                                      {hasCancelledItems && "Cancelled items are highlighted above with red borders and crossed-out styling. "}
+                                      {(hasPendingItemRequests || hasFullOrderPendingRequest) && "Items with pending cancellation requests are highlighted with orange borders and clock icons."}
+                                    </div>
                                   </div>
                                 );
                               }
