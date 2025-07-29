@@ -43,6 +43,19 @@ const orderCancellationSchema = mongoose.Schema({
         refundAmount: {
             type: Number,
             default: 0
+        },
+        // Enhanced pricing information from OrderCancellationModal
+        totalPrice: Number, // Total price customer paid for this item (discounted)
+        itemPrice: Number,  // Unit price customer paid (discounted)
+        originalPrice: Number, // Original retail price
+        productName: String, // Product name for reference
+        pricingBreakdown: {
+            unitPrice: Number,           // Original unit price
+            unitCustomerPaid: Number,    // Discounted unit price customer paid
+            totalCustomerPaid: Number,   // Total amount customer paid for this item
+            originalPrice: Number,       // Original retail price
+            discountPercentage: Number,  // Discount percentage applied
+            refundAmount: Number         // Calculated refund amount for this item
         }
     }],
     requestDate: {
@@ -67,6 +80,18 @@ const orderCancellationSchema = mongoose.Schema({
         type: String,
         maxlength: 500
     },
+    // Enhanced pricing information from OrderCancellationModal
+    pricingInformation: {
+        totalAmountCustomerPaid: Number,     // Total discounted amount customer actually paid
+        totalOriginalRetailPrice: Number,    // Total original retail price
+        totalCustomerSavings: Number,        // Total savings from discounts
+        calculatedRefundAmount: Number,      // Calculated refund amount
+        refundPercentage: Number,           // Refund percentage used
+        note: String                        // Additional pricing notes
+    },
+    // For partial cancellations - total values
+    totalRefundAmount: Number,  // Total refund amount for partial cancellations
+    totalItemValue: Number,     // Total value of items being cancelled
     // Delivery information at the time of cancellation
     deliveryInfo: {
         estimatedDeliveryDate: Date,
@@ -110,6 +135,27 @@ const orderCancellationSchema = mongoose.Schema({
             type: String,
             enum: ['PENDING', 'PROCESSING', 'COMPLETED', 'FAILED'],
             default: 'PENDING'
+        },
+        // Enhanced refund data for refund management integration
+        enhancedRefundData: {
+            finalRefundAmount: Number,
+            totalItemValue: Number,
+            customerPaidAmount: Number,
+            refundPercentage: Number,
+            cancellationType: {
+                type: String,
+                enum: ['FULL_ORDER', 'PARTIAL_ITEMS']
+            },
+            basedOnDiscountedPricing: {
+                type: Boolean,
+                default: false
+            },
+            pricingBreakdown: mongoose.Schema.Types.Mixed, // Flexible object for pricing information
+            processedAt: Date,
+            processedBy: {
+                type: mongoose.Schema.Types.ObjectId,
+                ref: 'user'
+            }
         }
     },
     isActive: {

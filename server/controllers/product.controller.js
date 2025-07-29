@@ -343,6 +343,19 @@ export const updateProductDetails = async (request, response) => {
             };
         }
 
+        // Calculate discounted price if price or discount is being updated
+        if (updateData.price !== undefined || updateData.discount !== undefined) {
+            const currentProduct = await ProductModel.findById(_id);
+            const price = updateData.price !== undefined ? Number(updateData.price) : currentProduct.price;
+            const discount = updateData.discount !== undefined ? Number(updateData.discount) : currentProduct.discount;
+            
+            if (price && discount) {
+                updateData.discountedPrice = price * (1 - discount / 100);
+            } else {
+                updateData.discountedPrice = price || 0;
+            }
+        }
+
         const updateProduct = await ProductModel.updateOne({ _id: _id }, updateData);
 
         return response.json({

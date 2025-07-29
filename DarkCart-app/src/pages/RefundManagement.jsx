@@ -323,12 +323,37 @@ const RefundManagement = () => {
                                         <span className="text-blue-800">{adminResponse.refundPercentage || 75}% of item price</span>
                                     </div>
                                     
-                                    {/* Calculate total refund by summing up individual item refunds if available */}
+                                    {/* Calculate total refund with enhanced discount pricing support */}
                                     {(() => {
-                                        // First try to use adminResponse.refundAmount
+                                        // Priority 1: Use enhanced refund data with discount pricing (HIGHEST PRIORITY)
+                                        if (refundDetails.enhancedRefundData?.finalRefundAmount !== undefined) {
+                                            const enhancedAmount = refundDetails.enhancedRefundData.finalRefundAmount;
+                                            console.log('✅ Using enhanced refund data (discount-based):', enhancedAmount);
+                                            
+                                            return (
+                                                <div className="space-y-2">
+                                                    <div className="flex justify-between items-center px-3 py-1.5 bg-green-50 border border-green-100 rounded-md">
+                                                        <span className="font-medium text-green-700">Final Refund Amount:</span>
+                                                        <span className="text-green-800 font-bold">{DisplayPriceInRupees(enhancedAmount)}</span>
+                                                    </div>
+                                                    {refundDetails.enhancedRefundData.basedOnDiscountedPricing && (
+                                                        <div className="text-xs text-green-600 px-3 py-1 bg-green-50 rounded">
+                                                            ✅ Calculated using discounted prices customer actually paid
+                                                        </div>
+                                                    )}
+                                                    {refundDetails.enhancedRefundData.cancellationType && (
+                                                        <div className="text-xs text-blue-600 px-3 py-1 bg-blue-50 rounded">
+                                                            Cancellation Type: {refundDetails.enhancedRefundData.cancellationType.replace('_', ' ')}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            );
+                                        }
+                                        
+                                        // Priority 2: Use direct adminResponse.refundAmount
                                         let totalRefundAmount = parseFloat(adminResponse.refundAmount || 0);
                                         
-                                        // If it's zero or very small, try to calculate from item refund amounts
+                                        // Priority 3: Calculate from item refund amounts (fallback)
                                         if (totalRefundAmount < 1 && order.items && Array.isArray(order.items)) {
                                             const cancelledItems = order.items.filter(item => item?.status === 'Cancelled' || item?.cancelApproved === true);
                                             
@@ -353,14 +378,21 @@ const RefundManagement = () => {
                                             
                                             if (calculatedTotal > 0) {
                                                 totalRefundAmount = calculatedTotal;
-                                                console.log(`Calculated total refund from items: ${totalRefundAmount}`);
+                                                console.log(`⚠️ Fallback calculated total refund from items: ${totalRefundAmount}`);
                                             }
                                         }
                                         
                                         return (
-                                            <div className="flex justify-between items-center px-3 py-1.5 bg-green-50 border border-green-100 rounded-md">
-                                                <span className="font-medium text-green-700">Total Refund Amount:</span>
-                                                <span className="text-green-800 font-bold">{DisplayPriceInRupees(totalRefundAmount)}</span>
+                                            <div className="space-y-2">
+                                                <div className="flex justify-between items-center px-3 py-1.5 bg-green-50 border border-green-100 rounded-md">
+                                                    <span className="font-medium text-green-700">Total Refund Amount:</span>
+                                                    <span className="text-green-800 font-bold">{DisplayPriceInRupees(totalRefundAmount)}</span>
+                                                </div>
+                                                {totalRefundAmount > 0 && (
+                                                    <div className="text-xs text-yellow-600 px-3 py-1 bg-yellow-50 rounded">
+                                                        ⚠️ Using fallback calculation - may not reflect discounted prices
+                                                    </div>
+                                                )}
                                             </div>
                                         );
                                     })()}
@@ -599,6 +631,22 @@ const RefundManagement = () => {
     const CompleteRefundModal = () => {
         if (!selectedRefund) return null;
         
+        // Calculate the correct refund amount using enhanced data
+        const getModalRefundAmount = () => {
+            // Priority 1: Use enhanced refund data (discount-based calculation)
+            if (selectedRefund.refundDetails?.enhancedRefundData?.finalRefundAmount !== undefined) {
+                console.log('CompleteRefundModal: Using enhanced refund amount:', selectedRefund.refundDetails.enhancedRefundData.finalRefundAmount);
+                return selectedRefund.refundDetails.enhancedRefundData.finalRefundAmount;
+            }
+            
+            // Priority 2: Fallback to adminResponse.refundAmount
+            const fallbackAmount = parseFloat(selectedRefund.adminResponse?.refundAmount || 0);
+            console.log('CompleteRefundModal: Using fallback refund amount:', fallbackAmount);
+            return fallbackAmount;
+        };
+        
+        const finalRefundAmount = getModalRefundAmount();
+        
         return (
             <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
                 <div className="bg-white rounded-lg shadow-xl w-full max-w-lg">
@@ -612,9 +660,12 @@ const RefundManagement = () => {
                             <p className="mb-2">
                                 <span className="font-medium">Customer:</span> {selectedRefund.userId?.name}
                             </p>
-                            <p className="mb-2">
-                                <span className="font-medium">Refund Amount:</span> {DisplayPriceInRupees(parseFloat(selectedRefund.adminResponse?.refundAmount || 0))}
-                            </p>
+                            <div className="mb-2">
+                                <span className="font-medium">Refund Amount:</span> {DisplayPriceInRupees(finalRefundAmount)}
+                                {selectedRefund.refundDetails?.enhancedRefundData?.basedOnDiscountedPricing && (
+                                    <div className="text-xs text-green-600 mt-1">✅ Based on discounted prices customer paid</div>
+                                )}
+                            </div>
                         </div>
                         
                         <div className="mb-4">
@@ -805,10 +856,24 @@ const RefundManagement = () => {
                                         <td className="px-6 py-4 whitespace-nowrap">
                                             <div className="text-gray-900 font-medium">
                                                 {(() => {
-                                                    // First try to use adminResponse.refundAmount
+                                                    // Priority 1: Use enhanced refund data with discount pricing (HIGHEST PRIORITY)
+                                                    if (refund.refundDetails?.enhancedRefundData?.finalRefundAmount !== undefined) {
+                                                        const enhancedAmount = refund.refundDetails.enhancedRefundData.finalRefundAmount;
+                                                        console.log('✅ Table using enhanced refund data:', enhancedAmount);
+                                                        return (
+                                                            <div className="flex flex-col">
+                                                                <span>{DisplayPriceInRupees(enhancedAmount)}</span>
+                                                                {refund.refundDetails.enhancedRefundData.basedOnDiscountedPricing && (
+                                                                    <span className="text-xs text-green-600 font-normal">✅ Discount-based</span>
+                                                                )}
+                                                            </div>
+                                                        );
+                                                    }
+                                                    
+                                                    // Priority 2: Use direct adminResponse.refundAmount
                                                     let totalRefundAmount = parseFloat(refund.adminResponse?.refundAmount || 0);
                                                     
-                                                    // If it's zero or very small, try to calculate from item refund amounts
+                                                    // Priority 3: Calculate from item refund amounts (fallback)
                                                     if (totalRefundAmount < 1 && refund.orderId?.items && Array.isArray(refund.orderId.items)) {
                                                         const cancelledItems = refund.orderId.items.filter(
                                                             item => item?.status === 'Cancelled' || item?.cancelApproved === true
@@ -837,7 +902,14 @@ const RefundManagement = () => {
                                                         }
                                                     }
                                                     
-                                                    return DisplayPriceInRupees(totalRefundAmount);
+                                                    return (
+                                                        <div className="flex flex-col">
+                                                            <span>{DisplayPriceInRupees(totalRefundAmount)}</span>
+                                                            {totalRefundAmount > 0 && (
+                                                                <span className="text-xs text-yellow-600 font-normal">⚠️ Fallback calc</span>
+                                                            )}
+                                                        </div>
+                                                    );
                                                 })()}
                                             </div>
                                             <div className="text-xs text-gray-500 mt-0.5">

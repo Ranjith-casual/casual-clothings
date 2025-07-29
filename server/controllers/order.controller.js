@@ -1000,7 +1000,7 @@ export const getOrderController = async (req, res) => {
         const userId = req.userId;
         const orders = await orderModel.find({ userId: userId })
           .sort({createdAt: -1})
-          .populate("items.productId", "name image price stock discount sizePricing") // Include sizePricing
+          .populate("items.productId", "name image price stock discount sizePricing discountedPrice") // Include discountedPrice
           .populate("items.bundleId", "title description image images bundlePrice originalPrice stock items") // Include items array
           .populate("deliveryAddress", "address_line city state pincode country landmark addressType mobile")
           .populate("userId", "name email phone");
@@ -1053,7 +1053,7 @@ export const getOrderByIdController = async (req, res) => {
         const userId = req.userId;
         
         const order = await orderModel.findOne({ orderId: orderId, userId: userId })
-          .populate("items.productId", "name image price stock discount description brand sizePricing") // Include sizePricing
+          .populate("items.productId", "name image price stock discount description brand sizePricing discountedPrice") // Include discountedPrice
           .populate("items.bundleId", "title description image images bundlePrice originalPrice stock items discount")
           .populate("deliveryAddress", "address_line city state pincode country landmark addressType mobile")
           .populate("userId", "name email phone");
@@ -1152,7 +1152,7 @@ export const getAllOrdersController = async (req, res) => {
         const orders = await orderModel.find({})
           .sort({createdAt: -1})
           .populate("userId", "name email")
-          .populate("items.productId", "name image price stock discount") // Updated populate path
+          .populate("items.productId", "name image price stock discount discountedPrice") // Include discountedPrice
           .populate("items.bundleId", "title description image images bundlePrice originalPrice stock items") // Include items array
           .populate("deliveryAddress", "address_line city state pincode country");
 
@@ -1285,7 +1285,7 @@ export const updateOrderStatusController = async (req, res) => {
                 updateData,
                 { new: true, session }
             ).populate("userId", "name email")
-             .populate("items.productId", "name image price stock") // Updated populate path
+             .populate("items.productId", "name image price stock discountedPrice") // Include discountedPrice
              .populate("items.bundleId", "title images bundlePrice stock") // Add bundle population
              .populate("deliveryAddress", "address_line city state pincode country");
 

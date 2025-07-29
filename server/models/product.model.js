@@ -49,6 +49,10 @@ const productSchema = mongoose.Schema({
         type: Number,
         default: 0
     },
+    discountedPrice: {
+        type: Number,
+        default: 0
+    },
     description: {
         type: String,
         default: ""
@@ -96,6 +100,29 @@ const productSchema = mongoose.Schema({
 }, {
     timestamps: true
 });
+
+// Pre-save middleware to automatically calculate discounted price
+productSchema.pre('save', function(next) {
+    if (this.price && this.discount) {
+        this.discountedPrice = this.price * (1 - this.discount / 100);
+    } else {
+        this.discountedPrice = this.price || 0;
+    }
+    next();
+});
+
+// Static method to calculate discounted price for a given price and discount
+productSchema.statics.calculateDiscountedPrice = function(price, discount) {
+    if (price && discount && discount > 0) {
+        return price * (1 - discount / 100);
+    }
+    return price || 0;
+};
+
+// Instance method to get the effective price (discounted if available, otherwise original)
+productSchema.methods.getEffectivePrice = function() {
+    return this.discountedPrice || this.price || 0;
+};
 
 // Create text index on name and description for better search results
 productSchema.index({ name: 'text', description: 'text' });

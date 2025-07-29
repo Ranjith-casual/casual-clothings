@@ -16,6 +16,104 @@ function OrderCancellationModal({ order, onClose, onCancellationRequested }) {
     const [cancelMode, setCancelMode] = useState('full') // 'full' or 'partial'
     const [selectedItems, setSelectedItems] = useState({})
 
+    // Calculate discounted price for an item
+    const calculateItemPrice = (item) => {
+        let basePrice = 0;
+        let originalPrice = 0;
+        let discountPercentage = 0;
+        
+        console.log('Calculating discounted price for item:', {
+            itemId: item._id,
+            itemType: item.itemType,
+            productId: item.productId,
+            productDetails: item.productDetails,
+            sizeAdjustedPrice: item.sizeAdjustedPrice,
+            size: item.size,
+            quantity: item.quantity,
+            productIdDiscountedPrice: item.productId?.discountedPrice,
+            productDetailsDiscountedPrice: item.productDetails?.discountedPrice
+        });
+        
+        if (item.itemType === 'product') {
+            // Get the original price first - check multiple sources
+            originalPrice = item.productId?.price || item.productDetails?.price || item.price || 0;
+            
+            // Priority 1: Use stored discounted price from product model (HIGHEST PRIORITY)
+            if (item.productId?.discountedPrice && item.productId.discountedPrice > 0) {
+                basePrice = item.productId.discountedPrice;
+                if (originalPrice > basePrice && originalPrice > 0) {
+                    discountPercentage = ((originalPrice - basePrice) / originalPrice) * 100;
+                }
+                console.log('✅ Using stored discountedPrice from productId:', { 
+                    originalPrice, 
+                    discountedPrice: basePrice, 
+                    discount: discountPercentage 
+                });
+            }
+            // Priority 2: Use stored discounted price from product details
+            else if (item.productDetails?.discountedPrice && item.productDetails.discountedPrice > 0) {
+                basePrice = item.productDetails.discountedPrice;
+                if (originalPrice > basePrice && originalPrice > 0) {
+                    discountPercentage = ((originalPrice - basePrice) / originalPrice) * 100;
+                }
+                console.log('✅ Using stored discountedPrice from productDetails:', { 
+                    originalPrice, 
+                    discountedPrice: basePrice, 
+                    discount: discountPercentage 
+                });
+            }
+            // Priority 3: Use explicit final price if available
+            else if (item.productDetails?.finalPrice && item.productDetails.finalPrice > 0) {
+                basePrice = item.productDetails.finalPrice;
+                if (originalPrice > basePrice) {
+                    discountPercentage = ((originalPrice - basePrice) / originalPrice) * 100;
+                }
+                console.log('Using finalPrice:', { finalPrice: basePrice, discount: discountPercentage });
+            }
+            // Priority 4: Use size-adjusted price
+            else if (item.sizeAdjustedPrice && item.sizeAdjustedPrice > 0) {
+                basePrice = item.sizeAdjustedPrice;
+                originalPrice = basePrice; // For size-adjusted, use it as base
+                
+                // Check if there's still a discount to apply
+                const itemDiscount = item.productId?.discount || item.productDetails?.discount || item.discount || 0;
+                if (itemDiscount > 0) {
+                    const discountedPrice = basePrice * (1 - itemDiscount / 100);
+                    basePrice = discountedPrice;
+                    discountPercentage = itemDiscount;
+                }
+                console.log('Using sizeAdjustedPrice:', { sizeAdjustedPrice: item.sizeAdjustedPrice, finalPrice: basePrice, discount: discountPercentage });
+            }
+            // Priority 5: Calculate discount from available discount percentage
+            else if ((item.productId?.discount || item.productDetails?.discount || item.discount) && originalPrice > 0) {
+                discountPercentage = item.productId?.discount || item.productDetails?.discount || item.discount || 0;
+                basePrice = originalPrice * (1 - discountPercentage / 100);
+                console.log('Calculated discounted price from discount percentage:', { originalPrice, discount: discountPercentage, calculatedPrice: basePrice });
+            }
+            // Priority 6: Use unit price or fallback to original price
+            else {
+                basePrice = item.unitPrice || originalPrice || (item.itemTotal / item.quantity) || 0;
+                console.log('Using fallback price:', { unitPrice: item.unitPrice, originalPrice, itemTotal: item.itemTotal, quantity: item.quantity, finalPrice: basePrice });
+            }
+        } else if (item.itemType === 'bundle') {
+            // For bundles
+            basePrice = item.bundleId?.bundlePrice || item.bundleDetails?.bundlePrice || 0;
+            originalPrice = item.bundleId?.originalPrice || item.bundleDetails?.originalPrice || basePrice;
+            
+            // Calculate discount percentage for display
+            if (originalPrice > basePrice && originalPrice > 0) {
+                discountPercentage = ((originalPrice - basePrice) / originalPrice) * 100;
+            }
+        }
+        
+        return {
+            unitPrice: basePrice,
+            originalPrice: originalPrice,
+            discount: discountPercentage,
+            totalPrice: basePrice * item.quantity
+        };
+    };
+
     const cancellationReasons = [
         'Changed mind',
         'Found better price',
@@ -60,9 +158,17 @@ function OrderCancellationModal({ order, onClose, onCancellationRequested }) {
             const refundPercentage = getTimeBasedRefund()
             
             if (cancelMode === 'full') {
-                // For full cancellation, use the stored order total amount as this is what was charged
-                // and subtract any delivery charge if needed based on refund policy
-                let activeItemsTotal = order.totalAmt || 0;
+                // For full cancellation, calculate total based on discounted prices of all items
+                let activeItemsTotal = 0;
+                
+                if (order && order.items) {
+                    order.items.forEach(item => {
+                        if (item.status !== 'Cancelled' && !item.cancelApproved) {
+                            const priceData = calculateItemPrice(item);
+                            activeItemsTotal += priceData.totalPrice;
+                        }
+                    });
+                }
                 
                 // If we need to exclude delivery charge from refund calculation
                 // (this depends on your business policy)
@@ -70,7 +176,7 @@ function OrderCancellationModal({ order, onClose, onCancellationRequested }) {
                 // Uncomment the line below if delivery charge should not be refunded
                 // activeItemsTotal -= deliveryCharge;
                 
-                console.log(`Full cancellation - Order total: ${order.totalAmt}, Active items total: ${activeItemsTotal}, Refund %: ${refundPercentage}`);
+                console.log(`Full cancellation - Calculated discounted total: ${activeItemsTotal}, Refund %: ${refundPercentage}`);
                 setEstimatedRefund((activeItemsTotal * refundPercentage) / 100);
             } else {
                 // For partial mode, calculation is handled by another useEffect
@@ -149,7 +255,43 @@ function OrderCancellationModal({ order, onClose, onCancellationRequested }) {
             const token = localStorage.getItem('accessToken')
             
             if (cancelMode === 'full') {
-                // Full order cancellation
+                // Full order cancellation - calculate comprehensive pricing info for admin review
+                let totalDiscountedAmount = 0;
+                let totalOriginalAmount = 0;
+                let totalSavingsAmount = 0;
+                
+                const itemPricingBreakdown = order.items
+                    .filter(item => item.status !== 'Cancelled' && !item.cancelApproved)
+                    .map(item => {
+                        const priceData = calculateItemPrice(item);
+                        totalDiscountedAmount += priceData.totalPrice;
+                        totalOriginalAmount += (priceData.originalPrice * item.quantity);
+                        totalSavingsAmount += ((priceData.originalPrice - priceData.unitPrice) * item.quantity);
+                        
+                        return {
+                            itemId: item._id,
+                            itemName: item.itemType === 'product' 
+                                ? item.productDetails?.name 
+                                : item.bundleDetails?.title,
+                            quantity: item.quantity,
+                            originalRetailPrice: priceData.originalPrice,
+                            customerPaidPrice: priceData.unitPrice, // Discounted price customer paid
+                            discountApplied: priceData.discount,
+                            totalCustomerPaid: priceData.totalPrice
+                        };
+                    });
+                
+                const refundPercentage = getTimeBasedRefund();
+                
+                console.log('🎯 Full Order Cancellation - Pricing Summary:', {
+                    totalDiscountedAmount,
+                    totalOriginalAmount,
+                    totalSavingsAmount,
+                    refundPercentage,
+                    calculatedRefund: (totalDiscountedAmount * refundPercentage / 100),
+                    itemCount: itemPricingBreakdown.length
+                });
+                
                 const response = await Axios({
                     ...SummaryApi.requestOrderCancellation,
                     headers: {
@@ -158,7 +300,17 @@ function OrderCancellationModal({ order, onClose, onCancellationRequested }) {
                     data: {
                         orderId: order._id,
                         reason,
-                        additionalReason: additionalReason.trim()
+                        additionalReason: additionalReason.trim(),
+                        // Enhanced pricing information for admin review
+                        pricingInformation: {
+                            totalAmountCustomerPaid: totalDiscountedAmount, // Total discounted amount customer actually paid
+                            totalOriginalRetailPrice: totalOriginalAmount, // Total if no discounts were applied
+                            totalCustomerSavings: totalSavingsAmount, // Total amount saved through discounts
+                            refundPercentage: refundPercentage,
+                            calculatedRefundAmount: (totalDiscountedAmount * refundPercentage / 100),
+                            itemBreakdown: itemPricingBreakdown,
+                            note: "Refund calculated based on discounted prices customer actually paid, not original retail prices"
+                        }
                     }
                 })
 
@@ -177,10 +329,54 @@ function OrderCancellationModal({ order, onClose, onCancellationRequested }) {
                     return
                 }
                 
-                // Prepare items to cancel
-                const itemsToCancel = selectedItemIds.map(itemId => ({
-                    itemId
-                }))
+                // Prepare items to cancel with discounted price information
+                const itemsToCancel = selectedItemIds.map(itemId => {
+                    const item = order.items.find(i => i._id === itemId);
+                    const priceData = calculateItemPrice(item);
+                    const refundPercentage = getTimeBasedRefund();
+                    
+                    return {
+                        itemId,
+                        itemPrice: priceData.unitPrice, // Discounted unit price (what customer actually paid per unit)
+                        originalPrice: priceData.originalPrice, // Original retail price before discount
+                        totalPrice: priceData.totalPrice, // Total discounted price for this item (discounted unitPrice * quantity)
+                        quantity: item.quantity,
+                        discount: priceData.discount,
+                        itemType: item.itemType,
+                        productName: item.itemType === 'product' 
+                            ? item.productDetails?.name 
+                            : item.bundleDetails?.title,
+                        size: item.size || null,
+                        refundAmount: (priceData.totalPrice * refundPercentage / 100), // Dynamic refund % of discounted price
+                        refundPercentage: refundPercentage,
+                        // Additional pricing context for admin review
+                        pricingBreakdown: {
+                            originalRetailPrice: priceData.originalPrice,
+                            customerPaidPrice: priceData.unitPrice, // This is the discounted price customer actually paid
+                            discountApplied: priceData.discount,
+                            totalCustomerPaid: priceData.totalPrice, // Total amount customer paid for this item
+                            calculatedRefund: (priceData.totalPrice * refundPercentage / 100)
+                        }
+                    };
+                });
+                
+                console.log('🎯 Partial Cancellation - Items to Cancel:', {
+                    selectedItemsCount: selectedItemIds.length,
+                    totalRefundAmount: itemsToCancel.reduce((sum, item) => sum + item.refundAmount, 0),
+                    totalItemValue: itemsToCancel.reduce((sum, item) => sum + item.totalPrice, 0),
+                    refundPercentage: getTimeBasedRefund(),
+                    itemDetails: itemsToCancel.map(item => ({
+                        name: item.productName,
+                        customerPaid: item.totalPrice,
+                        refundAmount: item.refundAmount,
+                        originalPrice: item.originalPrice,
+                        discount: item.discount
+                    }))
+                });
+                
+                // Calculate totals for backend
+                const totalRefundAmount = itemsToCancel.reduce((sum, item) => sum + item.refundAmount, 0);
+                const totalItemValue = itemsToCancel.reduce((sum, item) => sum + item.totalPrice, 0);
                 
                 const response = await Axios({
                     ...SummaryApi.requestPartialItemCancellation,
@@ -191,7 +387,10 @@ function OrderCancellationModal({ order, onClose, onCancellationRequested }) {
                         orderId: order._id,
                         itemsToCancel,
                         reason,
-                        additionalReason: additionalReason.trim()
+                        additionalReason: additionalReason.trim(),
+                        // Enhanced totals for backend processing
+                        totalRefundAmount: totalRefundAmount,
+                        totalItemValue: totalItemValue
                     }
                 })
 
@@ -236,27 +435,11 @@ function OrderCancellationModal({ order, onClose, onCancellationRequested }) {
                     selectedIds.forEach(id => {
                         const item = order.items.find(i => i._id === id)
                         if (item && item.status !== 'Cancelled' && !item.cancelApproved) {
-                            // Calculate item price based on item type
-                            let itemPrice = 0
+                            // Use discounted price calculation
+                            const priceData = calculateItemPrice(item);
+                            const itemTotal = priceData.totalPrice;
                             
-                            if (item.itemType === 'bundle') {
-                                // For bundles
-                                itemPrice = parseFloat(item.bundleDetails?.bundlePrice) || 
-                                           parseFloat(item.bundleId?.bundlePrice) || 
-                                           (parseFloat(item.itemTotal) / parseFloat(item.quantity)) || 
-                                           0;
-                            } else {
-                                // For products
-                                itemPrice = parseFloat(item.sizeAdjustedPrice) || 
-                                           parseFloat(item.unitPrice) || 
-                                           parseFloat(item.productDetails?.price) || 
-                                           (parseFloat(item.itemTotal) / parseFloat(item.quantity)) || 
-                                           0;
-                            }
-                            
-                            // Calculate total for this item
-                            const itemTotal = itemPrice * parseFloat(item.quantity);
-                            console.log(`Item: ${item._id}, Price: ${itemPrice}, Quantity: ${item.quantity}, Total: ${itemTotal}`);
+                            console.log(`Item: ${item._id}, Discounted Price: ${priceData.unitPrice}, Original Price: ${priceData.originalPrice}, Quantity: ${item.quantity}, Total: ${itemTotal}, Discount: ${priceData.discount}%`);
                             
                             // Calculate refund amount with percentage
                             const itemRefund = (itemTotal * refundPercentage) / 100;
@@ -296,36 +479,15 @@ function OrderCancellationModal({ order, onClose, onCancellationRequested }) {
             selectedItemIds.forEach(itemId => {
                 const item = order.items.find(i => i._id === itemId)
                 if (item && item.status !== 'Cancelled' && !item.cancelApproved) {
-                    // Use stored itemTotal first, then fallback to calculations
-                    let itemTotal = parseFloat(item.itemTotal) || 0;
+                    // Use the calculateItemPrice function for consistent discounted pricing
+                    const priceData = calculateItemPrice(item);
+                    const itemTotal = priceData.totalPrice; // This is the discounted total price
                     
-                    // Only calculate if itemTotal is not available
-                    if (itemTotal === 0) {
-                        let itemPrice = 0
-                        
-                        if (item.itemType === 'bundle') {
-                            // For bundles
-                            itemPrice = parseFloat(item.bundleDetails?.bundlePrice) || 
-                                       parseFloat(item.bundleId?.bundlePrice) || 
-                                       0;
-                        } else {
-                            // For products, handle size-based pricing
-                            const productInfo = item.productId || item.productDetails;
-                            itemPrice = parseFloat(item.sizeAdjustedPrice) || 
-                                      parseFloat(item.unitPrice) || 
-                                      parseFloat(productInfo?.price) || 
-                                      0;
-                        }
-                        
-                        // Calculate total price for this item as fallback
-                        itemTotal = itemPrice * parseFloat(item.quantity);
-                    }
-                    
-                    console.log(`[useEffect] Item: ${item._id}, Stored Total: ${item.itemTotal}, Calculated Total: ${itemTotal}`);
+                    console.log(`[useEffect] Item: ${item._id}, Discounted Price: ${priceData.unitPrice}, Original Price: ${priceData.originalPrice}, Discount: ${priceData.discount}%, Quantity: ${item.quantity}, Discounted Total: ${itemTotal}`);
                     
                     const refundPercentage = getTimeBasedRefund()
                     const itemRefund = (itemTotal * refundPercentage) / 100;
-                    console.log(`[useEffect] Refund percentage: ${refundPercentage}%, Item refund: ${itemRefund}`);
+                    console.log(`[useEffect] Refund percentage: ${refundPercentage}%, Item discounted refund: ${itemRefund}`);
                     
                     totalRefund += itemRefund
                 }
@@ -684,10 +846,13 @@ function OrderCancellationModal({ order, onClose, onCancellationRequested }) {
                 {cancelMode === 'partial' && (
                     <div className="p-6 border-b">
                         <h3 className="font-semibold mb-3">Select Items to Cancel</h3>
-                        <p className="text-sm text-gray-600 mb-4 bg-blue-50 p-2 rounded">
-                            <FaInfoCircle className="inline-block mr-1 text-blue-600" />
-                            Check the boxes next to items you wish to cancel. Refund amount will be calculated based on your selection.
-                        </p>
+                        <div className="space-y-3 mb-4">
+                            <p className="text-sm text-gray-600 bg-blue-50 p-2 rounded">
+                                <FaInfoCircle className="inline-block mr-1 text-blue-600" />
+                                Check the boxes next to items you wish to cancel. Refund amount will be calculated based on your selection.
+                            </p>
+                            
+                        </div>
                         {order?.items?.length > 0 ? (
                             <div className="max-h-60 overflow-y-auto">
                                 <table className="w-full text-sm">
@@ -766,27 +931,29 @@ function OrderCancellationModal({ order, onClose, onCancellationRequested }) {
                                                 <td className="p-2 text-right">{item.quantity}</td>
                                                 <td className="p-2 text-right">
                                                     <div className="flex flex-col items-end">
-                                                        <div className="flex items-center justify-end">
-                                                            <span>₹ {(() => {
-                                                                // Get price based on item type
-                                                                if (item.itemType === 'bundle') {
-                                                                    return (parseFloat(item.bundleDetails?.bundlePrice) || 
-                                                                           parseFloat(item.bundleId?.bundlePrice) || 
-                                                                           (parseFloat(item.itemTotal) / parseFloat(item.quantity)) || 
-                                                                           0).toFixed(2);
-                                                                } else {
-                                                                    // For products, handle size-based pricing
-                                                                    const productInfo = item.productId || item.productDetails;
-                                                                    const unitPrice = parseFloat(item.sizeAdjustedPrice) || 
-                                                                                     parseFloat(item.unitPrice) || 
-                                                                                     parseFloat(productInfo?.price) || 
-                                                                                     (parseFloat(item.itemTotal) / parseFloat(item.quantity)) || 
-                                                                                     0;
-                                                                    console.log(`Item display price: ${item.productDetails?.name}, sizeAdjustedPrice: ${item.sizeAdjustedPrice}, unitPrice: ${item.unitPrice}, productPrice: ${productInfo?.price}, itemTotal: ${item.itemTotal}, quantity: ${item.quantity}, calculatedUnitPrice: ${unitPrice}`);
-                                                                    return unitPrice.toFixed(2);
-                                                                }
-                                                            })() || '0.00'}</span>
-                                                        </div>
+                                                        {(() => {
+                                                            const priceData = calculateItemPrice(item);
+                                                            const { unitPrice, originalPrice, discount } = priceData;
+                                                            
+                                                            return (
+                                                                <div className="text-right">
+                                                                    {discount > 0 && originalPrice > unitPrice ? (
+                                                                        <div className="space-y-1">
+                                                                            <div className="flex items-center justify-end gap-2">
+                                                                                <span className="text-lg font-bold text-green-600">₹{unitPrice.toFixed(2)}</span>
+                                                                                <span className="text-xs text-white bg-red-500 px-1 py-0.5 rounded">
+                                                                                    {discount.toFixed(0)}% OFF
+                                                                                </span>
+                                                                            </div>
+                                                                            <div className="text-xs line-through text-gray-500">₹{originalPrice.toFixed(2)}</div>
+                                                                            <div className="text-xs text-green-600">Save ₹{(originalPrice - unitPrice).toFixed(2)}</div>
+                                                                        </div>
+                                                                    ) : (
+                                                                        <div className="text-lg font-bold text-gray-900">₹{unitPrice.toFixed(2)}</div>
+                                                                    )}
+                                                                </div>
+                                                            );
+                                                        })()}
                                                     </div>
                                                 </td>
                                                 <td className="p-2 text-right">
@@ -821,7 +988,7 @@ function OrderCancellationModal({ order, onClose, onCancellationRequested }) {
                         <div className="flex items-center justify-between text-sm text-gray-600">
                             <span>Refund Percentage:</span>
                             <span className="text-green-600">
-                                ✓ {getTimeBasedRefund()}% of order value
+                                ✓ {getTimeBasedRefund()}% of discounted order value
                             </span>
                         </div>
                         
@@ -848,43 +1015,44 @@ function OrderCancellationModal({ order, onClose, onCancellationRequested }) {
                                                             ? (item.bundleDetails?.title || 'Bundle') 
                                                             : (item.productDetails?.name || 'Product');
                                                         
-                                                        // Calculate item price properly
-                                                        let itemPrice = 0;
-                                                        if (item.itemType === 'bundle') {
-                                                            itemPrice = parseFloat(item.bundleDetails?.bundlePrice) || 
-                                                                        parseFloat(item.bundleId?.bundlePrice) || 
-                                                                        (parseFloat(item.itemTotal) / parseFloat(item.quantity)) || 
-                                                                        0;
-                                                        } else {
-                                                            // For products, handle size-based pricing
-                                                            const productInfo = item.productId || item.productDetails;
-                                                            itemPrice = parseFloat(item.sizeAdjustedPrice) || 
-                                                                         parseFloat(item.unitPrice) || 
-                                                                         parseFloat(productInfo?.price) || 
-                                                                         (parseFloat(item.itemTotal) / parseFloat(item.quantity)) || 
-                                                                         0;
-                                                        }
+                                                        // Use the calculateItemPrice function for consistent pricing
+                                                        const priceData = calculateItemPrice(item);
+                                                        const { unitPrice, originalPrice, discount, totalPrice } = priceData;
                                                         
-                                                        const itemTotal = itemPrice * parseFloat(item.quantity);
-                                                        // Calculate refund amount
+                                                        // Calculate refund amount using discounted price
                                                         const refundPercentage = getTimeBasedRefund();
-                                                        const refundAmount = ((itemTotal * refundPercentage) / 100).toFixed(2);
-                                                        console.log(`Item: ${itemName}, Price: ${itemPrice}, Quantity: ${item.quantity}, Total: ${itemTotal}, Refund %: ${refundPercentage}, Refund amount: ${refundAmount}`);
+                                                        const refundAmount = ((totalPrice * refundPercentage) / 100).toFixed(2);
+                                                        console.log(`Item: ${itemName}, Discounted Price: ${unitPrice}, Original Price: ${originalPrice}, Discount: ${discount}%, Total: ${totalPrice}, Refund %: ${refundPercentage}, Refund amount: ${refundAmount}`);
                                                         
                                                         return (
                                                             <li key={id} className="flex justify-between p-2 bg-gray-50 rounded border">
                                                                 <div className="flex flex-col">
                                                                     <span className="font-medium">{itemName} {item.size ? `(${item.size})` : ''}</span>
-                                                                    <span className="text-xs text-gray-500">Quantity: {item.quantity} × ₹{itemPrice.toFixed(2)}</span>
+                                                                    <div className="text-xs text-gray-500">
+                                                                        {discount > 0 && originalPrice > unitPrice ? (
+                                                                            <div className="space-y-1">
+                                                                                <div>Quantity: {item.quantity} × ₹{unitPrice.toFixed(2)} <span className="text-green-600 font-medium">(Discounted)</span></div>
+                                                                                <div className="line-through text-gray-400">Was: {item.quantity} × ₹{originalPrice.toFixed(2)}</div>
+                                                                                <div className="text-green-600">Saved: ₹{((originalPrice - unitPrice) * item.quantity).toFixed(2)} ({discount.toFixed(0)}% OFF)</div>
+                                                                            </div>
+                                                                        ) : (
+                                                                            <div>Quantity: {item.quantity} × ₹{unitPrice.toFixed(2)}</div>
+                                                                        )}
+                                                                    </div>
                                                                 </div>
                                                                 <div className="flex flex-col items-end">
                                                                     <div className="flex items-center">
                                                                         <FaRupeeSign size={10} className="mr-0.5" />
-                                                                        <span className="font-medium">{itemTotal.toFixed(2)}</span>
+                                                                        <span className="font-medium text-green-600">{totalPrice.toFixed(2)}</span>
+                                                                        {discount > 0 && (
+                                                                            <span className="text-xs text-white bg-red-500 px-1 py-0.5 rounded ml-1">
+                                                                                {discount.toFixed(0)}% OFF
+                                                                            </span>
+                                                                        )}
                                                                     </div>
                                                                     <div className="flex items-center text-green-600 text-xs">
                                                                         <FaPercent size={8} className="mr-1" />
-                                                                        <span>{getTimeBasedRefund()}% refund: ₹{refundAmount}</span>
+                                                                        <span>{refundPercentage}% refund: ₹{refundAmount}</span>
                                                                     </div>
                                                                 </div>
                                                             </li>
@@ -990,7 +1158,7 @@ function OrderCancellationModal({ order, onClose, onCancellationRequested }) {
                         <h4 className="font-medium text-gray-800 mb-2">Cancellation Terms:</h4>
                         <ul className="text-sm text-gray-600 space-y-1">
                             <li>• Admin will review your request within {policy?.responseTimeHours || 48} hours</li>
-                            <li>• Refund amount is {getTimeBasedRefund()}% of the order value</li>
+                            <li>• Refund amount is {getTimeBasedRefund()}% of the <span className="font-medium text-green-700">discounted order value</span> (amount you actually paid)</li>
                             <li>• Approved refunds will be processed within 5-7 business days</li>
                             <li>• Refund will be credited to your original payment method</li>
                             <li>• This action cannot be undone once submitted</li>

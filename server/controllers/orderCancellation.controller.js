@@ -193,13 +193,14 @@ export const getComprehensiveOrderDetails = async (req, res) => {
 export const requestOrderCancellation = async (req, res) => {
     try {
         const userId = req.userId;
-        const { orderId, reason, additionalReason } = req.body;
+        const { orderId, reason, additionalReason, pricingInformation } = req.body;
 
         console.log('Cancellation request data:', {
             userId,
             orderId,
             reason,
             additionalReason,
+            pricingInformation,
             body: req.body
         });
 
@@ -261,7 +262,7 @@ export const requestOrderCancellation = async (req, res) => {
 
         // Get current policy for refund calculation
         const policy = await cancellationPolicyModel.findOne({ isActive: true });
-        const refundPercentage = 75;
+        const refundPercentage = pricingInformation?.refundPercentage || 75;
 
         // Check if cancellation is past estimated delivery date
         const now = new Date();
@@ -269,12 +270,27 @@ export const requestOrderCancellation = async (req, res) => {
             now > new Date(order.estimatedDeliveryDate) && 
             !order.actualDeliveryDate;
 
-        // Create cancellation request with delivery information
+        // Calculate refund amount - use pricing information if available, otherwise fallback
+        let expectedRefundAmount;
+        if (pricingInformation?.calculatedRefundAmount !== undefined) {
+            expectedRefundAmount = pricingInformation.calculatedRefundAmount;
+            console.log('✅ Using pricing information refund amount:', expectedRefundAmount);
+        } else if (pricingInformation?.totalAmountCustomerPaid !== undefined) {
+            expectedRefundAmount = (pricingInformation.totalAmountCustomerPaid * refundPercentage) / 100;
+            console.log('✅ Calculating refund from customer paid amount:', expectedRefundAmount);
+        } else {
+            // Fallback to original calculation
+            expectedRefundAmount = (order.totalAmt * refundPercentage) / 100;
+            console.log('⚠️ Using fallback refund calculation:', expectedRefundAmount);
+        }
+
+        // Create cancellation request with delivery information and pricing data
         const cancellationRequest = new orderCancellationModel({
             orderId,
             userId,
             reason,
             additionalReason,
+            pricingInformation: pricingInformation || null, // Store pricing information from frontend
             deliveryInfo: {
                 estimatedDeliveryDate: order.estimatedDeliveryDate,
                 actualDeliveryDate: order.actualDeliveryDate,
@@ -282,7 +298,8 @@ export const requestOrderCancellation = async (req, res) => {
                 wasPastDeliveryDate
             },
             adminResponse: {
-                refundPercentage
+                refundPercentage,
+                refundAmount: expectedRefundAmount // Store calculated refund amount
             }
         });
 
@@ -312,7 +329,8 @@ export const requestOrderCancellation = async (req, res) => {
                             <p><strong>Request Date:</strong> ${new Date().toLocaleDateString()}</p>
                             ${order.estimatedDeliveryDate ? `<p><strong>Estimated Delivery Date:</strong> ${new Date(order.estimatedDeliveryDate).toLocaleDateString()}</p>` : ''}
                             ${wasPastDeliveryDate ? '<p style="color: #dc3545;"><strong>Note:</strong> Cancellation requested after estimated delivery date</p>' : ''}
-                            <p><strong>Expected Refund:</strong> ₹${(order.totalAmt * refundPercentage / 100).toFixed(2)} (${refundPercentage}% of order value)</p>
+                            <p><strong>Expected Refund:</strong> ₹${expectedRefundAmount.toFixed(2)} (${refundPercentage}% of ${pricingInformation?.totalAmountCustomerPaid ? 'discounted amount' : 'order value'})</p>
+                            ${pricingInformation?.totalCustomerSavings ? `<p><strong>Your Savings:</strong> ₹${pricingInformation.totalCustomerSavings.toFixed(2)} from discounts</p>` : ''}
                         </div>
                         
                         <p><strong>What happens next?</strong></p>
@@ -335,8 +353,9 @@ export const requestOrderCancellation = async (req, res) => {
             message: "Cancellation request submitted successfully",
             data: {
                 requestId: cancellationRequest._id,
-                expectedRefund: (order.totalAmt * refundPercentage / 100).toFixed(2),
-                refundPercentage
+                expectedRefund: expectedRefundAmount.toFixed(2),
+                refundPercentage,
+                pricingUsed: pricingInformation ? 'Enhanced pricing from frontend' : 'Fallback calculation'
             }
         });
 
@@ -450,7 +469,7 @@ export const getCancellationRequests = async (req, res) => {
 export const processCancellationRequest = async (req, res) => {
     try {
         const adminId = req.userId;
-        const { requestId, action, adminComments, customRefundPercentage } = req.body;
+        const { requestId, action, adminComments, customRefundPercentage, calculatedRefundAmount, calculatedTotalValue, refundData } = req.body;
 
         if (!['APPROVED', 'REJECTED'].includes(action)) {
             return res.status(400).json({
@@ -492,32 +511,66 @@ export const processCancellationRequest = async (req, res) => {
             });
         }
 
-        // Calculate refund amount with delivery date consideration
+        // Calculate refund amount with delivery date consideration and enhanced pricing
         const order = cancellationRequest.orderId;
         let baseRefundPercentage = customRefundPercentage || cancellationRequest.adminResponse.refundPercentage;
         
-        // Adjust refund percentage based on delivery status
-        if (action === 'APPROVED' && cancellationRequest.deliveryInfo) {
-            const deliveryInfo = cancellationRequest.deliveryInfo;
+        // Priority 1: Use frontend-calculated refund amount if available (includes discount pricing)
+        let refundAmount = 0;
+        let baseAmount = 0;
+        
+        if (action === 'APPROVED' && calculatedRefundAmount !== undefined && calculatedTotalValue !== undefined) {
+            // Use the calculated amounts from frontend that incorporate discount pricing
+            refundAmount = calculatedRefundAmount;
+            baseAmount = calculatedTotalValue;
             
-            // If cancellation is requested after estimated delivery date, reduce refund
-            if (deliveryInfo.wasPastDeliveryDate) {
-                baseRefundPercentage = Math.max(50, baseRefundPercentage - 15); // Reduce by 15% but minimum 50%
+            console.log('💰 Using Frontend-Calculated Refund:', {
+                calculatedRefundAmount: refundAmount,
+                calculatedTotalValue: baseAmount,
+                frontendRefundPercentage: baseRefundPercentage,
+                basedOnDiscountedPricing: refundData?.basedOnDiscountedPricing || false
+            });
+        } else {
+            // Fallback to original calculation logic for backward compatibility
+            // Use enhanced pricing information if available
+            if (cancellationRequest.pricingInformation?.totalAmountCustomerPaid) {
+                baseAmount = cancellationRequest.pricingInformation.totalAmountCustomerPaid;
+                console.log('✅ Using enhanced pricing - Customer paid amount:', baseAmount);
+            } else {
+                baseAmount = order.totalAmt;
+                console.log('⚠️ Using fallback pricing - Order total:', baseAmount);
             }
             
-            // If order was already delivered, significantly reduce refund
-            if (deliveryInfo.actualDeliveryDate) {
-                const daysSinceDelivery = Math.floor((new Date() - new Date(deliveryInfo.actualDeliveryDate)) / (1000 * 60 * 60 * 24));
-                if (daysSinceDelivery > 7) {
-                    baseRefundPercentage = Math.max(25, baseRefundPercentage - 30); // Reduce by 30% but minimum 25%
-                } else {
-                    baseRefundPercentage = Math.max(40, baseRefundPercentage - 20); // Reduce by 20% but minimum 40%
+            // Adjust refund percentage based on delivery status
+            if (action === 'APPROVED' && cancellationRequest.deliveryInfo) {
+                const deliveryInfo = cancellationRequest.deliveryInfo;
+                
+                // If cancellation is requested after estimated delivery date, reduce refund
+                if (deliveryInfo.wasPastDeliveryDate) {
+                    baseRefundPercentage = Math.max(50, baseRefundPercentage - 15); // Reduce by 15% but minimum 50%
+                }
+                
+                // If order was already delivered, significantly reduce refund
+                if (deliveryInfo.actualDeliveryDate) {
+                    const daysSinceDelivery = Math.floor((new Date() - new Date(deliveryInfo.actualDeliveryDate)) / (1000 * 60 * 60 * 24));
+                    if (daysSinceDelivery > 7) {
+                        baseRefundPercentage = Math.max(25, baseRefundPercentage - 30); // Reduce by 30% but minimum 25%
+                    } else {
+                        baseRefundPercentage = Math.max(40, baseRefundPercentage - 20); // Reduce by 20% but minimum 40%
+                    }
                 }
             }
+            
+            const refundPercentage = baseRefundPercentage;
+            refundAmount = action === 'APPROVED' ? (baseAmount * refundPercentage / 100) : 0;
+            
+            console.log('💰 Fallback Refund Calculation:', {
+                baseAmount: baseAmount,
+                refundPercentage: refundPercentage,
+                finalRefundAmount: refundAmount,
+                usingEnhancedPricing: !!cancellationRequest.pricingInformation?.totalAmountCustomerPaid
+            });
         }
-        
-        const refundPercentage = baseRefundPercentage;
-        const refundAmount = action === 'APPROVED' ? (order.totalAmt * refundPercentage / 100) : 0;
 
         // Update cancellation request
         cancellationRequest.status = action;
@@ -525,13 +578,32 @@ export const processCancellationRequest = async (req, res) => {
         cancellationRequest.adminResponse.processedDate = new Date();
         cancellationRequest.adminResponse.adminComments = adminComments;
         cancellationRequest.adminResponse.refundAmount = refundAmount;
-        cancellationRequest.adminResponse.refundPercentage = refundPercentage;
+        cancellationRequest.adminResponse.refundPercentage = baseRefundPercentage;
+        
+        // Store enhanced refund data if provided from frontend
+        if (refundData) {
+            cancellationRequest.refundDetails.enhancedRefundData = {
+                ...refundData,
+                processedAt: new Date(),
+                processedBy: adminId
+            };
+            
+            console.log('📊 Stored enhanced refund data:', cancellationRequest.refundDetails.enhancedRefundData);
+        }
 
         if (action === 'APPROVED') {
             cancellationRequest.refundDetails.refundStatus = 'PROCESSING';
             
             // Mark all items as cancelled in full order cancellation
-            await updateFullOrderCancellation(order._id, cancellationRequest._id, refundPercentage);
+            await updateFullOrderCancellation(order._id, cancellationRequest._id, baseRefundPercentage);
+            
+            // TODO: Integrate with payment gateway for actual refund processing
+            // await processPaymentRefund(order, refundAmount);
+            
+            // TODO: Restore inventory for cancelled items
+            // await restoreInventoryForOrder(order);
+            
+            console.log(`✅ Full order cancellation approved - Order: ${order.orderId}, Refund: ₹${refundAmount}`);
         }
         
 // Helper function to update all items in a full order cancellation
@@ -582,6 +654,16 @@ const updateFullOrderCancellation = async (orderId, cancellationId, refundPercen
 }
 
         await cancellationRequest.save();
+        
+        console.log(`📋 Cancellation Request ${action}:`, {
+            requestId: cancellationRequest._id,
+            orderNumber: order.orderId,
+            action: action,
+            refundAmount: action === 'APPROVED' ? refundAmount : 0,
+            refundPercentage: refundPercentage,
+            adminId: adminId,
+            processedAt: new Date().toISOString()
+        });
 
         // Send email to user
         const user = cancellationRequest.userId;
@@ -1318,8 +1400,18 @@ export const getCancellationByOrderId = async (req, res) => {
 // Request Partial Item Cancellation
 export const requestPartialItemCancellation = async (req, res) => {
     try {
-        const { orderId, itemsToCancel, reason, additionalReason } = req.body;
+        const { orderId, itemsToCancel, reason, additionalReason, totalRefundAmount, totalItemValue } = req.body;
         const userId = req.userId;
+
+        console.log('Partial cancellation request data:', {
+            orderId,
+            itemsToCancel,
+            reason,
+            additionalReason,
+            totalRefundAmount,
+            totalItemValue,
+            body: req.body
+        });
 
         // Validate input
         if (!orderId || !itemsToCancel || !Array.isArray(itemsToCancel) || itemsToCancel.length === 0) {
@@ -1381,9 +1473,10 @@ export const requestPartialItemCancellation = async (req, res) => {
             });
         }
 
-        // Validate items to cancel exist in the order
+        // Validate items to cancel exist in the order and enhance with pricing data
         const validatedItemsToCancel = [];
-        let totalRefundAmount = 0;
+        let calculatedTotalRefundAmount = 0;
+        let calculatedTotalItemValue = 0;
 
         for (const itemToCancel of itemsToCancel) {
             const orderItem = order.items.find(item => 
@@ -1398,10 +1491,34 @@ export const requestPartialItemCancellation = async (req, res) => {
                 });
             }
 
-            // Calculate refund amount for this item
-            const itemRefundAmount = orderItem.itemTotal || (orderItem.sizeAdjustedPrice || orderItem.productDetails?.price || 0) * orderItem.quantity;
-            totalRefundAmount += itemRefundAmount;
+            // Use enhanced pricing data from frontend if available, otherwise calculate
+            let itemRefundAmount, itemTotalValue;
+            
+            if (itemToCancel.refundAmount !== undefined) {
+                itemRefundAmount = itemToCancel.refundAmount;
+                console.log('✅ Using frontend refund amount for item:', itemRefundAmount);
+            } else if (itemToCancel.pricingBreakdown?.refundAmount !== undefined) {
+                itemRefundAmount = itemToCancel.pricingBreakdown.refundAmount;
+                console.log('✅ Using pricingBreakdown refund amount for item:', itemRefundAmount);
+            } else {
+                // Fallback calculation
+                const fallbackAmount = orderItem.itemTotal || (orderItem.sizeAdjustedPrice || orderItem.productDetails?.price || 0) * orderItem.quantity;
+                itemRefundAmount = fallbackAmount * 0.75; // Apply 75% refund
+                console.log('⚠️ Using fallback refund calculation for item:', itemRefundAmount);
+            }
 
+            if (itemToCancel.totalPrice !== undefined) {
+                itemTotalValue = itemToCancel.totalPrice;
+            } else if (itemToCancel.pricingBreakdown?.totalCustomerPaid !== undefined) {
+                itemTotalValue = itemToCancel.pricingBreakdown.totalCustomerPaid;
+            } else {
+                itemTotalValue = orderItem.itemTotal || (orderItem.sizeAdjustedPrice || orderItem.productDetails?.price || 0) * orderItem.quantity;
+            }
+
+            calculatedTotalRefundAmount += itemRefundAmount;
+            calculatedTotalItemValue += itemTotalValue;
+
+            // Enhanced item data with pricing breakdown
             validatedItemsToCancel.push({
                 itemId: orderItem._id,
                 productId: orderItem.productId,
@@ -1410,9 +1527,25 @@ export const requestPartialItemCancellation = async (req, res) => {
                 quantity: orderItem.quantity,
                 size: orderItem.size,
                 itemTotal: orderItem.itemTotal,
-                refundAmount: itemRefundAmount
+                refundAmount: itemRefundAmount,
+                // Enhanced pricing data from frontend
+                totalPrice: itemToCancel.totalPrice,
+                itemPrice: itemToCancel.itemPrice,
+                originalPrice: itemToCancel.originalPrice,
+                productName: itemToCancel.productName,
+                pricingBreakdown: itemToCancel.pricingBreakdown || null
             });
         }
+
+        // Use frontend totals if provided, otherwise use calculated values
+        const finalTotalRefundAmount = totalRefundAmount !== undefined ? totalRefundAmount : calculatedTotalRefundAmount;
+        const finalTotalItemValue = totalItemValue !== undefined ? totalItemValue : calculatedTotalItemValue;
+
+        console.log('Final pricing values:', {
+            finalTotalRefundAmount,
+            finalTotalItemValue,
+            fromFrontend: totalRefundAmount !== undefined
+        });
 
         // Get delivery information
         const deliveryInfo = {
@@ -1422,7 +1555,7 @@ export const requestPartialItemCancellation = async (req, res) => {
             wasPastDeliveryDate: order.estimatedDeliveryDate ? new Date() > new Date(order.estimatedDeliveryDate) : false
         };
 
-        // Create cancellation request
+        // Create cancellation request with enhanced pricing data
         const cancellationRequest = new orderCancellationModel({
             orderId: orderId,
             userId: userId,
@@ -1430,9 +1563,12 @@ export const requestPartialItemCancellation = async (req, res) => {
             itemsToCancel: validatedItemsToCancel,
             reason: reason,
             additionalReason: additionalReason,
+            totalRefundAmount: finalTotalRefundAmount,    // Store frontend total refund amount
+            totalItemValue: finalTotalItemValue,          // Store frontend total item value
             deliveryInfo: deliveryInfo,
             adminResponse: {
-                refundAmount: totalRefundAmount
+                refundAmount: finalTotalRefundAmount,
+                refundPercentage: 75
             }
         });
 
@@ -1456,11 +1592,12 @@ export const requestPartialItemCancellation = async (req, res) => {
                                 <ul>
                                     ${validatedItemsToCancel.map(item => {
                                         const orderItem = order.items.find(oi => oi._id.toString() === item.itemId.toString());
-                                        const itemName = orderItem?.productDetails?.name || orderItem?.bundleDetails?.title || 'Unknown Item';
-                                        return `<li>${itemName} ${item.size ? `(Size: ${item.size})` : ''} - Qty: ${item.quantity} - ₹${item.refundAmount}</li>`;
+                                        const itemName = item.productName || orderItem?.productDetails?.name || orderItem?.bundleDetails?.title || 'Unknown Item';
+                                        return `<li>${itemName} ${item.size ? `(Size: ${item.size})` : ''} - Qty: ${item.quantity} - ₹${item.refundAmount.toFixed(2)}</li>`;
                                     }).join('')}
                                 </ul>
-                                <p><strong>Total Expected Refund: ₹${totalRefundAmount}</strong></p>
+                                <p><strong>Total Expected Refund: ₹${finalTotalRefundAmount.toFixed(2)}</strong></p>
+                                <p><strong>Items Total Value: ₹${finalTotalItemValue.toFixed(2)}</strong></p>
                             </div>
                             
                             <p><strong>Reason:</strong> ${reason}</p>
@@ -1485,8 +1622,10 @@ export const requestPartialItemCancellation = async (req, res) => {
             data: {
                 cancellationId: savedCancellation._id,
                 itemsToCancel: validatedItemsToCancel,
-                totalRefundAmount: totalRefundAmount,
-                status: 'PENDING'
+                totalRefundAmount: finalTotalRefundAmount,
+                totalItemValue: finalTotalItemValue,
+                status: 'PENDING',
+                pricingUsed: totalRefundAmount !== undefined ? 'Enhanced pricing from frontend' : 'Calculated pricing'
             }
         });
 
@@ -1504,7 +1643,7 @@ export const requestPartialItemCancellation = async (req, res) => {
 export const processPartialItemCancellation = async (req, res) => {
     try {
         const { cancellationId } = req.params;
-        const { action, adminComments, refundPercentage } = req.body;
+        const { action, adminComments, refundPercentage, calculatedRefundAmount, calculatedTotalValue, refundData } = req.body;
         const adminId = req.userId;
 
         if (!action || !['APPROVED', 'REJECTED'].includes(action)) {
@@ -1545,19 +1684,58 @@ export const processPartialItemCancellation = async (req, res) => {
         cancellationRequest.adminResponse.adminComments = adminComments || '';
 
         if (action === 'APPROVED') {
-            // Calculate final refund amount based on admin's refund percentage
-            const finalRefundPercentage = refundPercentage || cancellationRequest.adminResponse.refundPercentage || 75;
+            // Priority 1: Use frontend-calculated refund amount if available (includes discount pricing)
             let totalRefundAmount = 0;
-
-            // Update refund amounts for each item
-            cancellationRequest.itemsToCancel.forEach(item => {
-                const calculatedRefund = (item.refundAmount * finalRefundPercentage) / 100;
-                item.refundAmount = Math.round(calculatedRefund * 100) / 100; // Round to 2 decimal places
-                totalRefundAmount += item.refundAmount;
-            });
+            let finalRefundPercentage = refundPercentage || cancellationRequest.adminResponse.refundPercentage || 75;
+            
+            if (calculatedRefundAmount !== undefined && calculatedTotalValue !== undefined) {
+                // Use the calculated amounts from frontend that incorporate discount pricing
+                totalRefundAmount = calculatedRefundAmount;
+                
+                console.log('💰 Using Frontend-Calculated Partial Refund:', {
+                    calculatedRefundAmount: totalRefundAmount,
+                    calculatedTotalValue: calculatedTotalValue,
+                    frontendRefundPercentage: finalRefundPercentage,
+                    basedOnDiscountedPricing: refundData?.basedOnDiscountedPricing || false
+                });
+                
+                // Update individual item refund amounts proportionally
+                if (cancellationRequest.itemsToCancel && cancellationRequest.itemsToCancel.length > 0) {
+                    cancellationRequest.itemsToCancel.forEach(item => {
+                        // Use the refund amount from the individual item if available
+                        if (item.refundAmount !== undefined) {
+                            // Keep the individual item refund amount as sent from frontend
+                            totalRefundAmount += (item.refundAmount - (item.refundAmount || 0)); // Adjust if needed
+                        }
+                    });
+                }
+            } else {
+                // Fallback to original calculation logic for backward compatibility
+                cancellationRequest.itemsToCancel.forEach(item => {
+                    const calculatedRefund = (item.refundAmount * finalRefundPercentage) / 100;
+                    item.refundAmount = Math.round(calculatedRefund * 100) / 100; // Round to 2 decimal places
+                    totalRefundAmount += item.refundAmount;
+                });
+                
+                console.log('💰 Fallback Partial Refund Calculation:', {
+                    totalRefundAmount: totalRefundAmount,
+                    refundPercentage: finalRefundPercentage
+                });
+            }
 
             cancellationRequest.adminResponse.refundAmount = totalRefundAmount;
             cancellationRequest.adminResponse.refundPercentage = finalRefundPercentage;
+            
+            // Store enhanced refund data if provided from frontend
+            if (refundData) {
+                cancellationRequest.refundDetails.enhancedRefundData = {
+                    ...refundData,
+                    processedAt: new Date(),
+                    processedBy: adminId
+                };
+                
+                console.log('📊 Stored enhanced partial refund data:', cancellationRequest.refundDetails.enhancedRefundData);
+            }
 
             // Update order - mark cancelled items and adjust totals
             const order = await orderModel.findById(cancellationRequest.orderId._id);
