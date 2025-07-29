@@ -30,6 +30,9 @@ function MyOrders() {
   const [userOrders, setUserOrders] = useState([]);
   const [orderCancellationRequests, setOrderCancellationRequests] = useState([]);
   
+  // Return Requests State
+  const [userReturnRequests, setUserReturnRequests] = useState([]);
+  
   // Partial Cancellation Modal States
   const [showPartialCancellationModal, setShowPartialCancellationModal] = useState(false);
   const [orderForPartialCancel, setOrderForPartialCancel] = useState(null);
@@ -184,6 +187,34 @@ function MyOrders() {
     }
   };
 
+  // Function to fetch user's return requests
+  const fetchUserReturnRequests = async () => {
+    try {
+      const token = localStorage.getItem('accessToken')
+      const response = await Axios({
+        ...SummaryApi.getUserReturnRequests,
+        headers: {
+          authorization: `Bearer ${token}`
+        }
+      });
+      
+      if (response.data.success) {
+        console.log('fetchUserReturnRequests - Response data:', response.data.data);
+        console.log('fetchUserReturnRequests - Returns array:', response.data.data.returns);
+        console.log('fetchUserReturnRequests - Is returns array?:', Array.isArray(response.data.data.returns));
+        // The server returns { returns: [...], pagination: {...} }
+        const returnRequests = Array.isArray(response.data.data.returns) ? response.data.data.returns : [];
+        setUserReturnRequests(returnRequests);
+      } else {
+        console.log('fetchUserReturnRequests - Failed response:', response.data);
+        setUserReturnRequests([]);
+      }
+    } catch (error) {
+      console.error("Error fetching return requests:", error);
+      setUserReturnRequests([]);
+    }
+  };
+
   // Check if an order has a pending cancellation request
   const hasPendingCancellationRequest = (orderId) => {
     return orderCancellationRequests.some(request => 
@@ -215,6 +246,45 @@ function MyOrders() {
       request.status === 'PENDING' && 
       request.cancellationType !== 'PARTIAL_ITEMS'
     );
+  };
+
+  // Check if a specific item has a pending return request
+  const hasItemPendingReturnRequest = (orderId, itemId) => {
+    if (!Array.isArray(userReturnRequests)) {
+      console.warn('hasItemPendingReturnRequest - userReturnRequests is not an array:', userReturnRequests);
+      return false;
+    }
+    return userReturnRequests.some(request => {
+      return (request.orderId === orderId || request.orderId?._id === orderId) && 
+             request.itemId === itemId && 
+             request.status === 'REQUESTED';
+    });
+  };
+
+  // Check if a specific item has an approved return request
+  const hasItemApprovedReturn = (orderId, itemId) => {
+    if (!Array.isArray(userReturnRequests)) {
+      console.warn('hasItemApprovedReturn - userReturnRequests is not an array:', userReturnRequests);
+      return false;
+    }
+    return userReturnRequests.some(request => {
+      return (request.orderId === orderId || request.orderId?._id === orderId) && 
+             request.itemId === itemId && 
+             request.status === 'APPROVED';
+    });
+  };
+
+  // Check if a specific item has a rejected return request
+  const hasItemRejectedReturn = (orderId, itemId) => {
+    if (!Array.isArray(userReturnRequests)) {
+      console.warn('hasItemRejectedReturn - userReturnRequests is not an array:', userReturnRequests);
+      return false;
+    }
+    return userReturnRequests.some(request => {
+      return (request.orderId === orderId || request.orderId?._id === orderId) && 
+             request.itemId === itemId && 
+             request.status === 'REJECTED';
+    });
   };
 
   // Filter orders to only show the current user's orders, even for admin
@@ -437,6 +507,7 @@ function MyOrders() {
     fetchCurrentUserOrders();
     if (user && user._id) {
       fetchUserCancellationRequests();
+      fetchUserReturnRequests();
     }
   }, [user]);
 
@@ -902,11 +973,19 @@ function MyOrders() {
                         // Check if this specific item has a pending cancellation request
                         const isItemCancellationRequested = hasItemPendingCancellationRequest(order._id, item._id);
                         
+                        // Check return status for this item
+                        const isItemReturnRequested = hasItemPendingReturnRequest(order._id, item._id);
+                        const isItemReturnApproved = hasItemApprovedReturn(order._id, item._id);
+                        const isItemReturnRejected = hasItemRejectedReturn(order._id, item._id);
+                        
                         return (
                         <div key={`${order._id}-item-${itemIndex}`} className={`rounded-lg p-2 sm:p-3 border transition-all duration-300 ${
                           isCancelled ? 'bg-red-50 border-red-200' : 
                           isItemCancelled ? 'bg-red-100 border-red-300 shadow-md ring-2 ring-red-200 ring-opacity-50' : 
+                          isItemReturnApproved ? 'bg-red-100 border-red-300 shadow-md ring-2 ring-red-200 ring-opacity-50' :
                           isItemCancellationRequested ? 'bg-yellow-100 border-yellow-300 shadow-md ring-2 ring-yellow-200 ring-opacity-50' :
+                          isItemReturnRequested ? 'bg-blue-100 border-blue-300 shadow-md ring-2 ring-blue-200 ring-opacity-50' :
+                          isItemReturnRejected ? 'bg-gray-100 border-gray-300 shadow-md ring-2 ring-gray-200 ring-opacity-50' :
                           'bg-gray-50 border-gray-200'
                         } relative`}>
                           {/* Enhanced Item cancellation and request indicators */}
@@ -944,12 +1023,62 @@ function MyOrders() {
                               }}></div>
                             </>
                           )}
+
+                          {/* Return status indicators */}
+                          {isItemReturnApproved && !isItemCancelled && !isCancelled && (
+                            <>
+                              <div className="absolute top-0 right-0 transform -translate-y-1/3 translate-x-1/3 z-10">
+                                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-red-600 text-white border-2 border-white shadow-lg">
+                                  <FaUndo className="w-3 h-3 mr-1" />
+                                  RETURN APPROVED
+                                </span>
+                              </div>
+                              {/* Red stripe overlay for approved returns */}
+                              <div className="absolute inset-0 bg-gradient-to-r from-red-200/30 via-transparent to-red-200/30 rounded-lg pointer-events-none"></div>
+                              {/* Diagonal return pattern */}
+                              <div className="absolute inset-0 opacity-10 pointer-events-none" style={{
+                                backgroundImage: 'repeating-linear-gradient(45deg, #dc2626 0, #dc2626 10px, transparent 10px, transparent 20px)'
+                              }}></div>
+                            </>
+                          )}
+
+                          {isItemReturnRequested && !isItemReturnApproved && !isItemCancelled && !isCancelled && (
+                            <>
+                              <div className="absolute top-0 right-0 transform -translate-y-1/3 translate-x-1/3 z-10">
+                                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-blue-500 text-white border-2 border-white shadow-lg animate-pulse">
+                                  <FaUndo className="w-3 h-3 mr-1" />
+                                  RETURN REQUESTED
+                                </span>
+                              </div>
+                              {/* Blue stripe overlay */}
+                              <div className="absolute inset-0 bg-gradient-to-r from-blue-200/30 via-transparent to-blue-200/30 rounded-lg pointer-events-none"></div>
+                              {/* Diagonal return pattern */}
+                              <div className="absolute inset-0 opacity-10 pointer-events-none" style={{
+                                backgroundImage: 'repeating-linear-gradient(45deg, #2563eb 0, #2563eb 10px, transparent 10px, transparent 20px)'
+                              }}></div>
+                            </>
+                          )}
+
+                          {isItemReturnRejected && !isItemReturnApproved && !isItemCancelled && !isCancelled && (
+                            <>
+                              <div className="absolute top-0 right-0 transform -translate-y-1/3 translate-x-1/3 z-10">
+                                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-gray-500 text-white border-2 border-white shadow-lg">
+                                  <FaTimes className="w-3 h-3 mr-1" />
+                                  RETURN REJECTED
+                                </span>
+                              </div>
+                              {/* Gray stripe overlay */}
+                              <div className="absolute inset-0 bg-gradient-to-r from-gray-200/30 via-transparent to-gray-200/30 rounded-lg pointer-events-none"></div>
+                            </>
+                          )}
                           <div className="flex items-start gap-2 sm:gap-3">
                             {/* Item image */}
                             <div 
                               className={`w-12 h-12 sm:w-16 sm:h-16 rounded-md overflow-hidden border flex-shrink-0 relative ${
-                                isCancelled || isItemCancelled ? 'border-red-400 border-2' : 
+                                isCancelled || isItemCancelled || isItemReturnApproved ? 'border-red-400 border-2' : 
                                 isItemCancellationRequested ? 'border-orange-400 border-2' :
+                                isItemReturnRequested ? 'border-blue-400 border-2' :
+                                isItemReturnRejected ? 'border-gray-400 border-2' :
                                 'border-gray-200'
                               }`}
                             >
@@ -977,8 +1106,9 @@ function MyOrders() {
                                         alt={itemTitle}
                                         className="w-full h-full"
                                         imageClassName={`transition-all duration-300 ${
-                                          isCancelled || isItemCancelled ? 'grayscale opacity-50 blur-sm' : 
-                                          isItemCancellationRequested ? 'opacity-75 saturate-50' : ''
+                                          isCancelled || isItemCancelled || isItemReturnApproved ? 'grayscale opacity-50 blur-sm' : 
+                                          isItemCancellationRequested || isItemReturnRequested ? 'opacity-75 saturate-50' : 
+                                          isItemReturnRejected ? 'opacity-60 saturate-25' : ''
                                         }`}
                                         height="100%"
                                         width="100%"
@@ -995,8 +1125,9 @@ function MyOrders() {
                                     src={imageSrc}
                                     alt={itemTitle}
                                     className={`w-full h-full object-cover transition-all duration-300 ${
-                                      isCancelled || isItemCancelled ? 'grayscale opacity-50 blur-sm' : 
-                                      isItemCancellationRequested ? 'opacity-75 saturate-50' : ''
+                                      isCancelled || isItemCancelled || isItemReturnApproved ? 'grayscale opacity-50 blur-sm' : 
+                                      isItemCancellationRequested || isItemReturnRequested ? 'opacity-75 saturate-50' : 
+                                      isItemReturnRejected ? 'opacity-60 saturate-25' : ''
                                     }`}
                                     onError={(e) => handleImageError(e, item)}
                                     onClick={() => handleShowProductDetails(
@@ -1008,7 +1139,7 @@ function MyOrders() {
                                   />
                                 )}
                                 {/* Enhanced cancelled/pending overlay for individual items */}
-                                {(isCancelled || isItemCancelled || isItemCancellationRequested) && (
+                                {(isCancelled || isItemCancelled || isItemCancellationRequested || isItemReturnRequested || isItemReturnApproved || isItemReturnRejected) && (
                                   <div className="absolute inset-0 flex items-center justify-center bg-black/30 rounded-md">
                                     {isItemCancelled || isCancelled ? (
                                       <FaBan className={`drop-shadow-lg ${
@@ -1016,8 +1147,14 @@ function MyOrders() {
                                           ? 'text-red-500 text-lg animate-pulse' 
                                           : 'text-red-500 text-lg'
                                       }`} />
+                                    ) : isItemReturnApproved ? (
+                                      <FaUndo className="text-red-500 text-lg animate-pulse drop-shadow-lg" />
                                     ) : isItemCancellationRequested ? (
                                       <FaClock className="text-orange-500 text-lg animate-pulse drop-shadow-lg" />
+                                    ) : isItemReturnRequested ? (
+                                      <FaUndo className="text-blue-500 text-lg animate-pulse drop-shadow-lg" />
+                                    ) : isItemReturnRejected ? (
+                                      <FaTimes className="text-gray-500 text-lg drop-shadow-lg" />
                                     ) : null}
                                   </div>
                                 )}
@@ -1032,8 +1169,9 @@ function MyOrders() {
                                 <div className="flex-1 min-w-0">
                                   <h4 
                                     className={`font-bold text-sm sm:text-base leading-tight truncate cursor-pointer hover:underline transition-all duration-200 ${
-                                      isCancelled || isItemCancelled ? 'text-red-800 line-through' : 
-                                      isItemCancellationRequested ? 'text-orange-800' : 
+                                      isCancelled || isItemCancelled || isItemReturnApproved ? 'text-red-800 line-through' : 
+                                      isItemCancellationRequested || isItemReturnRequested ? 'text-orange-800' : 
+                                      isItemReturnRejected ? 'text-gray-600' :
                                       'text-black hover:text-blue-600'
                                     }`}
                                     onClick={() => handleShowProductDetails(
@@ -1061,13 +1199,37 @@ function MyOrders() {
                                         CANCELLATION REQUESTED
                                       </span>
                                     )}
+
+                                    {/* Return status badges */}
+                                    {isItemReturnApproved && !isItemCancelled && !isCancelled && (
+                                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-red-600 text-white border border-red-700 animate-pulse">
+                                        <FaUndo className="w-3 h-3 mr-1" />
+                                        RETURN APPROVED
+                                      </span>
+                                    )}
+
+                                    {isItemReturnRequested && !isItemReturnApproved && !isItemCancelled && !isCancelled && (
+                                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-blue-500 text-white border border-blue-600 animate-pulse">
+                                        <FaUndo className="w-3 h-3 mr-1" />
+                                        RETURN REQUESTED
+                                      </span>
+                                    )}
+
+                                    {isItemReturnRejected && !isItemReturnApproved && !isItemCancelled && !isCancelled && (
+                                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-gray-500 text-white border border-gray-600">
+                                        <FaTimes className="w-3 h-3 mr-1" />
+                                        RETURN REJECTED
+                                      </span>
+                                    )}
                                     <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
                                       item?.itemType === 'bundle' 
-                                        ? (isCancelled || isItemCancelled ? 'bg-red-100 text-red-700' : 
-                                           isItemCancellationRequested ? 'bg-orange-100 text-orange-700' : 
+                                        ? (isCancelled || isItemCancelled || isItemReturnApproved ? 'bg-red-100 text-red-700' : 
+                                           isItemCancellationRequested || isItemReturnRequested ? 'bg-orange-100 text-orange-700' : 
+                                           isItemReturnRejected ? 'bg-gray-100 text-gray-700' :
                                            'bg-blue-100 text-blue-800')
-                                        : (isCancelled || isItemCancelled ? 'bg-red-100 text-red-700' : 
-                                           isItemCancellationRequested ? 'bg-orange-100 text-orange-700' : 
+                                        : (isCancelled || isItemCancelled || isItemReturnApproved ? 'bg-red-100 text-red-700' : 
+                                           isItemCancellationRequested || isItemReturnRequested ? 'bg-orange-100 text-orange-700' : 
+                                           isItemReturnRejected ? 'bg-gray-100 text-gray-700' :
                                            'bg-green-100 text-green-800')
                                     }`}>
                                       {item?.itemType === 'bundle' ? '📦 Bundle' : '🏷️ Product'}

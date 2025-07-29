@@ -407,10 +407,18 @@ const SummaryApi = {
         url: '/api/return-product/cancel',
         method: 'put'
     },
+    reRequestReturn: {
+        url: '/api/return-product/re-request',
+        method: 'post'
+    },
     // Admin Return Product APIs
     getAllReturnRequests: {
         url: '/api/return-product/admin/all',
         method: 'post'
+    },
+    getOrderWithReturnDetails: {
+        url: '/api/return-product/admin/order',
+        method: 'get'
     },
     processReturnRequest: {
         url: '/api/return-product/admin/process/:returnId',

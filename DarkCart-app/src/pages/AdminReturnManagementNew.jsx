@@ -18,9 +18,7 @@ import {
     FaFilter,
     FaChevronDown,
     FaChevronUp,
-    FaExclamationTriangle,
-    FaCheckCircle,
-    FaTimesCircle
+    FaExclamationTriangle
 } from 'react-icons/fa';
 
 const AdminReturnManagement = () => {
@@ -34,10 +32,8 @@ const AdminReturnManagement = () => {
     
     // Modal states
     const [showApprovalModal, setShowApprovalModal] = useState(false);
+    const [showRefundModal, setShowRefundModal] = useState(false);
     const [selectedReturn, setSelectedReturn] = useState(null);
-    
-    // Debug: Log component state (after state declarations)
-    console.log('AdminReturnManagement render - showApprovalModal:', showApprovalModal, 'selectedReturn:', selectedReturn);
     
     // Approval form data
     const [approvalData, setApprovalData] = useState({
@@ -45,6 +41,15 @@ const AdminReturnManagement = () => {
         adminComments: '',
         customRefundAmount: '',
         useCustomAmount: false
+    });
+    
+    // Refund form data
+    const [refundData, setRefundData] = useState({
+        refundStatus: 'PENDING',
+        refundId: '',
+        refundMethod: 'ORIGINAL_PAYMENT_METHOD',
+        refundAmount: '',
+        adminNotes: ''
     });
     
     // Filters and pagination
@@ -84,6 +89,13 @@ const AdminReturnManagement = () => {
         { value: 'REFUND_PROCESSED', label: 'Refund Processed' },
         { value: 'COMPLETED', label: 'Completed' },
         { value: 'CANCELLED', label: 'Cancelled' }
+    ];
+
+    const refundStatusOptions = [
+        { value: 'PENDING', label: 'Pending' },
+        { value: 'PROCESSING', label: 'Processing' },
+        { value: 'COMPLETED', label: 'Completed' },
+        { value: 'FAILED', label: 'Failed' }
     ];
 
     // Fetch data on component mount and when filters change
@@ -133,15 +145,12 @@ const AdminReturnManagement = () => {
     const fetchOrderDetails = async (orderId) => {
         try {
             setLoading(true);
-            console.log('Fetching order details for order:', orderId);
             const response = await Axios({
                 ...SummaryApi.getOrderWithReturnDetails,
-                url: `${SummaryApi.getOrderWithReturnDetails.url}/${orderId}?t=${Date.now()}`
+                url: `${SummaryApi.getOrderWithReturnDetails.url}/${orderId}`
             });
 
             if (response.data.success) {
-                console.log('Order details received:', response.data.data);
-                console.log('Return requests in order:', response.data.data.items.map(item => item.returnRequests));
                 setOrderDetails(response.data.data);
                 setCurrentView('order-details');
                 setSelectedOrderId(orderId);
@@ -174,7 +183,6 @@ const AdminReturnManagement = () => {
     // Process return request (approve/reject)
     const processReturnRequest = async (returnId, action, comments = '', customRefundAmount = null) => {
         try {
-            console.log('Processing return request:', { returnId, action, comments, customRefundAmount });
             setProcessing(prev => ({ ...prev, [returnId]: true }));
 
             const requestData = {
@@ -186,25 +194,19 @@ const AdminReturnManagement = () => {
                 requestData.customRefundAmount = parseFloat(customRefundAmount);
             }
 
-            console.log('Sending request data:', requestData);
-
             const response = await Axios({
                 ...SummaryApi.processReturnRequest,
                 url: SummaryApi.processReturnRequest.url.replace(':returnId', returnId),
                 data: requestData
             });
 
-            console.log('Response from server:', response.data);
-
             if (response.data.success) {
                 toast.success(`Return request ${action}d successfully`);
                 
                 // Refresh data
                 if (currentView === 'list') {
-                    console.log('Refreshing return requests list');
                     fetchReturnRequests();
                 } else if (currentView === 'order-details' && selectedOrderId) {
-                    console.log('Refreshing order details for order:', selectedOrderId);
                     fetchOrderDetails(selectedOrderId);
                 }
                 fetchStats();
@@ -213,7 +215,6 @@ const AdminReturnManagement = () => {
                 setShowApprovalModal(false);
                 resetApprovalForm();
             } else {
-                console.error('Server error:', response.data.message);
                 toast.error(response.data.message || `Failed to ${action} return request`);
             }
         } catch (error) {
@@ -226,7 +227,6 @@ const AdminReturnManagement = () => {
 
     // Open approval modal
     const openApprovalModal = (returnRequest) => {
-        console.log('Opening approval modal for:', returnRequest);
         const defaultRefundAmount = (returnRequest.itemDetails?.refundAmount || 0) * (returnRequest.itemDetails?.quantity || 1);
         
         setApprovalData({
@@ -237,7 +237,6 @@ const AdminReturnManagement = () => {
         });
         
         setShowApprovalModal(true);
-        console.log('Approval modal opened, showApprovalModal:', true);
     };
 
     // Reset approval form
@@ -252,10 +251,7 @@ const AdminReturnManagement = () => {
 
     // Handle approval submission
     const handleApprovalSubmit = () => {
-        console.log('Handle approval submit called');
         const { returnRequest, adminComments, customRefundAmount, useCustomAmount } = approvalData;
-        
-        console.log('Approval data:', approvalData);
         
         if (!returnRequest) {
             toast.error('No return request selected');
@@ -264,14 +260,65 @@ const AdminReturnManagement = () => {
 
         const finalRefundAmount = useCustomAmount ? customRefundAmount : null;
         
-        console.log('Submitting approval with refund amount:', finalRefundAmount);
-        
         processReturnRequest(
             returnRequest._id, 
             'approve', 
             adminComments || 'Approved by admin',
             finalRefundAmount
         );
+    };
+
+    // Open refund modal
+    const openRefundModal = (returnRequest) => {
+        setSelectedReturn(returnRequest);
+        setRefundData({
+            refundStatus: returnRequest.refundDetails?.refundStatus || 'PENDING',
+            refundId: returnRequest.refundDetails?.refundId || '',
+            refundMethod: returnRequest.refundDetails?.refundMethod || 'ORIGINAL_PAYMENT_METHOD',
+            refundAmount: returnRequest.refundDetails?.actualRefundAmount || 
+                         (returnRequest.itemDetails?.refundAmount * returnRequest.itemDetails?.quantity),
+            adminNotes: ''
+        });
+        setShowRefundModal(true);
+    };
+
+    // Update refund status
+    const updateRefundStatus = async () => {
+        try {
+            if (!selectedReturn || !refundData.refundStatus) {
+                toast.error('Please select a refund status');
+                return;
+            }
+
+            setProcessing(prev => ({ ...prev, [selectedReturn._id]: true }));
+
+            const response = await Axios({
+                ...SummaryApi.updateRefundStatus,
+                url: SummaryApi.updateRefundStatus.url.replace(':returnId', selectedReturn._id),
+                data: refundData
+            });
+
+            if (response.data.success) {
+                toast.success('Refund status updated successfully');
+                
+                // Refresh data
+                if (currentView === 'list') {
+                    fetchReturnRequests();
+                } else if (currentView === 'order-details' && selectedOrderId) {
+                    fetchOrderDetails(selectedOrderId);
+                }
+                
+                setShowRefundModal(false);
+                setSelectedReturn(null);
+            } else {
+                toast.error(response.data.message || 'Failed to update refund status');
+            }
+        } catch (error) {
+            console.error('Error updating refund status:', error);
+            toast.error('Failed to update refund status');
+        } finally {
+            setProcessing(prev => ({ ...prev, [selectedReturn._id]: false }));
+        }
     };
 
     // Get status color
@@ -295,6 +342,22 @@ const AdminReturnManagement = () => {
                 return 'bg-emerald-100 text-emerald-800 border-emerald-200';
             case 'CANCELLED':
                 return 'bg-gray-100 text-gray-800 border-gray-200';
+            default:
+                return 'bg-gray-100 text-gray-800 border-gray-200';
+        }
+    };
+
+    // Get refund status color
+    const getRefundStatusColor = (status) => {
+        switch (status?.toUpperCase()) {
+            case 'PENDING':
+                return 'bg-yellow-100 text-yellow-800 border-yellow-200';
+            case 'PROCESSING':
+                return 'bg-blue-100 text-blue-800 border-blue-200';
+            case 'COMPLETED':
+                return 'bg-green-100 text-green-800 border-green-200';
+            case 'FAILED':
+                return 'bg-red-100 text-red-800 border-red-200';
             default:
                 return 'bg-gray-100 text-gray-800 border-gray-200';
         }
@@ -528,7 +591,7 @@ const AdminReturnManagement = () => {
                                                                     {returnReq.status.replace('_', ' ')}
                                                                 </span>
                                                                 <p className="text-sm font-semibold mt-2 text-gray-900">
-                                                                    Refund: ₹{returnReq.refundDetails?.actualRefundAmount || (returnReq.itemDetails.refundAmount * returnReq.itemDetails.quantity)}
+                                                                    Refund: ₹{returnReq.itemDetails.refundAmount * returnReq.itemDetails.quantity}
                                                                 </p>
                                                             </div>
                                                         </div>
@@ -538,10 +601,7 @@ const AdminReturnManagement = () => {
                                                             {returnReq.status === 'REQUESTED' && (
                                                                 <>
                                                                     <button
-                                                                        onClick={() => {
-                                                                            console.log('Detailed view approve button clicked for:', returnReq._id);
-                                                                            openApprovalModal(returnReq);
-                                                                        }}
+                                                                        onClick={() => openApprovalModal(returnReq)}
                                                                         disabled={processing[returnReq._id]}
                                                                         className="px-4 py-2 bg-green-600 text-white text-sm rounded-lg hover:bg-green-700 disabled:opacity-50 transition-colors flex items-center gap-2"
                                                                     >
@@ -549,10 +609,7 @@ const AdminReturnManagement = () => {
                                                                         {processing[returnReq._id] ? 'Processing...' : 'Approve'}
                                                                     </button>
                                                                     <button
-                                                                        onClick={() => {
-                                                                            console.log('Detailed view reject button clicked for:', returnReq._id);
-                                                                            processReturnRequest(returnReq._id, 'reject', 'Rejected by admin after verification');
-                                                                        }}
+                                                                        onClick={() => processReturnRequest(returnReq._id, 'reject', 'Rejected by admin')}
                                                                         disabled={processing[returnReq._id]}
                                                                         className="px-4 py-2 bg-red-600 text-white text-sm rounded-lg hover:bg-red-700 disabled:opacity-50 transition-colors flex items-center gap-2"
                                                                     >
@@ -561,18 +618,21 @@ const AdminReturnManagement = () => {
                                                                     </button>
                                                                 </>
                                                             )}
-                                                            {returnReq.status === 'APPROVED' && (
-                                                                <div className="flex items-center text-sm bg-green-50 px-3 py-2 rounded-lg border border-green-200">
-                                                                    <FaCheckCircle className="w-4 h-4 text-green-600 mr-2" />
-                                                                    <span className="text-green-800 font-medium">
-                                                                        Approved - Refund: ₹{returnReq.refundDetails?.actualRefundAmount || (returnReq.itemDetails.refundAmount * returnReq.itemDetails.quantity)}
-                                                                    </span>
-                                                                </div>
+                                                            {(returnReq.status === 'APPROVED' || returnReq.refundDetails) && (
+                                                                <button
+                                                                    onClick={() => openRefundModal(returnReq)}
+                                                                    className="px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
+                                                                >
+                                                                    <FaEdit className="w-3 h-3" />
+                                                                    Manage Refund
+                                                                </button>
                                                             )}
-                                                            {returnReq.status === 'REJECTED' && (
-                                                                <div className="flex items-center text-sm bg-red-50 px-3 py-2 rounded-lg border border-red-200">
-                                                                    <FaTimesCircle className="w-4 h-4 text-red-600 mr-2" />
-                                                                    <span className="text-red-800 font-medium">Rejected by Admin</span>
+                                                            {returnReq.refundDetails && (
+                                                                <div className="flex items-center text-sm">
+                                                                    <span className="text-gray-600 mr-2">Refund Status:</span>
+                                                                    <span className={`px-2 py-1 rounded-full text-xs font-medium border ${getRefundStatusColor(returnReq.refundDetails.refundStatus)}`}>
+                                                                        {returnReq.refundDetails.refundStatus}
+                                                                    </span>
                                                                 </div>
                                                             )}
                                                         </div>
@@ -593,127 +653,6 @@ const AdminReturnManagement = () => {
                         </div>
                     </div>
                 </div>
-
-                {/* Approval Modal */}
-                {showApprovalModal && (
-                    <div 
-                        className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center h-full w-full z-[9999]"
-                        onClick={(e) => {
-                            if (e.target === e.currentTarget) {
-                                setShowApprovalModal(false);
-                                resetApprovalForm();
-                            }
-                        }}
-                    >
-                        <div 
-                            className="relative bg-white p-8 rounded-xl shadow-2xl w-full max-w-lg mx-4"
-                            onClick={(e) => e.stopPropagation()}
-                        >
-                            <div className="text-center">
-                                <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-green-100 mb-4">
-                                    <FaCheck className="h-6 w-6 text-green-600" />
-                                </div>
-                                
-                                <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                                    Approve Return Request
-                                </h3>
-                                <p className="text-sm text-gray-600 mb-4">
-                                    Please verify with the customer before approving this return request
-                                </p>
-                                
-                                {approvalData.returnRequest && (
-                                    <div className="bg-gray-50 p-4 rounded-lg mb-6 text-left">
-                                        <div className="grid grid-cols-2 gap-4 text-sm">
-                                            <div>
-                                                <span className="text-gray-600">Return ID:</span>
-                                                <p className="font-medium">#{approvalData.returnRequest._id?.slice(-8)}</p>
-                                            </div>
-                                            <div>
-                                                <span className="text-gray-600">Customer:</span>
-                                                <p className="font-medium">{approvalData.returnRequest.userId?.name}</p>
-                                            </div>
-                                            <div>
-                                                <span className="text-gray-600">Item:</span>
-                                                <p className="font-medium">{approvalData.returnRequest.itemDetails?.name}</p>
-                                            </div>
-                                            <div>
-                                                <span className="text-gray-600">Quantity:</span>
-                                                <p className="font-medium">{approvalData.returnRequest.itemDetails?.quantity}</p>
-                                            </div>
-                                        </div>
-                                    </div>
-                                )}
-                                
-                                <div className="space-y-4 mb-6">
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-2 text-left">
-                                            Admin Verification Notes
-                                        </label>
-                                        <textarea
-                                            value={approvalData.adminComments}
-                                            onChange={(e) => setApprovalData(prev => ({ ...prev, adminComments: e.target.value }))}
-                                            placeholder="Add notes about customer verification call and approval reason..."
-                                            rows="3"
-                                            className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                        />
-                                    </div>
-                                    
-                                    <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-200">
-                                        <h4 className="font-medium text-yellow-800 mb-2">Refund Amount Adjustment</h4>
-                                        <div className="flex items-center mb-2">
-                                            <input
-                                                type="checkbox"
-                                                id="useCustomAmount"
-                                                checked={approvalData.useCustomAmount}
-                                                onChange={(e) => setApprovalData(prev => ({ ...prev, useCustomAmount: e.target.checked }))}
-                                                className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                                            />
-                                            <label htmlFor="useCustomAmount" className="ml-2 block text-sm font-medium text-yellow-800">
-                                                Adjust Refund Amount
-                                            </label>
-                                        </div>
-                                        {approvalData.useCustomAmount ? (
-                                            <input
-                                                type="number"
-                                                step="0.01"
-                                                value={approvalData.customRefundAmount}
-                                                onChange={(e) => setApprovalData(prev => ({ ...prev, customRefundAmount: e.target.value }))}
-                                                placeholder="Enter adjusted refund amount"
-                                                className="w-full border border-yellow-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500"
-                                            />
-                                        ) : (
-                                            <p className="text-sm text-yellow-700">
-                                                Default refund amount: ₹{approvalData.customRefundAmount}
-                                            </p>
-                                        )}
-                                    </div>
-                                </div>
-                                
-                                <div className="flex justify-center space-x-4">
-                                    <button
-                                        onClick={() => {
-                                            setShowApprovalModal(false);
-                                            resetApprovalForm();
-                                        }}
-                                        className="px-6 py-2 text-gray-700 bg-gray-200 rounded-lg hover:bg-gray-300 transition-colors font-medium"
-                                    >
-                                        Cancel
-                                    </button>
-                                    <button
-                                        onClick={() => {
-                                            console.log('Approve Return button clicked in modal');
-                                            handleApprovalSubmit();
-                                        }}
-                                        disabled={processing[approvalData.returnRequest?._id]}
-                                        className="px-6 py-2 text-white bg-green-600 rounded-lg hover:bg-green-700 transition-colors font-medium disabled:opacity-50"
-                                    >
-                                        {processing[approvalData.returnRequest?._id] ? 'Processing...' : 'Approve Return'}
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                )}
             </div>
         );
     }
@@ -911,7 +850,7 @@ const AdminReturnManagement = () => {
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap">
                                         <span className="text-sm font-semibold text-gray-900">
-                                            ₹{returnRequest.refundDetails?.actualRefundAmount || (returnRequest.itemDetails?.refundAmount * (returnRequest.itemDetails?.quantity || 1)) || 0}
+                                            ₹{returnRequest.itemDetails?.refundAmount * (returnRequest.itemDetails?.quantity || 1) || 0}
                                         </span>
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap">
@@ -921,7 +860,7 @@ const AdminReturnManagement = () => {
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap">
                                         {returnRequest.refundDetails?.refundStatus ? (
-                                            <span className={`px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full border ${getStatusColor(returnRequest.refundDetails.refundStatus)}`}>
+                                            <span className={`px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full border ${getRefundStatusColor(returnRequest.refundDetails.refundStatus)}`}>
                                                 {returnRequest.refundDetails.refundStatus.toUpperCase()}
                                             </span>
                                         ) : (
@@ -941,13 +880,10 @@ const AdminReturnManagement = () => {
                                                 <FaEye className="w-4 h-4" />
                                             </button>
                                             
-                                            {returnRequest.status === 'REQUESTED' && (
+                                            {(returnRequest.status === 'REQUESTED' || returnRequest.status === 'pending') && (
                                                 <>
                                                     <button
-                                                        onClick={() => {
-                                                            console.log('Approve button clicked for:', returnRequest._id);
-                                                            openApprovalModal(returnRequest);
-                                                        }}
+                                                        onClick={() => openApprovalModal(returnRequest)}
                                                         disabled={processing[returnRequest._id]}
                                                         className="p-2 text-green-600 hover:text-green-900 hover:bg-green-50 rounded-lg transition-colors disabled:opacity-50"
                                                         title="Approve Return"
@@ -955,10 +891,7 @@ const AdminReturnManagement = () => {
                                                         <FaCheck className="w-4 h-4" />
                                                     </button>
                                                     <button
-                                                        onClick={() => {
-                                                            console.log('Reject button clicked for:', returnRequest._id);
-                                                            processReturnRequest(returnRequest._id, 'reject', 'Rejected by admin after verification');
-                                                        }}
+                                                        onClick={() => processReturnRequest(returnRequest._id, 'reject')}
                                                         disabled={processing[returnRequest._id]}
                                                         className="p-2 text-red-600 hover:text-red-900 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
                                                         title="Reject Return"
@@ -967,19 +900,16 @@ const AdminReturnManagement = () => {
                                                     </button>
                                                 </>
                                             )}
-                                            
-                                            {returnRequest.status === 'APPROVED' && (
-                                                <div className="flex items-center text-sm text-green-600">
-                                                    <FaCheckCircle className="w-4 h-4 mr-1" />
-                                                    <span>Approved</span>
-                                                </div>
-                                            )}
-                                            
-                                            {returnRequest.status === 'REJECTED' && (
-                                                <div className="flex items-center text-sm text-red-600">
-                                                    <FaTimesCircle className="w-4 h-4 mr-1" />
-                                                    <span>Rejected</span>
-                                                </div>
+
+                                            {(returnRequest.status === 'APPROVED' || returnRequest.status === 'REFUND_PROCESSED' || returnRequest.refundDetails) && (
+                                                <button
+                                                    onClick={() => openRefundModal(returnRequest)}
+                                                    disabled={processing[returnRequest._id]}
+                                                    className="p-2 text-orange-600 hover:text-orange-900 hover:bg-orange-50 rounded-lg transition-colors disabled:opacity-50"
+                                                    title="Manage Refund"
+                                                >
+                                                    <FaEdit className="w-4 h-4" />
+                                                </button>
                                             )}
                                         </div>
                                     </td>
@@ -1041,19 +971,8 @@ const AdminReturnManagement = () => {
 
             {/* Approval Modal */}
             {showApprovalModal && (
-                <div 
-                    className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center h-full w-full z-[9999]"
-                    onClick={(e) => {
-                        if (e.target === e.currentTarget) {
-                            setShowApprovalModal(false);
-                            resetApprovalForm();
-                        }
-                    }}
-                >
-                    <div 
-                        className="relative bg-white p-8 rounded-xl shadow-2xl w-full max-w-lg mx-4"
-                        onClick={(e) => e.stopPropagation()}
-                    >
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center h-full w-full z-50">
+                    <div className="relative bg-white p-8 rounded-xl shadow-2xl w-full max-w-lg mx-4">
                         <div className="text-center">
                             <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-green-100 mb-4">
                                 <FaCheck className="h-6 w-6 text-green-600" />
@@ -1142,14 +1061,10 @@ const AdminReturnManagement = () => {
                                     Cancel
                                 </button>
                                 <button
-                                    onClick={() => {
-                                        console.log('Approve Return button clicked in modal');
-                                        handleApprovalSubmit();
-                                    }}
-                                    disabled={processing[approvalData.returnRequest?._id]}
-                                    className="px-6 py-2 text-white bg-green-600 rounded-lg hover:bg-green-700 transition-colors font-medium disabled:opacity-50"
+                                    onClick={handleApprovalSubmit}
+                                    className="px-6 py-2 text-white bg-green-600 rounded-lg hover:bg-green-700 transition-colors font-medium"
                                 >
-                                    {processing[approvalData.returnRequest?._id] ? 'Processing...' : 'Approve Return'}
+                                    Approve Return
                                 </button>
                             </div>
                         </div>
@@ -1157,7 +1072,143 @@ const AdminReturnManagement = () => {
                 </div>
             )}
 
+            {/* Refund Status Update Modal */}
+            {showRefundModal && selectedReturn && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center h-full w-full z-50">
+                    <div className="relative bg-white p-8 rounded-xl shadow-2xl w-full max-w-2xl mx-4">
+                        <div className="flex justify-between items-center mb-6">
+                            <h3 className="text-lg font-semibold text-gray-900">
+                                Update Refund Status
+                            </h3>
+                            <button
+                                onClick={() => setShowRefundModal(false)}
+                                className="text-gray-400 hover:text-gray-600 p-1"
+                            >
+                                <FaTimes className="w-5 h-5" />
+                            </button>
+                        </div>
+                        
+                        <div className="space-y-6">
+                            <div className="bg-gray-50 p-4 rounded-lg">
+                                <h4 className="font-medium text-gray-900 mb-3">Return Details</h4>
+                                <div className="grid grid-cols-2 gap-4 text-sm">
+                                    <div>
+                                        <span className="text-gray-600">Return ID:</span>
+                                        <p className="font-medium">#{selectedReturn._id.slice(-8)}</p>
+                                    </div>
+                                    <div>
+                                        <span className="text-gray-600">Customer:</span>
+                                        <p className="font-medium">{selectedReturn.userId?.name}</p>
+                                    </div>
+                                    <div>
+                                        <span className="text-gray-600">Item:</span>
+                                        <p className="font-medium">{selectedReturn.itemDetails?.name}</p>
+                                    </div>
+                                    <div>
+                                        <span className="text-gray-600">Expected Refund:</span>
+                                        <p className="font-medium">
+                                            ₹{selectedReturn.itemDetails?.refundAmount * (selectedReturn.itemDetails?.quantity || 1)}
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
 
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                                        Refund Status *
+                                    </label>
+                                    <select
+                                        value={refundData.refundStatus}
+                                        onChange={(e) => setRefundData(prev => ({ ...prev, refundStatus: e.target.value }))}
+                                        className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                        required
+                                    >
+                                        {refundStatusOptions.map(option => (
+                                            <option key={option.value} value={option.value}>
+                                                {option.label}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                                        Refund Method
+                                    </label>
+                                    <select
+                                        value={refundData.refundMethod}
+                                        onChange={(e) => setRefundData(prev => ({ ...prev, refundMethod: e.target.value }))}
+                                        className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                    >
+                                        <option value="ORIGINAL_PAYMENT_METHOD">Original Payment Method</option>
+                                        <option value="BANK_TRANSFER">Bank Transfer</option>
+                                        <option value="WALLET_CREDIT">Wallet Credit</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                                        Refund ID/Transaction ID
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={refundData.refundId}
+                                        onChange={(e) => setRefundData(prev => ({ ...prev, refundId: e.target.value }))}
+                                        placeholder="Enter refund/transaction ID"
+                                        className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                    />
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                                        Actual Refund Amount (₹)
+                                    </label>
+                                    <input
+                                        type="number"
+                                        step="0.01"
+                                        value={refundData.refundAmount}
+                                        onChange={(e) => setRefundData(prev => ({ ...prev, refundAmount: e.target.value }))}
+                                        placeholder="Enter actual refund amount"
+                                        className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                    />
+                                </div>
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                    Admin Notes
+                                </label>
+                                <textarea
+                                    value={refundData.adminNotes}
+                                    onChange={(e) => setRefundData(prev => ({ ...prev, adminNotes: e.target.value }))}
+                                    placeholder="Add notes about the refund update..."
+                                    rows="4"
+                                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                />
+                            </div>
+
+                            <div className="flex justify-end space-x-4 pt-4">
+                                <button
+                                    onClick={() => setShowRefundModal(false)}
+                                    className="px-6 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors font-medium"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    onClick={updateRefundStatus}
+                                    disabled={!refundData.refundStatus || processing[selectedReturn._id]}
+                                    className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium"
+                                >
+                                    {processing[selectedReturn._id] ? 'Updating...' : 'Update Refund Status'}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

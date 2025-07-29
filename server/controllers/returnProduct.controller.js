@@ -9,9 +9,9 @@ const isReturnEligible = (deliveryDate) => {
     const currentTime = new Date();
     const deliveryTime = new Date(deliveryDate);
     const timeDifference = currentTime - deliveryTime;
-    const oneDayInMs = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
+    const thirtyDaysInMs = 30 * 24 * 60 * 60 * 1000; // 30 days in milliseconds
     
-    return timeDifference <= oneDayInMs;
+    return timeDifference <= thirtyDaysInMs;
 };
 
 // Calculate refund amount (65% of original price)
@@ -25,6 +25,8 @@ export const getEligibleReturnItems = async (req, res) => {
         const userId = req.userId;
         const { orderId } = req.query; // Get orderId from query parameters
 
+        console.log('Getting eligible return items for userId:', userId, 'orderId:', orderId);
+
         // Build query - if orderId is provided, filter by specific order
         let orderQuery = {
             userId: userId,
@@ -34,6 +36,8 @@ export const getEligibleReturnItems = async (req, res) => {
         if (orderId) {
             orderQuery._id = orderId;
         }
+
+        console.log('Order query:', orderQuery);
 
         // Find delivered orders for the user (all or specific order)
         const orders = await orderModel.find(orderQuery)
@@ -48,20 +52,39 @@ export const getEligibleReturnItems = async (req, res) => {
         })
         .sort({ actualDeliveryDate: -1 });
 
+        console.log('Found orders:', orders.length);
+        orders.forEach(order => {
+            console.log('Order:', order._id, 'Status:', order.orderStatus, 'Delivery Date:', order.actualDeliveryDate);
+        });
+
         if (!orders || orders.length === 0) {
             return res.status(200).json({
                 message: "No delivered orders found",
                 success: true,
-                data: []
+                data: {
+                    eligibleItems: [],
+                    orderInfo: null
+                }
             });
         }
 
         const eligibleItems = [];
 
         for (const order of orders) {
+            console.log('Processing order:', order._id, 'Delivery date:', order.actualDeliveryDate);
+            
             // Check if order has actualDeliveryDate and return period is still valid
-            if (!order.actualDeliveryDate || !isReturnEligible(order.actualDeliveryDate)) {
-                continue; // Skip orders without delivery date or outside return window
+            if (!order.actualDeliveryDate) {
+                console.log('Order has no delivery date, skipping');
+                continue;
+            }
+            
+            const isEligible = isReturnEligible(order.actualDeliveryDate);
+            console.log('Order eligibility check:', isEligible);
+            
+            if (!isEligible) {
+                console.log('Order outside return window, skipping');
+                continue; // Skip orders outside return window
             }
 
             // Get already requested returns for this order
@@ -124,7 +147,7 @@ export const getEligibleReturnItems = async (req, res) => {
                             refundAmount: refundAmount,
                             totalRefundAmount: refundAmount * availableQuantity,
                             deliveredAt: order.actualDeliveryDate,
-                            eligibilityExpiryDate: new Date(order.actualDeliveryDate.getTime() + 24 * 60 * 60 * 1000)
+                            eligibilityExpiryDate: new Date(order.actualDeliveryDate.getTime() + 30 * 24 * 60 * 60 * 1000)
                         });
                     }
                 }
@@ -134,7 +157,14 @@ export const getEligibleReturnItems = async (req, res) => {
         res.status(200).json({
             message: "Eligible return items retrieved successfully",
             success: true,
-            data: eligibleItems
+            data: {
+                eligibleItems: eligibleItems,
+                orderInfo: orders.length > 0 ? {
+                    orderId: orders[0]._id,
+                    orderNumber: orders[0].orderId,
+                    deliveryDate: orders[0].actualDeliveryDate
+                } : null
+            }
         });
 
     } catch (error) {
@@ -502,7 +532,7 @@ export const getAllReturnRequests = async (req, res) => {
 export const processReturnRequest = async (req, res) => {
     try {
         const { returnId } = req.params;
-        const { action, adminComments, inspectionNotes } = req.body;
+        const { action, adminComments, inspectionNotes, customRefundAmount } = req.body;
         const adminId = req.userId;
 
         if (!['approve', 'reject'].includes(action)) {
@@ -540,12 +570,27 @@ export const processReturnRequest = async (req, res) => {
             note: `Return request ${action}d by admin`
         });
 
-        // If approved, set initial refund details
+        // If approved, set refund details with custom amount if provided
         if (action === 'approve') {
+            const defaultRefundAmount = returnRequest.itemDetails.refundAmount * returnRequest.itemDetails.quantity;
+            const finalRefundAmount = customRefundAmount && customRefundAmount > 0 ? 
+                parseFloat(customRefundAmount) : defaultRefundAmount;
+
             returnRequest.refundDetails = {
                 refundStatus: 'PENDING',
-                actualRefundAmount: returnRequest.itemDetails.refundAmount * returnRequest.itemDetails.quantity
+                actualRefundAmount: finalRefundAmount,
+                originalCalculatedAmount: defaultRefundAmount,
+                isCustomAmount: customRefundAmount && customRefundAmount > 0
             };
+
+            // Add note if custom amount was used
+            if (customRefundAmount && customRefundAmount > 0) {
+                returnRequest.timeline.push({
+                    status: 'CUSTOM_REFUND_SET',
+                    timestamp: new Date(),
+                    note: `Custom refund amount set by admin: ₹${finalRefundAmount} (Original: ₹${defaultRefundAmount})`
+                });
+            }
         }
 
         await returnRequest.save();
@@ -723,9 +768,14 @@ export const confirmProductReceived = async (req, res) => {
 // Admin: Update refund status
 export const updateRefundStatus = async (req, res) => {
     try {
+        console.log('=== UPDATE REFUND STATUS API CALLED ===');
         const { returnId } = req.params;
         const { refundStatus, refundId, refundMethod, refundAmount, adminNotes } = req.body;
         const adminId = req.userId;
+        
+        console.log('Return ID:', returnId);
+        console.log('Request body:', { refundStatus, refundId, refundMethod, refundAmount, adminNotes });
+        console.log('Admin ID:', adminId);
 
         // Validate refund status
         const validRefundStatuses = ['PENDING', 'PROCESSING', 'COMPLETED', 'FAILED'];
@@ -736,17 +786,20 @@ export const updateRefundStatus = async (req, res) => {
             });
         }
 
-        const returnRequest = await returnProductModel.findOne({
-            _id: returnId,
-            status: { $in: ['APPROVED', 'REFUND_PROCESSED'] }
-        });
-
+        // Find the return request - allow any status for refund management
+        let returnRequest = await returnProductModel.findById(returnId);
+        
+        console.log('Database search result:', returnRequest);
+        
         if (!returnRequest) {
             return res.status(404).json({
-                message: "Return request not found or not eligible for refund status update",
+                message: "Return request not found in database",
                 success: false
             });
         }
+        
+        console.log('Return status:', returnRequest.status);
+        console.log('Proceeding with refund status update for any return status');
 
         // Initialize refundDetails if it doesn't exist
         if (!returnRequest.refundDetails) {
@@ -810,6 +863,132 @@ export const updateRefundStatus = async (req, res) => {
     }
 };
 
+// Get order details with return information for admin (new function)
+export const getOrderWithReturnDetails = async (req, res) => {
+    try {
+        const { orderId } = req.params;
+
+        // Find the order with all items
+        const order = await orderModel.findById(orderId)
+            .populate('userId', 'name email phone')
+            .populate('deliveryAddress')
+            .populate({
+                path: 'items.productId',
+                select: 'name image price discountPrice'
+            })
+            .populate({
+                path: 'items.bundleId',
+                select: 'title image price discountPrice'
+            });
+
+        if (!order) {
+            return res.status(404).json({
+                message: "Order not found",
+                success: false
+            });
+        }
+
+        // Get all return requests for this order
+        const returnRequests = await returnProductModel.find({
+            orderId: orderId
+        }).sort({ createdAt: -1 });
+
+        // Create a map of return requests by itemId
+        const returnsByItemId = new Map();
+        returnRequests.forEach(returnReq => {
+            const itemId = returnReq.itemId;
+            if (!returnsByItemId.has(itemId)) {
+                returnsByItemId.set(itemId, []);
+            }
+            returnsByItemId.get(itemId).push(returnReq);
+        });
+
+        // Process order items with return information
+        const orderItemsWithReturns = order.items.map(item => {
+            const itemId = item._id.toString();
+            const itemReturns = returnsByItemId.get(itemId) || [];
+            
+            // Calculate returned quantity
+            const returnedQuantity = itemReturns
+                .filter(ret => !['rejected', 'cancelled'].includes(ret.status))
+                .reduce((sum, ret) => sum + (ret.itemDetails.quantity || 0), 0);
+
+            // Calculate prices
+            let originalPrice, itemName, itemImage;
+            if (item.itemType === 'bundle' && item.bundleId) {
+                originalPrice = item.bundleId.discountPrice || item.bundleId.price || item.unitPrice || 0;
+                itemName = item.bundleId.title || 'Bundle Item';
+                itemImage = item.bundleId.image?.[0] || '';
+            } else if (item.itemType === 'product' && item.productId) {
+                originalPrice = item.unitPrice || item.productId.discountPrice || item.productId.price || 0;
+                itemName = item.productId.name || 'Product Item';
+                itemImage = item.productId.image?.[0] || '';
+            } else {
+                originalPrice = item.unitPrice || 0;
+                itemName = 'Unknown Item';
+                itemImage = '';
+            }
+
+            return {
+                _id: itemId,
+                itemType: item.itemType,
+                productId: item.productId,
+                bundleId: item.bundleId,
+                name: itemName,
+                image: itemImage,
+                size: item.size,
+                originalQuantity: item.quantity,
+                unitPrice: originalPrice,
+                totalPrice: originalPrice * item.quantity,
+                returnedQuantity: returnedQuantity,
+                remainingQuantity: item.quantity - returnedQuantity,
+                returnRequests: itemReturns
+            };
+        });
+
+        // Calculate order totals
+        const totalOrderValue = orderItemsWithReturns.reduce((sum, item) => sum + item.totalPrice, 0);
+        const totalRefundProcessed = returnRequests
+            .filter(ret => ret.refundDetails && ret.refundDetails.refundStatus === 'COMPLETED')
+            .reduce((sum, ret) => sum + (ret.refundDetails.actualRefundAmount || 0), 0);
+
+        res.status(200).json({
+            message: "Order with return details retrieved successfully",
+            success: true,
+            data: {
+                order: {
+                    _id: order._id,
+                    orderId: order.orderId,
+                    orderDate: order.orderDate,
+                    orderStatus: order.orderStatus,
+                    actualDeliveryDate: order.actualDeliveryDate,
+                    totalAmount: order.totalAmount,
+                    deliveryCharges: order.deliveryCharges,
+                    customer: order.userId,
+                    deliveryAddress: order.deliveryAddress
+                },
+                items: orderItemsWithReturns,
+                summary: {
+                    totalItems: orderItemsWithReturns.length,
+                    totalOrderValue: totalOrderValue,
+                    totalReturnRequests: returnRequests.length,
+                    totalRefundProcessed: totalRefundProcessed,
+                    pendingRefunds: returnRequests.filter(ret => ret.status === 'APPROVED' && (!ret.refundDetails || ret.refundDetails.refundStatus !== 'COMPLETED')).length
+                },
+                allReturnRequests: returnRequests
+            }
+        });
+
+    } catch (error) {
+        console.error("Error getting order with return details:", error);
+        res.status(500).json({
+            message: "Internal server error",
+            success: false,
+            error: error.message
+        });
+    }
+};
+
 // Get return dashboard statistics (admin function)
 export const getReturnDashboardStats = async (req, res) => {
     try {
@@ -854,6 +1033,69 @@ export const getReturnDashboardStats = async (req, res) => {
 
     } catch (error) {
         console.error("Error fetching dashboard stats:", error);
+        res.status(500).json({
+            message: "Internal server error",
+            success: false,
+            error: error.message
+        });
+    }
+};
+
+// Re-request return for rejected items
+export const reRequestReturn = async (req, res) => {
+    try {
+        const { returnId } = req.body;
+        const userId = req.userId;
+
+        // Find the rejected return request
+        const existingReturn = await returnProductModel.findOne({
+            _id: returnId,
+            userId: userId,
+            status: 'REJECTED'
+        });
+
+        if (!existingReturn) {
+            return res.status(404).json({
+                message: "Rejected return request not found",
+                success: false
+            });
+        }
+
+        // Check if enough time has passed since rejection (optional: 24 hours)
+        const rejectionDate = existingReturn.adminResponse?.processedDate;
+        if (rejectionDate) {
+            const timeSinceRejection = new Date() - new Date(rejectionDate);
+            const oneDayInMs = 24 * 60 * 60 * 1000;
+            
+            if (timeSinceRejection < oneDayInMs) {
+                return res.status(400).json({
+                    message: "You can re-request a return 24 hours after rejection",
+                    success: false
+                });
+            }
+        }
+
+        // Update the return request status back to REQUESTED
+        existingReturn.status = 'REQUESTED';
+        existingReturn.adminResponse = null; // Clear previous admin response
+        
+        // Add to timeline
+        existingReturn.timeline.push({
+            status: 'RE_REQUESTED',
+            timestamp: new Date(),
+            note: 'Return request resubmitted by customer after rejection'
+        });
+
+        await existingReturn.save();
+
+        res.status(200).json({
+            message: "Return request resubmitted successfully",
+            success: true,
+            data: existingReturn
+        });
+
+    } catch (error) {
+        console.error("Error re-requesting return:", error);
         res.status(500).json({
             message: "Internal server error",
             success: false,

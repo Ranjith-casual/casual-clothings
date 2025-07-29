@@ -8,12 +8,14 @@ import {
     getReturnRequestDetails,
     updateReturnRequest,
     cancelReturnRequest,
+    reRequestReturn,
     getAllReturnRequests,
     processReturnRequest,
     confirmProductReceived,
     processRefund,
     updateRefundStatus,
-    getReturnDashboardStats
+    getReturnDashboardStats,
+    getOrderWithReturnDetails
 } from '../controllers/returnProduct.controller.js';
 
 const returnProductRouter = Router();
@@ -25,9 +27,11 @@ returnProductRouter.get('/user/my-returns', auth, getUserReturnRequests);
 returnProductRouter.get('/:returnId', auth, getReturnRequestDetails);
 returnProductRouter.put('/update', auth, updateReturnRequest);
 returnProductRouter.put('/cancel', auth, cancelReturnRequest);
+returnProductRouter.post('/re-request', auth, reRequestReturn);
 
 // Admin routes (protected with admin middleware)
 returnProductRouter.post('/admin/all', auth, admin, getAllReturnRequests);
+returnProductRouter.get('/admin/order/:orderId', auth, admin, getOrderWithReturnDetails);
 returnProductRouter.put('/admin/process/:returnId', auth, admin, processReturnRequest);
 returnProductRouter.put('/admin/confirm-received', auth, admin, confirmProductReceived);
 returnProductRouter.put('/admin/process-refund/:returnId', auth, admin, processRefund);
