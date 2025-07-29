@@ -1499,7 +1499,7 @@ function MyOrders() {
                       {/* Return Product Button - Only show for delivered orders */}
                       {order.orderStatus === 'DELIVERED' && (
                         <button
-                          onClick={() => navigate('/return-product')}
+                          onClick={() => navigate(`/return-product?orderId=${order._id}`)}
                           className="flex items-center gap-2 px-4 py-2 rounded-md text-sm font-semibold transition-colors bg-orange-50 text-orange-700 border border-orange-200 hover:bg-orange-100"
                         >
                           <FaUndo className='w-4 h-4' />

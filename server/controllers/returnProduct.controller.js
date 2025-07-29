@@ -23,12 +23,20 @@ const calculateRefundAmount = (originalPrice) => {
 export const getEligibleReturnItems = async (req, res) => {
     try {
         const userId = req.userId;
+        const { orderId } = req.query; // Get orderId from query parameters
 
-        // Find all delivered orders for the user
-        const orders = await orderModel.find({
+        // Build query - if orderId is provided, filter by specific order
+        let orderQuery = {
             userId: userId,
             orderStatus: 'DELIVERED'
-        })
+        };
+
+        if (orderId) {
+            orderQuery._id = orderId;
+        }
+
+        // Find delivered orders for the user (all or specific order)
+        const orders = await orderModel.find(orderQuery)
         .populate('deliveryAddress')
         .populate({
             path: 'items.productId',

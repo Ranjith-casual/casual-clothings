@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useSelector } from 'react-redux';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
 import Axios from '../utils/Axios';
 import SummaryApi from '../common/SummaryApi';
@@ -7,6 +8,10 @@ import Loading from '../components/Loading';
 
 const ReturnProduct = () => {
     const user = useSelector(state => state?.user);
+    const [searchParams] = useSearchParams();
+    const navigate = useNavigate();
+    const orderId = searchParams.get('orderId'); // Get orderId from URL parameters
+    
     const [eligibleItems, setEligibleItems] = useState([]);
     const [userReturns, setUserReturns] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -14,6 +19,7 @@ const ReturnProduct = () => {
     const [selectedItems, setSelectedItems] = useState({});
     const [returnReasons, setReturnReasons] = useState({});
     const [additionalComments, setAdditionalComments] = useState({});
+    const [orderInfo, setOrderInfo] = useState(null); // Store order information
 
     const returnReasonOptions = [
         'Wrong size received',
@@ -45,12 +51,30 @@ const ReturnProduct = () => {
 
     const fetchEligibleItems = async () => {
         try {
-            const response = await Axios({
+            // Build the request configuration
+            const requestConfig = {
                 ...SummaryApi.getEligibleReturnItems
-            });
+            };
+
+            // Add orderId as query parameter if provided
+            if (orderId) {
+                requestConfig.url += `?orderId=${orderId}`;
+            }
+
+            const response = await Axios(requestConfig);
 
             if (response.data.success) {
                 setEligibleItems(response.data.data);
+                
+                // If we have items and orderId, extract order information
+                if (response.data.data.length > 0 && orderId) {
+                    const firstItem = response.data.data[0];
+                    setOrderInfo({
+                        orderId: firstItem.orderId,
+                        orderNumber: firstItem.orderNumber,
+                        deliveredAt: firstItem.deliveredAt
+                    });
+                }
             } else {
                 toast.error(response.data.message);
             }
@@ -220,7 +244,30 @@ const ReturnProduct = () => {
     return (
         <div className="container mx-auto px-4 py-8">
             <div className="max-w-6xl mx-auto">
-                <h1 className="text-3xl font-bold text-gray-900 mb-8">Return Products</h1>
+                {/* Header with back button for order-specific returns */}
+                <div className="flex items-center gap-4 mb-8">
+                    {orderId && (
+                        <button
+                            onClick={() => navigate('/my-orders')}
+                            className="flex items-center gap-2 px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors"
+                        >
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                            </svg>
+                            Back to Orders
+                        </button>
+                    )}
+                    <div>
+                        <h1 className="text-3xl font-bold text-gray-900">
+                            {orderId ? 'Return Products' : 'Return Products'}
+                        </h1>
+                        {orderInfo && (
+                            <p className="text-gray-600 mt-2">
+                                Order #{orderInfo.orderNumber} • Delivered on {formatDate(orderInfo.deliveredAt)}
+                            </p>
+                        )}
+                    </div>
+                </div>
 
                 {/* Tab Navigation */}
                 <div className="flex border-b border-gray-200 mb-6">
@@ -251,10 +298,23 @@ const ReturnProduct = () => {
                     <div>
                         {eligibleItems.length === 0 ? (
                             <div className="text-center py-12">
-                                <div className="text-gray-500 text-lg">No items eligible for return</div>
+                                <div className="text-gray-500 text-lg">
+                                    {orderId 
+                                        ? 'No items eligible for return in this order' 
+                                        : 'No items eligible for return'
+                                    }
+                                </div>
                                 <p className="text-gray-400 mt-2">
                                     Items are eligible for return within 1 day of delivery
                                 </p>
+                                {orderId && (
+                                    <button
+                                        onClick={() => navigate('/my-orders')}
+                                        className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+                                    >
+                                        Back to Orders
+                                    </button>
+                                )}
                             </div>
                         ) : (
                             <>
@@ -267,6 +327,24 @@ const ReturnProduct = () => {
                                         <li>• Return requests require admin approval</li>
                                     </ul>
                                 </div>
+
+                                {/* Action buttons when viewing order-specific items */}
+                                {orderId && (
+                                    <div className="flex gap-3 mb-6 p-4 bg-gray-50 rounded-lg">
+                                        <button
+                                            onClick={() => navigate('/return-product')}
+                                            className="px-4 py-2 text-blue-600 hover:text-blue-800 border border-blue-200 rounded-md hover:bg-blue-50 transition-colors"
+                                        >
+                                            View All Eligible Items
+                                        </button>
+                                        <button
+                                            onClick={() => navigate('/my-orders')}
+                                            className="px-4 py-2 text-gray-600 hover:text-gray-800 border border-gray-200 rounded-md hover:bg-gray-50 transition-colors"
+                                        >
+                                            Back to Orders
+                                        </button>
+                                    </div>
+                                )}
 
                                 <div className="space-y-4">
                                     {eligibleItems.map((item) => (
