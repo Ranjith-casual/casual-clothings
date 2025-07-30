@@ -288,7 +288,7 @@ export const createReturnRequest = async (req, res) => {
                     refundAmount: refundAmount
                 },
                 returnReason: item.reason,
-                returnDescription: item.additionalComments || '',
+                returnDescription: item.additionalComments || item.description || '',
                 returnImages: [],
                 status: 'REQUESTED',
                 eligibilityExpiryDate: eligibilityExpiryDate,
@@ -891,7 +891,9 @@ export const getOrderWithReturnDetails = async (req, res) => {
         // Get all return requests for this order
         const returnRequests = await returnProductModel.find({
             orderId: orderId
-        }).sort({ createdAt: -1 });
+        })
+        .populate('adminResponse.processedBy', 'name email')
+        .sort({ createdAt: -1 });
 
         // Create a map of return requests by itemId
         const returnsByItemId = new Map();

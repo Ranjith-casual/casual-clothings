@@ -5,6 +5,7 @@ import { toast } from 'react-hot-toast';
 import Axios from '../utils/Axios';
 import SummaryApi from '../common/SummaryApi';
 import Loading from '../components/Loading';
+import ReturnRequestModal from '../components/ReturnRequestModal';
 import { 
     FaBox, 
     FaSearch, 
@@ -194,7 +195,7 @@ const ReturnProduct = () => {
                 return {
                     orderItemId: item._id,
                     reason: reasonMapping[returnReasons[itemKey]] || 'OTHER',
-                    description: additionalComments[itemKey] || ''
+                    additionalComments: additionalComments[itemKey] || ''
                 };
             });
 
@@ -370,7 +371,6 @@ const ReturnProduct = () => {
                                         <div>
                                             <h3 className="font-semibold text-yellow-900 mb-1">Return Policy & Requirements</h3>
                                             <ul className="text-sm text-yellow-800 space-y-1">
-                                                <li>• Items can be returned within 24 hours of delivery</li>
                                                 <li>• Price will be calculated according to admin decision</li>
                                                 <li>• Items must be in original condition</li>
                                                 <li>• <strong>Return reason is mandatory for each selected item</strong></li>
@@ -545,7 +545,7 @@ const ReturnProduct = () => {
                                             You don't have any items eligible for return at the moment.
                                         </p>
                                         <p className="text-sm text-gray-500">
-                                            Items are eligible for return within 24 hours of delivery.
+                                            Items are eligible for return after delivery.
                                         </p>
                                     </div>
                                 )}
@@ -702,221 +702,19 @@ const ReturnProduct = () => {
                 </div>
 
                 {/* Return Request Confirmation Modal */}
-                {showReturnModal && (
-                    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center h-full w-full z-50">
-                        <div className="relative bg-white p-8 rounded-xl shadow-2xl w-full max-w-2xl mx-4">
-                            <div className="flex justify-between items-center mb-6">
-                                <div>
-                                    <h3 className="text-lg font-semibold text-gray-900">Return Request Details</h3>
-                                    {(() => {
-                                        const selectedItemKeys = Object.keys(selectedItems).filter(key => selectedItems[key]);
-                                        const missingReasons = selectedItemKeys.filter(key => !returnReasons[key]);
-                                        
-                                        return missingReasons.length > 0 ? (
-                                            <p className="text-sm text-orange-600 mt-1">
-                                                Please provide return reasons for all selected items below
-                                            </p>
-                                        ) : (
-                                            <p className="text-sm text-green-600 mt-1">
-                                                Review your return request and submit
-                                            </p>
-                                        );
-                                    })()}
-                                </div>
-                                <button
-                                    onClick={() => setShowReturnModal(false)}
-                                    className="text-gray-400 hover:text-gray-600 p-1"
-                                >
-                                    <FaTimes className="w-5 h-5" />
-                                </button>
-                            </div>
-
-                            <div className="space-y-6">
-                                <div className="space-y-6">
-                                    {(() => {
-                                        const selectedItemKeys = Object.keys(selectedItems).filter(key => selectedItems[key]);
-                                        const missingReasons = selectedItemKeys.filter(key => !returnReasons[key]);
-                                        const hasAllReasons = missingReasons.length === 0;
-                                        
-                                        return (
-                                            <div className={`border rounded-lg p-4 ${hasAllReasons ? 'bg-green-50 border-green-200' : 'bg-orange-50 border-orange-200'}`}>
-                                                <h4 className={`font-medium mb-2 ${hasAllReasons ? 'text-green-900' : 'text-orange-900'}`}>
-                                                    Return Summary {!hasAllReasons && '(Incomplete)'}
-                                                </h4>
-                                                <div className={`text-sm ${hasAllReasons ? 'text-green-800' : 'text-orange-800'}`}>
-                                                    <p>• {selectedItemKeys.length} item(s) selected for return</p>
-                                                    <p>• {hasAllReasons ? 'All return reasons provided' : `${missingReasons.length} item(s) need return reasons`}</p>
-                                                    <p>• Returns will be processed within 2-3 business days</p>
-                                                    <p>• Pickup will be scheduled after approval</p>
-                                                </div>
-                                            </div>
-                                        );
-                                    })()}
-                                </div>
-
-                                <div className="space-y-3">
-                                    {Object.keys(selectedItems)
-                                        .filter(key => selectedItems[key])
-                                        .map(itemKey => {
-                                            const item = eligibleItems.find(item => 
-                                                `${item.orderId}_${item._id}` === itemKey
-                                            );
-                                            
-                                            if (!item) {
-                                                console.warn('Item not found for key:', itemKey);
-                                                return null;
-                                            }
-                                            
-                                            const hasReason = returnReasons[itemKey];
-                                            
-                                            return (
-                                                <div key={itemKey} className={`border rounded-lg p-4 ${hasReason ? 'border-gray-200' : 'border-red-200 bg-red-50'}`}>
-                                                    <div className="flex items-start space-x-3 mb-4">
-                                                        <img
-                                                            src={item.image || '/placeholder.png'}
-                                                            alt={item.name}
-                                                            className="w-12 h-12 object-cover rounded-lg flex-shrink-0"
-                                                        />
-                                                        <div className="flex-1 min-w-0">
-                                                            <h5 className="font-medium text-gray-900 mb-1">{item.name}</h5>
-                                                            <p className="text-sm text-gray-600 mb-2">
-                                                                Size: {item.size} | Type: {item.itemType}
-                                                            </p>
-                                                            {hasReason ? (
-                                                                <p className="text-sm text-green-600 font-medium flex items-center gap-1">
-                                                                    <FaCheck className="w-3 h-3" />
-                                                                    Reason: {returnReasons[itemKey]}
-                                                                </p>
-                                                            ) : (
-                                                                <p className="text-sm text-red-600 font-medium flex items-center gap-1">
-                                                                    <FaExclamationTriangle className="w-3 h-3" />
-                                                                    Return reason required
-                                                                </p>
-                                                            )}
-                                                        </div>
-                                                        <div className="text-right flex-shrink-0">
-                                                            <p className="font-semibold text-green-600">₹{item.refundAmount}</p>
-                                                        </div>
-                                                    </div>
-                                                    
-                                                    {/* Return reason selection in modal */}
-                                                    <div className="space-y-3">
-                                                        <div>
-                                                            <label className={`block text-sm font-medium mb-2 ${!hasReason ? 'text-red-700' : 'text-gray-700'}`}>
-                                                                Return Reason *
-                                                                {!hasReason && (
-                                                                    <span className="ml-1 text-red-600 font-semibold">(Required)</span>
-                                                                )}
-                                                            </label>
-                                                            <select
-                                                                value={returnReasons[itemKey] || ''}
-                                                                onChange={(e) => handleReasonChange(itemKey, e.target.value)}
-                                                                className={`w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-                                                                    !hasReason ? 'border-red-300 bg-red-50' : 'border-gray-300'
-                                                                }`}
-                                                                required
-                                                            >
-                                                                <option value="">Select a reason</option>
-                                                                {returnReasonOptions.map(reason => (
-                                                                    <option key={reason} value={reason}>
-                                                                        {reason}
-                                                                    </option>
-                                                                ))}
-                                                            </select>
-                                                            {!hasReason && (
-                                                                <p className="mt-1 text-xs text-red-600">
-                                                                    Please select a reason to continue with this return
-                                                                </p>
-                                                            )}
-                                                        </div>
-                                                        <div>
-                                                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                                                                Additional Comments (Optional)
-                                                            </label>
-                                                            <textarea
-                                                                value={additionalComments[itemKey] || ''}
-                                                                onChange={(e) => handleCommentsChange(itemKey, e.target.value)}
-                                                                placeholder="Provide additional details about the return..."
-                                                                rows="2"
-                                                                className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
-                                                            />
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            );
-                                        })
-                                        .filter(Boolean) // Remove null items
-                                    }
-                                </div>
-
-                                <div className="flex justify-end space-x-4 pt-4">
-                                    <button
-                                        onClick={() => setShowReturnModal(false)}
-                                        className="px-6 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors font-medium"
-                                    >
-                                        Cancel
-                                    </button>
-                                    {(() => {
-                                        const selectedItemKeys = Object.keys(selectedItems).filter(key => selectedItems[key]);
-                                        const missingReasons = selectedItemKeys.filter(key => !returnReasons[key]);
-                                        const hasAllReasons = missingReasons.length === 0;
-                                        
-                                        return (
-                                            <button
-                                                onClick={() => {
-                                                    if (!hasAllReasons) {
-                                                        const missingItemNames = missingReasons.map(key => {
-                                                            const item = eligibleItems.find(item => `${item.orderId}_${item._id}` === key);
-                                                            return item?.name || 'Unknown item';
-                                                        });
-                                                        
-                                                        toast.error(
-                                                            `Please select return reasons for:\n${missingItemNames.join('\n')}`,
-                                                            {
-                                                                duration: 4000,
-                                                                style: {
-                                                                    minWidth: '300px',
-                                                                    whiteSpace: 'pre-line'
-                                                                }
-                                                            }
-                                                        );
-                                                        return;
-                                                    }
-                                                    submitReturnRequest();
-                                                }}
-                                                disabled={submitting}
-                                                className={`px-6 py-2 rounded-lg transition-colors font-medium flex items-center gap-2 ${
-                                                    hasAllReasons && !submitting
-                                                        ? 'bg-blue-600 text-white hover:bg-blue-700'
-                                                        : !submitting
-                                                        ? 'bg-orange-500 text-white hover:bg-orange-600'
-                                                        : 'bg-gray-300 text-gray-600 cursor-not-allowed'
-                                                }`}
-                                            >
-                                                {submitting ? (
-                                                    <>
-                                                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                                                        Submitting...
-                                                    </>
-                                                ) : hasAllReasons ? (
-                                                    <>
-                                                        <FaCheck className="w-4 h-4" />
-                                                        Submit Return Request
-                                                    </>
-                                                ) : (
-                                                    <>
-                                                        <FaExclamationTriangle className="w-4 h-4" />
-                                                        Complete Reasons to Submit
-                                                    </>
-                                                )}
-                                            </button>
-                                        );
-                                    })()}
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                )}
+                <ReturnRequestModal
+                    showModal={showReturnModal}
+                    onClose={() => setShowReturnModal(false)}
+                    selectedItems={selectedItems}
+                    returnReasons={returnReasons}
+                    additionalComments={additionalComments}
+                    eligibleItems={eligibleItems}
+                    returnReasonOptions={returnReasonOptions}
+                    handleReasonChange={handleReasonChange}
+                    handleCommentsChange={handleCommentsChange}
+                    submitReturnRequest={submitReturnRequest}
+                    submitting={submitting}
+                />
             </div>
         </div>
     );
