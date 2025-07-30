@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { FaShoppingCart } from "react-icons/fa";
 import { DisplayPriceInRupees } from '../utils/DisplayPriceInRupees';
-import { pricewithDiscount } from '../utils/PriceWithDiscount';
+import { PricingService } from '../utils/PricingService';
 
 const SimpleProductCard = ({ product }) => {
   const navigate = useNavigate();
@@ -15,7 +15,7 @@ const SimpleProductCard = ({ product }) => {
   // Extract product information
   const price = product.price || 0;
   const discount = product.discount || 0;
-  const discountedPrice = pricewithDiscount(price, discount);
+  const discountedPrice = PricingService.applyDiscount(price, discount);
   const productImage = product.image?.[0] || '';
   const productName = product.name || 'Product';
   const categoryName = product.category?.[0]?.name || product.category?.name || 'Fashion';

@@ -8,7 +8,7 @@ import CardLoading from "./CardLoading";
 import CardProduct from "./CardProduct";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { DisplayPriceInRupees } from "../utils/DisplayPriceInRupees";
-import { pricewithDiscount } from "../utils/PriceWithDiscount";
+import { PricingService } from "../utils/PricingService";
 
 function PremiumCategoryWiseProductDisplay({ id, name }) {
   const [data, setData] = useState([]);
@@ -172,7 +172,7 @@ function PremiumCategoryWiseProductDisplay({ id, name }) {
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-1">
                             <span className="text-sm font-bold text-black">
-                              {DisplayPriceInRupees(pricewithDiscount(product.price, product.discount))}
+                              {DisplayPriceInRupees(PricingService.applyDiscount(product.price, product.discount))}
                             </span>
                             {product.discount > 0 && (
                               <span className="text-xs text-gray-400 line-through">
@@ -209,7 +209,7 @@ function PremiumCategoryWiseProductDisplay({ id, name }) {
                           {/* Main Price */}
                           <div className="flex items-center justify-between">
                             <span className="text-xs font-bold text-black">
-                              {DisplayPriceInRupees(pricewithDiscount(product.price, product.discount))}
+                              {DisplayPriceInRupees(PricingService.applyDiscount(product.price, product.discount))}
                             </span>
                             {product.discount > 0 && (
                               <span className="text-xs font-medium px-1 py-0.5 text-red-500">

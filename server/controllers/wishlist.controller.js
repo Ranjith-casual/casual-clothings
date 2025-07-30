@@ -1,5 +1,6 @@
 import WishlistModel from "../models/wishlist.model.js";
 import UserModel from "../models/users.model.js";
+import Logger from "../utils/logger.js";
 
 // Add item to wishlist
 export const addToWishlistController = async (req, res) => {
@@ -65,7 +66,7 @@ export const addToWishlistController = async (req, res) => {
             data: wishlist
         });
     } catch (error) {
-        console.error("Error adding to wishlist:", error);
+        Logger.error("Error adding to wishlist", { error: error.message, userId: req.userId });
         return res.status(500).json({
             message: "Error adding item to wishlist",
             success: false,
@@ -117,7 +118,7 @@ export const removeFromWishlistController = async (req, res) => {
             data: wishlist
         });
     } catch (error) {
-        console.error("Error removing from wishlist:", error);
+        Logger.error("Error removing from wishlist", { error: error.message, userId: req.userId });
         return res.status(500).json({
             message: "Error removing item from wishlist",
             success: false,
@@ -163,7 +164,7 @@ export const getWishlistController = async (req, res) => {
             data: validItems
         });
     } catch (error) {
-        console.error("Error fetching wishlist:", error);
+        Logger.error("Error fetching wishlist", { error: error.message, userId: req.userId });
         return res.status(500).json({
             message: "Error retrieving wishlist",
             success: false,
@@ -178,7 +179,7 @@ export const checkWishlistItemController = async (req, res) => {
         const userId = req.userId;
         const { productId } = req.params;
 
-        console.log("checkWishlistItemController - userId:", userId, "productId:", productId);
+        Logger.debug("Checking wishlist item", { userId, productId });
 
         if (!userId) {
             return res.status(401).json({
@@ -224,7 +225,7 @@ export const checkWishlistItemController = async (req, res) => {
             success: true
         });
     } catch (error) {
-        console.error("Error checking wishlist item:", error);
+        Logger.error("Error checking wishlist item", { error: error.message, userId: req.userId });
         return res.status(500).json({
             message: "Error checking wishlist item",
             success: false,

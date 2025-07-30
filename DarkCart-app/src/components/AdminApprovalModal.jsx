@@ -1,4 +1,4 @@
-import React from 'react';
+import PropTypes from 'prop-types';
 import { FaCheck, FaTimes } from 'react-icons/fa';
 
 const AdminApprovalModal = ({
@@ -132,6 +132,15 @@ const AdminApprovalModal = ({
             </div>
         </div>
     );
+};
+
+AdminApprovalModal.propTypes = {
+    showModal: PropTypes.bool.isRequired,
+    onClose: PropTypes.func.isRequired,
+    approvalData: PropTypes.object.isRequired,
+    setApprovalData: PropTypes.func.isRequired,
+    handleApprovalSubmit: PropTypes.func.isRequired,
+    resetApprovalForm: PropTypes.func.isRequired
 };
 
 export default AdminApprovalModal;

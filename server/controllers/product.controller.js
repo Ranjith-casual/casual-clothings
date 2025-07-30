@@ -1,4 +1,6 @@
 import ProductModel from "../models/product.model.js";
+import Logger from "../utils/logger.js";
+import ErrorHandler from "../utils/ErrorHandler.js";
 
 // Create product with gender validation
 export const createProductController = async (req, res) => {
@@ -94,11 +96,8 @@ export const createProductController = async (req, res) => {
         });
 
     } catch (error) {
-        return res.status(500).json({
-            message: error.message || error,
-            error: true,
-            success: false
-        });
+        Logger.error('ProductController', 'Error creating product', error);
+        return ErrorHandler.serverError(res, error.message || 'Error creating product', error);
     }
 };
 
@@ -114,8 +113,6 @@ export const getProductController = async (req, res) => {
             sortBy = 'createdAt', 
             sortOrder = 'desc' 
         } = req.body;
-        
-        console.log('Request body:', req.body);
 
         // Build filter object
         const filter = { publish: true };
@@ -143,20 +140,26 @@ export const getProductController = async (req, res) => {
                     { description: { $regex: regexPattern } }
                 ];
             } else {
-                // For longer searches, try text search first
+                // For longer searches, use optimized search strategy
                 try {
+                    // Create a compound filter with text search
                     const textFilter = { 
                         ...filter, 
                         $text: { $search: search } 
                     };
                     
                     const skip = (page - 1) * limit;
+                    
+                    // Use lean() for better performance when we just need the data
                     const [products, total] = await Promise.all([
                         ProductModel.find(textFilter)
-                            .populate('category')
+                            .select('-__v') // Exclude unnecessary fields
+                            .populate('category', 'name _id') // Limit fields in populated documents
                             .sort({ score: { $meta: "textScore" }, [sortBy]: sortOrder === 'desc' ? -1 : 1 })
                             .skip(skip)
-                            .limit(limit),
+                            .limit(limit)
+                            .lean(), // Convert to plain JS objects for better performance
+                        // Use countDocuments when filters are applied
                         ProductModel.countDocuments(textFilter)
                     ]);
 
@@ -174,7 +177,8 @@ export const getProductController = async (req, res) => {
                         });
                     }
                 } catch (textError) {
-                    console.log('Text search failed, using regex fallback');
+                    // Text search error is expected behavior, using fallback
+                    // No need to log this as an error
                 }
                 
                 // Fallback to regex
@@ -198,7 +202,7 @@ export const getProductController = async (req, res) => {
             ProductModel.countDocuments(filter)
         ]);
 
-        console.log('Total products found:', total);
+        // Total products count is returned to client, no need to log
 
         res.json({
             message: "Product data",
@@ -213,13 +217,8 @@ export const getProductController = async (req, res) => {
         });
 
     } catch (error) {
-        console.error('Product controller error:', error);
-        return res.status(500).json({
-            success: false,
-            error: true,
-            message: "Error fetching products",
-            details: error.message
-        });
+        Logger.error('ProductController', 'Error fetching products', error);
+        return ErrorHandler.serverError(res, "Error fetching products", error);
     }
 };
 

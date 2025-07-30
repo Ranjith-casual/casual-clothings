@@ -3,12 +3,11 @@ import sendEmail from "../config/sendEmail.js";
 import bcryptjs from "bcryptjs";
 import verifyEmailTemplate from "../utils/verifyEmailTemplate.js";
 import dotenv from "dotenv";
-import { generatedAccessToken } from "../utils/generatedAccessToken.js";
-import { generatedRefreshToken } from "../utils/generatedRefreshToken.js";
+import { JWTService } from "../utils/JWTService.js";
+import Logger from "../utils/logger.js";
 import uploadImageClodinary from "../utils/uploadimageCloudnary.js";
 import generatedOtp from '../utils/generatedOtp.js'
 import forgotPasswordTemplate from '../utils/forgotPasswordTemplate.js'
-import jwt from 'jsonwebtoken'
 dotenv.config();
 
 export async function registerUserController(req, res) {
@@ -45,6 +44,16 @@ export async function registerUserController(req, res) {
     const newUser = new UserModel(payload);
     const save = await newUser.save();
 
+    // Generate tokens using JWTService
+    const accessToken = await JWTService.generateAccessToken(save._id);
+    const refreshToken = await JWTService.generateRefreshToken(save._id);
+    
+    // Set cookies using JWTService
+    JWTService.setTokenCookies(res, accessToken, refreshToken);
+    
+    // Log successful registration
+    Logger.info('User registered successfully', { userId: save._id });
+
     const verifyEmailUrl = `${process.env.FRONT_URL}/verify-email?code=${save._id}`;
     const verifyEmail = await sendEmail({
       sendTo: email,
@@ -59,9 +68,18 @@ export async function registerUserController(req, res) {
       message: "User Created Successfully",
       error: false,
       success: true,
-      save,
+      data: {
+        accessToken,
+        refreshToken,
+        user: {
+          _id: save._id,
+          name: save.name,
+          email: save.email
+        }
+      }
     });
   } catch (error) {
+    Logger.error('Registration error', { error: error.message });
     return res.status(500).json({
       message: error.message || error,
       error: true,
@@ -76,6 +94,7 @@ export async function verifyEmailController(req, res) {
 
     const id = await UserModel.findOne({ _id: code });
     if (!id) {
+      Logger.warn('Invalid user verification attempt', { code });
       return res.status(400).json({
         message: "Not a valid user",
         error: true,
@@ -92,12 +111,15 @@ export async function verifyEmailController(req, res) {
       }
     );
 
+    Logger.info('User email verified successfully', { userId: code });
+    
     return res.json({
       message: "Verified Successfully",
       error: false,
       success: true,
     });
   } catch (error) {
+    Logger.error('Email verification error', { error: error.message });
     return res.status(500).json({
       message: error.message || error,
       error: true,
@@ -149,20 +171,15 @@ export async function loginController(req, res) {
       last_login_date: new Date()
       });
 
-    const accessToken = await generatedAccessToken(user._id);
-    const refreshToken = await generatedRefreshToken(user._id)
-
-
-    const isProd = process.env.NODE_ENV === "production";
-
-    const cookieOption = {
-        httpOnly : true,
-        secure : isProd,            
-        sameSite : isProd ? "None" : "Lax"
-    }
-
-    res.cookie('accessToken',accessToken,cookieOption)
-    res.cookie('refreshToken',refreshToken,cookieOption)
+    // Use JWTService to generate tokens
+    const accessToken = await JWTService.generateAccessToken(user._id);
+    const refreshToken = await JWTService.generateRefreshToken(user._id);
+    
+    // Set cookies using JWTService
+    JWTService.setTokenCookies(res, accessToken, refreshToken);
+    
+    // Log successful login
+    Logger.info('User login successful', { userId: user._id });
 
    return res.json({
         message:"User login Successfully",
@@ -175,6 +192,7 @@ export async function loginController(req, res) {
     })
 
   } catch (error) {
+    Logger.error('Login error', { error: error.message });
     return res.status(500).json({
       message: error.message || error,
       error: true,
@@ -183,21 +201,18 @@ export async function loginController(req, res) {
   }
 }
 
-export async function logoutController(req,res) {
+export async function logoutController(req, res) {
     try {
+        const userId = req.userId;
         
-        const userId = req.userId
-
-        const cookieOption = {
-            http : true,
-            secure : true,
-            sameSite : "None"
-        }
-
-        res.clearCookie('accessToken',cookieOption)
-        res.clearCookie('refreshToken',cookieOption)
-
-        const removeRefreshToken = await UserModel.findByIdAndUpdate(userId,{refresh_token : ""})
+        // Use JWTService to clear cookies
+        JWTService.clearTokenCookies(res);
+        
+        // Use JWTService to invalidate all tokens
+        await JWTService.invalidateAllTokens(userId);
+        
+        // Log the successful logout
+        Logger.info('User logged out successfully', { userId });
 
         return res.json({
             message : "Logout Successfully",
@@ -206,6 +221,7 @@ export async function logoutController(req,res) {
         })
 
     } catch (error) {
+        Logger.error('Logout error', { error: error.message });
         return res.status(500).json({
             message : error.message || error,
             error : true,
@@ -236,6 +252,7 @@ export async  function uploadAvatar(request,response){
       })
 
   } catch (error) {
+      Logger.error('Upload avatar error', { error: error.message });
       return response.status(500).json({
           message : error.message || error,
           error : true,
@@ -283,6 +300,7 @@ export async function updateUserDetails(request,response){
 
 
   } catch (error) {
+      Logger.error('Update user details error', { error: error.message });
       return response.status(500).json({
           message : error.message || error,
           error : true,
@@ -298,6 +316,7 @@ export async function forgotPasswordController(request,response) {
       const user = await UserModel.findOne({ email })
 
       if(!user){
+          Logger.warn('Password reset attempt with invalid email', { email });
           return response.status(400).json({
               message : "Email not available",
               error : true,
@@ -322,6 +341,8 @@ export async function forgotPasswordController(request,response) {
           })
       })
 
+      Logger.info('Password reset OTP sent', { userId: user._id });
+      
       return response.json({
           message : "check your email",
           error : false,
@@ -329,6 +350,7 @@ export async function forgotPasswordController(request,response) {
       })
 
   } catch (error) {
+      Logger.error('Forgot password error', { error: error.message });
       return response.status(500).json({
           message : error.message || error,
           error : true,
@@ -342,6 +364,7 @@ export async function verifyForgotPasswordOtp(request,response){
       const { email , otp }  = request.body
 
       if(!email || !otp){
+          Logger.warn('OTP verification missing required fields');
           return response.status(400).json({
               message : "Provide required field email, otp.",
               error : true,
@@ -352,6 +375,7 @@ export async function verifyForgotPasswordOtp(request,response){
       const user = await UserModel.findOne({ email })
 
       if(!user){
+          Logger.warn('OTP verification attempt with invalid email', { email });
           return response.status(400).json({
               message : "Email not available",
               error : true,
@@ -362,6 +386,7 @@ export async function verifyForgotPasswordOtp(request,response){
       const currentTime = new Date().toISOString()
 
       if(user.forgot_password_expiry < currentTime  ){
+          Logger.warn('Expired OTP used', { userId: user._id });
           return response.status(400).json({
               message : "Otp is expired",
               error : true,
@@ -370,6 +395,7 @@ export async function verifyForgotPasswordOtp(request,response){
       }
 
       if(otp !== user.forgot_password_otp){
+          Logger.warn('Invalid OTP attempt', { userId: user._id });
           return response.status(400).json({
               message : "Invalid otp",
               error : true,
@@ -385,6 +411,8 @@ export async function verifyForgotPasswordOtp(request,response){
           forgot_password_expiry : ""
       })
       
+      Logger.info('OTP verification successful', { userId: user._id });
+      
       return response.json({
           message : "Verify otp successfully",
           error : false,
@@ -392,6 +420,7 @@ export async function verifyForgotPasswordOtp(request,response){
       })
 
   } catch (error) {
+      Logger.error('OTP verification error', { error: error.message });
       return response.status(500).json({
           message : error.message || error,
           error : true,
@@ -405,6 +434,7 @@ export async function resetpassword(request,response){
       const { email , newPassword, confirmPassword } = request.body 
 
       if(!email || !newPassword || !confirmPassword){
+          Logger.warn('Password reset attempt missing required fields');
           return response.status(400).json({
               message : "provide required fields email, newPassword, confirmPassword"
           })
@@ -413,6 +443,7 @@ export async function resetpassword(request,response){
       const user = await UserModel.findOne({ email })
 
       if(!user){
+          Logger.warn('Password reset attempt with invalid email', { email });
           return response.status(400).json({
               message : "Email is not available",
               error : true,
@@ -421,6 +452,7 @@ export async function resetpassword(request,response){
       }
 
       if(newPassword !== confirmPassword){
+          Logger.warn('Password reset attempt with mismatched passwords', { userId: user._id });
           return response.status(400).json({
               message : "newPassword and confirmPassword must be same.",
               error : true,
@@ -435,6 +467,11 @@ export async function resetpassword(request,response){
           password : hashPassword
       })
 
+      // After password reset, invalidate all existing tokens for security
+      await JWTService.invalidateAllTokens(user._id);
+      
+      Logger.info('Password reset successful', { userId: user._id });
+
       return response.json({
           message : "Password updated successfully.",
           error : false,
@@ -442,6 +479,7 @@ export async function resetpassword(request,response){
       })
 
   } catch (error) {
+      Logger.error('Password reset error', { error: error.message });
       return response.status(500).json({
           message : error.message || error,
           error : true,
@@ -450,56 +488,68 @@ export async function resetpassword(request,response){
   }
 }
 
-export async function refreshToken(request,response){
+export async function refreshToken(request, response) {
   try {
-      const refreshToken = request.cookies.refreshToken || request?.headers?.authorization?.split(" ")[1]  /// [ Bearer token]
+      // Use JWTService to get the token
+      const refreshToken = JWTService.getTokenFromRequest(request, 'refreshToken');
 
-      if(!refreshToken){
+      if (!refreshToken) {
           return response.status(401).json({
-              message : "Invalid token",
-              error  : true,
-              success : false
-          })
+              message: "Refresh token is required",
+              error: true,
+              success: false,
+              code: 'TOKEN_MISSING'
+          });
       }
 
-      const verifyToken = await jwt.verify(refreshToken,process.env.SECRET_KEY_REFRESH_TOKEN)
+      // Use JWTService to verify the token and get the user
+      const result = await JWTService.verifyRefreshToken(refreshToken);
 
-      if(!verifyToken){
+      if (!result) {
           return response.status(401).json({
-              message : "token is expired",
-              error : true,
-              success : false
-          })
+              message: "Invalid or expired refresh token",
+              error: true,
+              success: false,
+              code: 'TOKEN_INVALID'
+          });
       }
 
-      const userId = verifyToken?._id
+      const { decoded, user } = result;
+      const userId = decoded.id;
+      
+      // Generate new tokens
+      const newAccessToken = await JWTService.generateAccessToken(userId);
+      const newRefreshToken = await JWTService.generateRefreshToken(userId);
+      
+      // Set cookies using JWTService
+      JWTService.setTokenCookies(response, newAccessToken, newRefreshToken);
 
-      const newAccessToken = await generatedAccessToken(userId)
-
-      const cookiesOption = {
-          httpOnly : true,
-          secure : true,
-          sameSite : "None"
-      }
-
-      response.cookie('accessToken',newAccessToken,cookiesOption)
+      // Log the successful token refresh
+      Logger.info('Token refreshed successfully', { userId });
 
       return response.json({
-          message : "New Access token generated",
-          error : false,
-          success : true,
-          data : {
-              accessToken : newAccessToken
+          message: "Authentication tokens refreshed successfully",
+          error: false,
+          success: true,
+          data: {
+              accessToken: newAccessToken,
+              refreshToken: newRefreshToken
           }
-      })
+      });
 
 
   } catch (error) {
+      Logger.error('Token refresh error', { 
+          error: error.message,
+          stack: process.env.NODE_ENV !== 'production' ? error.stack : undefined
+      });
+      
       return response.status(500).json({
-          message : error.message || error,
-          error : true,
-          success : false
-      })
+          message: "Failed to refresh authentication tokens",
+          error: true,
+          success: false,
+          code: 'REFRESH_ERROR'
+      });
   }
 }
 
@@ -516,6 +566,7 @@ export async function userDetails(request,response){
           success : true
       })
   } catch (error) {
+      Logger.error('Get user details error', { error: error.message });
       return response.status(500).json({
           message : "Something is wrong",
           error : true,
@@ -544,17 +595,15 @@ export async function googleSignInController(req, res) {
         ...(photoURL && { avatar: photoURL }),
       });
 
-      const accessToken = await generatedAccessToken(user._id);
-      const refreshToken = await generatedRefreshToken(user._id);
+      // Use JWTService to generate tokens
+      const accessToken = await JWTService.generateAccessToken(user._id);
+      const refreshToken = await JWTService.generateRefreshToken(user._id);
 
-      const cookieOption = {
-        httpOnly: true,
-        secure: true,
-        sameSite: "None",
-      };
+      // Set cookies using JWTService
+      JWTService.setTokenCookies(res, accessToken, refreshToken);
 
-      res.cookie("accessToken", accessToken, cookieOption);
-      res.cookie("refreshToken", refreshToken, cookieOption);
+      // Log successful Google sign-in
+      Logger.info('Google sign-in successful for existing user', { userId: user._id });
 
       return res.json({
         message: "Login successful",
@@ -577,17 +626,15 @@ export async function googleSignInController(req, res) {
 
       const savedUser = await newUser.save();
 
-      const accessToken = await generatedAccessToken(savedUser._id);
-      const refreshToken = await generatedRefreshToken(savedUser._id);
+      // Use JWTService to generate tokens
+      const accessToken = await JWTService.generateAccessToken(savedUser._id);
+      const refreshToken = await JWTService.generateRefreshToken(savedUser._id);
 
-      const cookieOption = {
-        httpOnly: true,
-        secure: true,
-        sameSite: "None",
-      };
+      // Set cookies using JWTService
+      JWTService.setTokenCookies(res, accessToken, refreshToken);
 
-      res.cookie("accessToken", accessToken, cookieOption);
-      res.cookie("refreshToken", refreshToken, cookieOption);
+      // Log successful Google account creation
+      Logger.info('Google account created and signed in', { userId: savedUser._id });
 
       return res.json({
         message: "Account created and logged in successfully",
@@ -600,6 +647,7 @@ export async function googleSignInController(req, res) {
       });
     }
   } catch (error) {
+    Logger.error('Google sign-in error', { error: error.message });
     return res.status(500).json({
       message: error.message || error,
       error: true,

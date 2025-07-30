@@ -1,45 +1,52 @@
-import jwt from 'jsonwebtoken';
+import { JWTService } from '../utils/JWTService.js';
+import Logger from '../utils/logger.js';
 
-// Optional authentication middleware - adds user info if available but doesn't require auth
-const optionalAuth = (req, res, next) => {
+/**
+ * Optional authentication middleware
+ * Attempts to authenticate the user but allows the request to proceed
+ * even if authentication fails. Sets req.userId if authentication succeeds,
+ * otherwise sets it to null.
+ */
+const optionalAuth = async (req, res, next) => {
     try {
-        console.log('=== OptionalAuth Middleware Debug ===');
-        console.log('Cookies:', req.cookies);
-        console.log('Authorization header:', req.headers?.authorization);
+        // Get token using centralized method
+        const token = JWTService.getTokenFromRequest(req, 'accessToken');
         
-        const tokenFromCookie = req.cookies?.accessToken;
-        const authHeader = req.headers?.authorization;
-        const tokenFromHeader = authHeader?.startsWith('Bearer ') ? authHeader.split(" ")[1] : null;
-        
-        console.log('Token from cookie:', tokenFromCookie);
-        console.log('Token from header:', tokenFromHeader);
-        
-        const token = tokenFromCookie || tokenFromHeader;
-        console.log('Final token to use:', token ? 'TOKEN_FOUND' : 'NO_TOKEN');
+        // Log at debug level only
+        Logger.debug('OptionalAuth processing', {
+            hasToken: !!token,
+            source: token ? (req.cookies?.accessToken ? 'cookie' : 'header') : 'none'
+        });
         
         if (token) {
             try {
-                const decode = jwt.verify(token, process.env.SECRET_KEY_ACCESS_TOKEN);
-                req.userId = decode.id;
-                console.log('OptionalAuth: User authenticated with ID:', req.userId);
-                console.log('Token decode result:', { id: decode.id, iat: decode.iat, exp: decode.exp });
+                // Verify the token using our service
+                const decoded = await JWTService.verifyAccessToken(token);
+                if (decoded) {
+                    req.userId = decoded.id;
+                    Logger.debug('OptionalAuth successful', { userId: req.userId });
+                } else {
+                    req.userId = null;
+                    Logger.debug('OptionalAuth failed: invalid token');
+                }
             } catch (jwtError) {
                 // Token is invalid, but continue as guest
                 req.userId = null;
-                console.log('OptionalAuth: Invalid token, continuing as guest. Error:', jwtError.message);
+                Logger.debug('OptionalAuth token error', { error: jwtError.message });
             }
         } else {
             req.userId = null;
-            console.log('OptionalAuth: No token found, continuing as guest');
+            Logger.debug('OptionalAuth: no token provided');
         }
         
-        console.log('Final req.userId:', req.userId);
-        console.log('=== End OptionalAuth Debug ===\n');
         next();
     } catch (error) {
-        // Continue as guest user
+        // Continue as guest user in case of error
         req.userId = null;
-        console.log('OptionalAuth: Error processing token, continuing as guest:', error.message);
+        Logger.error('OptionalAuth unexpected error', { 
+            error: error.message,
+            stack: process.env.NODE_ENV !== 'production' ? error.stack : undefined
+        });
         next();
     }
 };

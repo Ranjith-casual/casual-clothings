@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useSelector } from "react-redux";
 import { DisplayPriceInRupees } from "../utils/DisplayPriceInRupees";
+import { PricingService } from "../utils/PricingService";
 import { useGlobalContext } from "../provider/GlobalProvider";
 import AddAddress from "../components/AddAddress";
 import AxiosTostError from "../utils/AxiosTostError";
@@ -239,12 +240,8 @@ const CheckoutPage = () => {
     }
   };
 
-  const getDeliveryChargeFromDistance = (distance) => {
-    const chargePerSegment = 50;
-    const kmPerSegment = 80;
-    const segments = Math.ceil(distance / kmPerSegment);
-    return segments * chargePerSegment;
-  };
+  // Removed custom delivery charge calculation in favor of PricingService.calculateDeliveryCharge
+  // which provides a consistent calculation across the application
 
   const calculateDeliveryCharge = async (customerAddress) => {
     if (!customerAddress) {
@@ -267,12 +264,14 @@ const CheckoutPage = () => {
       
       if (customerCity === shopCity) {
         setDeliveryDistance('0');
-        setDeliveryCharge(50);
+        // Use PricingService for consistent calculation
+        setDeliveryCharge(PricingService.calculateDeliveryCharge(totalPrice, 0));
         return;
       }
       
       const roadDistance = await getRoadDistance(SHOP_LOCATION, normalizedCustomerCity);
-      const deliveryCharge = getDeliveryChargeFromDistance(roadDistance);
+      // Use PricingService for consistent delivery charge calculation
+      const deliveryCharge = PricingService.calculateDeliveryCharge(totalPrice, roadDistance);
       
       setDeliveryDistance(roadDistance.toFixed(2));
       setDeliveryCharge(deliveryCharge);

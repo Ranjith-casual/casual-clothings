@@ -6,7 +6,7 @@ import { DisplayPriceInRupees } from '../utils/DisplayPriceInRupees'
 import { FaCaretRight } from "react-icons/fa";
 import { useSelector } from 'react-redux'
 import AddToCartButton from './AddToCartButton'
-import { pricewithDiscount } from '../utils/PriceWithDiscount'
+import { PricingService } from '../utils/PricingService'
 import imageEmpty from '../assets/Empty-cuate.png'
 import toast from 'react-hot-toast'
 import Axios from '../utils/Axios'
@@ -19,65 +19,39 @@ const DisplayCartItem = ({close}) => {
     const user = useSelector(state => state.user)
     const navigate = useNavigate()
 
-    // Function to check if an item should be removed automatically
-    const shouldAutoRemoveItem = (item) => {
-      // Check bundles
-      if (item.itemType === 'bundle' && item.bundleId) {
-        // Inactive bundles
-        if (item.bundleId.isActive === false) return true;
-        
-        // Out of stock bundles
-        if (item.bundleId.stock !== undefined && item.bundleId.stock === 0) return true;
-        
-        // Expired time-limited bundles
-        if (item.bundleId.isTimeLimited) {
-          const now = new Date();
-          const endDate = new Date(item.bundleId.endDate);
-          if (now > endDate) return true;
-        }
-      }
-      
-      // Check products
-      if (item.itemType === 'product' && item.productId) {
-        // Inactive products
-        if (item.productId.publish === false) return true;
-        
-        // Out of stock products
-        if (item.productId.stock !== undefined && item.productId.stock === 0) return true;
-      }
-      
-      return false;
-    };
+    // Cart validation is now handled server-side
 
-    // Auto-remove invalid items when cart loads
-    React.useEffect(() => {
+  // Auto-remove invalid items when cart loads
+  React.useEffect(() => {
+    const cleanCart = async () => {
       if (cartItem && cartItem.length > 0) {
-        const itemsToRemove = cartItem.filter(item => shouldAutoRemoveItem(item));
-        
-        if (itemsToRemove.length > 0) {
-          itemsToRemove.forEach(async (item) => {
-            try {
-              await Axios({
-                ...SummaryApi.deleteCartItem,
-                data: { _id: item._id }
-              });
-            } catch (error) {
-              console.error("Error removing invalid cart item:", error);
-            }
+        try {
+          // Use the server-side cart cleaning endpoint
+          const response = await Axios({
+            url: '/api/cart/clean',
+            method: 'POST'
           });
           
-          // Refresh cart after removals
-          setTimeout(() => {
+          if (response.data.success && response.data.removedItems.length > 0) {
+            // Refresh cart after server-side cleaning
             fetchCartItems();
-            toast.success(`${itemsToRemove.length} unavailable item${itemsToRemove.length > 1 ? 's' : ''} removed from cart`, {
+            toast.success(`${response.data.removedItems.length} unavailable item${response.data.removedItems.length > 1 ? 's' : ''} removed from cart`, {
               duration: 4000
             });
-          }, 1000);
+          }
+        } catch (error) {
+          // Use a more generic error message for users
+          toast.error("Couldn't update your cart. Please try again.");
+          // Log the detailed error using Logger
+          console.error("Failed to clean cart", error);
         }
       }
-    }, [cartItem, fetchCartItems]);
-
-    const redirectToCheckoutPage = ()=>{
+    };
+    
+    cleanCart();
+  }, [cartItem, fetchCartItems]);
+  
+  const redirectToCheckoutPage = () => {
         if(user?._id){
             navigate("/checkout/bag")
             if(close){
@@ -186,42 +160,9 @@ const DisplayCartItem = ({close}) => {
                                                                 {item?.itemType === 'bundle' 
                                                                     ? DisplayPriceInRupees(item?.bundleId?.bundlePrice)
                                                                     : (() => {
-                                                                        // DEBUG info
-                                                                        console.log(`CartItem price debug for ${item?._id}:`, {
-                                                                            size: item?.size,
-                                                                            sizeAdjustedPrice: item?.sizeAdjustedPrice,
-                                                                            productId: item?.productId?._id,
-                                                                            basePrice: item?.productId?.price,
-                                                                            discount: item?.productId?.discount,
-                                                                            sizePricing: item?.productId?.sizePricing
-                                                                        });
-                                                                        
-                                                                        // First check if we have a sizeAdjustedPrice from the backend
-                                                                        // This is stored when the item was added to the cart
-                                                                        if (item?.sizeAdjustedPrice !== undefined) {
-                                                                            console.log(`Using sizeAdjustedPrice: ${item.sizeAdjustedPrice}`);
-                                                                            const finalPrice = pricewithDiscount(
-                                                                                item.sizeAdjustedPrice,
-                                                                                item?.productId?.discount
-                                                                            );
-                                                                            return DisplayPriceInRupees(finalPrice);
-                                                                        }
-                                                                        
-                                                                        // Otherwise try to use sizePricing from product data
-                                                                        const basePrice = item?.size && 
-                                                                                       item?.productId?.sizePricing && 
-                                                                                       item?.productId?.sizePricing[item.size] !== undefined
-                                                                            ? item?.productId?.sizePricing[item.size]
-                                                                            : (item?.productId?.price || 0);
-                                                                        
-                                                                        // Apply discount if available
-                                                                        const finalPrice = pricewithDiscount(
-                                                                            basePrice,
-                                                                            item?.productId?.discount
-                                                                        );
-                                                                        
-                                                                        console.log(`Calculated price: ${finalPrice}`);
-                                                                        return DisplayPriceInRupees(finalPrice);
+                                                                        // Use PricingService to calculate the price consistently
+                                                                        const pricing = PricingService.calculateItemPricing(item);
+                                                                        return DisplayPriceInRupees(pricing.unitPrice);
                                                                     })()
                                                                 }
                                                             </p>

@@ -4,7 +4,7 @@ import Axios from "../utils/Axios.js";
 import { Link } from "react-router-dom";
 import { FaRegHeart, FaHeart, FaShoppingCart, FaTrash ,FaChevronRight ,FaSearch} from "react-icons/fa";
 import { DisplayPriceInRupees } from "../utils/DisplayPriceInRupees";
-import { pricewithDiscount } from "../utils/PriceWithDiscount";
+import { PricingService } from "../utils/PricingService";
 import AddToCartButton from "../components/AddToCartButton";
 import ErrorBoundary from "../components/ErrorBoundary";
 import toast from "react-hot-toast";
@@ -174,7 +174,7 @@ const WishlistPage = () => {
               } else {
                 price = product.price || 0;
                 discount = product.discount || 0;
-                discountedPrice = pricewithDiscount(price, discount);
+                discountedPrice = PricingService.applyDiscount(price, discount);
                 productImage = product.image?.[0] || '';
                 productName = product.name || 'Product';
               }

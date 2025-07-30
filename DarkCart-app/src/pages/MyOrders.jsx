@@ -16,6 +16,7 @@ import { useGlobalContext } from '../provider/GlobalProvider';
 import { setOrders } from '../store/orderSlice';
 import noCart from '../assets/Empty-cuate.png'; // Import fallback image
 import ProductImageLink from '../components/ProductImageLink'; // Import the ProductImageLink component
+import { PricingService } from '../utils/PricingService'; // Import PricingService for consistent price calculations
 
 function MyOrders() {
   // Get all orders from Redux store
@@ -1476,8 +1477,18 @@ function MyOrders() {
                               isCancelled ? 'text-red-800' : 'text-gray-900'
                             }`}>
                               {(() => {
-                                // Use actual delivery charge from order data
+                                // Use PricingService to get the delivery charge consistently
                                 const deliveryCharge = order?.deliveryCharge || 0;
+                                
+                                // If we need to recalculate (only if deliveryCharge is missing from order)
+                                if (!order?.deliveryCharge && order?.subTotalAmt) {
+                                  const calculatedCharge = PricingService.calculateDeliveryCharge(
+                                    order.subTotalAmt,
+                                    order.deliveryDistance || 0
+                                  );
+                                  return calculatedCharge > 0 ? `₹${calculatedCharge.toFixed(2)}` : 'FREE';
+                                }
+                                
                                 return deliveryCharge > 0 ? `₹${deliveryCharge.toFixed(2)}` : 'FREE';
                               })()}
                             </span>
@@ -1555,10 +1566,18 @@ function MyOrders() {
                                     });
                                     
                                     // Add delivery charge to current total (only if there are remaining items)
-                                    const deliveryCharge = order?.deliveryCharge || 0;
+                                    let deliveryCharge = order?.deliveryCharge || 0;
                                     const remainingItemsCount = order?.items?.filter(item => 
                                       !(item?.status === 'Cancelled' || item?.cancelApproved === true)
                                     ).length || 0;
+                                    
+                                    // Recalculate delivery charge if needed
+                                    if (!order?.deliveryCharge && order?.subTotalAmt) {
+                                      deliveryCharge = PricingService.calculateDeliveryCharge(
+                                        order.subTotalAmt,
+                                        order.deliveryDistance || 0
+                                      );
+                                    }
                                     
                                     // Only add delivery charge if there are remaining items to deliver
                                     if (remainingItemsCount > 0) {

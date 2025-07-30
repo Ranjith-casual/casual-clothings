@@ -3,6 +3,7 @@ import { FaTimes, FaExclamationTriangle, FaCheck, FaSpinner } from 'react-icons/
 import toast from 'react-hot-toast';
 import SummaryApi from '../common/SummaryApi';
 import Axios from '../utils/Axios';
+import { PricingService } from '../utils/PricingService';
 
 const PartialCancellationModal = ({ isOpen, onClose, order, onCancellationSuccess }) => {
   const [selectedItems, setSelectedItems] = useState([]);
@@ -176,12 +177,31 @@ const PartialCancellationModal = ({ isOpen, onClose, order, onCancellationSucces
               ? item.productDetails?.name 
               : item.bundleDetails?.title,
             size: item.size || null,
-            refundAmount: (priceData.totalPrice * 0.75) // 75% refund amount for this item
+            refundAmount: PricingService.calculateRefundAmount(
+              { totalAmt: priceData.totalPrice }, 
+              { 
+                requestDate: new Date(),
+                deliveryInfo: {
+                  wasPastDeliveryDate: order.estimatedDeliveryDate && new Date() > new Date(order.estimatedDeliveryDate),
+                  actualDeliveryDate: order.actualDeliveryDate
+                }
+              }
+            ).refundAmount
           };
         }),
         reason,
         additionalReason: reason === 'Other' ? additionalReason : '',
-        totalRefundAmount: totalRefundAmount * 0.75, // Total 75% refund amount for all cancelled items
+        // Calculate total refund amount using pricing service
+        totalRefundAmount: PricingService.calculateRefundAmount(
+          { totalAmt: totalRefundAmount }, 
+          {
+            requestDate: new Date(),
+            deliveryInfo: {
+              wasPastDeliveryDate: order.estimatedDeliveryDate && new Date() > new Date(order.estimatedDeliveryDate),
+              actualDeliveryDate: order.actualDeliveryDate
+            }
+          }
+        ).refundAmount,
         totalItemValue: totalRefundAmount // Total value of cancelled items before refund percentage
       };
 

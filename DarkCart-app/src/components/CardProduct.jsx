@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { DisplayPriceInRupees } from "../utils/DisplayPriceInRupees";
 import { validURLConvert } from "../utils/validURLConvert";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { pricewithDiscount } from "../utils/PriceWithDiscount";
+import { PricingService } from "../utils/PricingService";
 import { useGlobalContext } from "../provider/GlobalProvider";
 import { FaShoppingCart, FaBolt} from "react-icons/fa";
 import { useSelector } from "react-redux";
@@ -314,7 +314,7 @@ function CardProduct({ data, hideProductInfo = false }) {
   const stockStatus = getStockStatus();
   const price = data.price || 0;
   const discount = data.discount || 0;
-  const discountedPrice = pricewithDiscount(price, discount);
+  const discountedPrice = PricingService.applyDiscount(price, discount);
   const savings = price - discountedPrice;
   const productImage = data.image?.[0] || '';
   const categoryName = data.category?.[0]?.name || 'Fashion';

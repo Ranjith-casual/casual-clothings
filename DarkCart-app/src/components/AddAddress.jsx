@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
+import PropTypes from 'prop-types';
 import { useForm } from "react-hook-form";
 import Axios from "../utils/Axios"; 
 import SummaryApi from "../common/SummaryApi.js";
@@ -373,6 +374,10 @@ const AddAddress = ({ close }) => {
       </div>
     </section>
   );
+};
+
+AddAddress.propTypes = {
+  close: PropTypes.func.isRequired
 };
 
 export default AddAddress;

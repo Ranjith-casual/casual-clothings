@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { Link, useNavigate } from 'react-router-dom';
 import { DisplayPriceInRupees } from '../utils/DisplayPriceInRupees';
-import { pricewithDiscount } from '../utils/PriceWithDiscount';
+// Import PricingService instead of direct pricewithDiscount
+import { PricingService } from '../utils/PricingService';
 import { useGlobalContext } from '../provider/GlobalProvider';
 import { FaArrowRight } from 'react-icons/fa';
 import { toast } from 'react-hot-toast';
@@ -87,7 +88,8 @@ const calculateItemPricing = (item) => {
     }
     
     discount = Number(item.productId.discount) || 0;
-    finalPrice = pricewithDiscount(originalPrice, discount);
+    // Use PricingService for consistent price calculation
+    finalPrice = PricingService.applyDiscount(originalPrice, discount);
     isBundle = false;
   } else if (item.bundleId && item.bundleId._id) {
     // Bundle product
@@ -108,7 +110,8 @@ const calculateItemPricing = (item) => {
     productTitle = item.title || item.name || item.productId?.name || 'Product';
     originalPrice = Number(item.price) || Number(item.productId?.price) || 0;
     discount = Number(item.discount) || Number(item.productId?.discount) || 0;
-    finalPrice = pricewithDiscount(originalPrice, discount);
+    // Use PricingService for consistent price calculation
+    finalPrice = PricingService.applyDiscount(originalPrice, discount);
     isBundle = false;
   }
   

@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import { useEffect } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
 import Header from './components/Header';
 import Footer from './components/Footer';
@@ -17,7 +17,6 @@ import ScrollToTopButton from './components/ScrollToTopButton';
 import ErrorBoundary from './components/ErrorBoundary';
 
 function AppContent() {
-  const location = useLocation();
   const { openCartSection, setOpenCartSection } = useGlobalContext();
   const user = useSelector((state) => state?.user);
 

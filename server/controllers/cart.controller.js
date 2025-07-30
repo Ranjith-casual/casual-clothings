@@ -2,31 +2,28 @@ import CartProductModel from "../models/cartProduct.model.js";
 import UserModel from "../models/users.model.js";
 import mongoose from "mongoose";
 import BundleModel from "../models/bundles.js";
+import Logger from "../utils/logger.js";
+import ErrorHandler from "../utils/ErrorHandler.js";
 
 export const addToCartItemController = async (req, res) => {
     try {
         const userId = req?.userId;
         const { productId, size, price } = req?.body;
 
-        console.log('=== ADD TO CART DEBUG START ===');
-        console.log('User ID:', userId);
-        console.log('Request body:', req.body);
-        console.log('Product ID:', productId);
-        console.log('Size:', size);
-        console.log('Price:', price);
+        // Log debug information at debug level only
+        Logger.debug('CartController', 'Adding item to cart', {
+            userId,
+            productId,
+            size,
+            price
+        });
 
         if(!productId){
-            console.log('Error: Product ID is required');
-            return res.status(400).json({
-                message: "Product ID is required",
-                error: true,
-                success: false,
-            });
+            return ErrorHandler.badRequest(res, "Product ID is required");
         }
         
         // If it's a product, size is required
         if (!size) {
-            console.log('Error: Size is required');
             return res.status(400).json({
                 message: "Size is required for products",
                 error: true,
@@ -109,9 +106,11 @@ export const addToCartItemController = async (req, res) => {
             { new: true }
         );
 
-        console.log('Cart item saved successfully:', save);
-        console.log('User shopping cart updated:', updateCartUser);
-        console.log('=== ADD TO CART DEBUG END ===');
+        // Log success at debug level
+        Logger.debug('CartController', 'Item added to cart successfully', { 
+            cartItemId: save._id,
+            userId: save.userId
+        });
 
         return res.json({
             message: "Product added to cart successfully",
@@ -120,17 +119,9 @@ export const addToCartItemController = async (req, res) => {
             data: save,
         });
     } catch (error) {
-        console.log('=== ADD TO CART ERROR ===');
-        console.log('Error:', error);
-        console.log('Error message:', error.message);
-        console.log('Error stack:', error.stack);
-        console.log('=== ADD TO CART DEBUG END ===');
-
-        return res.status(500).json({
-            message: "Internal server error: " + error.message,
-            error: true,
-            success: false,
-        });
+        Logger.error('CartController', 'Error adding item to cart', error);
+        
+        return ErrorHandler.serverError(res, "Failed to add item to cart", error);
     }
 }
 
@@ -738,5 +729,158 @@ export const validateCartItemsController = async (req, res) => {
             error: true,
             success: false
         });
+    }
+}
+
+/**
+ * Batch remove multiple cart items at once
+ * This improves performance by removing multiple invalid items in a single operation
+ */
+export const batchRemoveCartItemsController = async (req, res) => {
+    try {
+        const userId = req.userId;
+        const { itemIds } = req.body;
+        
+        if (!userId) {
+            return res.status(401).json({
+                message: "Authentication required",
+                error: true,
+                success: false
+            });
+        }
+        
+        if (!itemIds || !Array.isArray(itemIds) || itemIds.length === 0) {
+            return res.status(400).json({
+                message: "Item IDs array is required",
+                error: true,
+                success: false
+            });
+        }
+        
+        // Verify all IDs are valid MongoDB ObjectIDs
+        const validIds = itemIds.filter(id => mongoose.Types.ObjectId.isValid(id));
+        
+        if (validIds.length !== itemIds.length) {
+            return res.status(400).json({
+                message: "One or more invalid item IDs provided",
+                error: true,
+                success: false
+            });
+        }
+        
+        // Ensure user can only delete their own cart items
+        const result = await CartProductModel.deleteMany({
+            _id: { $in: validIds },
+            userId: userId
+        });
+        
+        return res.json({
+            message: `${result.deletedCount} cart items removed successfully`,
+            error: false,
+            success: true,
+            deletedCount: result.deletedCount,
+            requestedCount: itemIds.length
+        });
+        
+    } catch (error) {
+        Logger.error("CartController", "Error batch removing cart items", error);
+        return ErrorHandler.serverError(res, "Failed to remove items from cart", error);
+    }
+}
+
+// Clean invalid cart items automatically
+export const cleanCartController = async (req, res) => {
+    try {
+        const userId = req.userId;
+        
+        if (!userId) {
+            return res.status(401).json({
+                message: "Authentication required",
+                error: true,
+                success: false
+            });
+        }
+
+        // Get all cart items for this user
+        const cartItems = await CartProductModel.find({ userId })
+            .populate({
+                path: 'productId',
+                select: 'name price stock publish discount'
+            })
+            .populate({
+                path: 'bundleId',
+                select: 'isActive isTimeLimited startDate endDate'
+            });
+        
+        if (!cartItems || cartItems.length === 0) {
+            return res.json({
+                message: "No cart items to clean",
+                error: false,
+                success: true,
+                removedItems: []
+            });
+        }
+
+        // Identify invalid items
+        const now = new Date();
+        const itemsToRemove = cartItems.filter(item => {
+            // Check bundles
+            if (item.itemType === 'bundle' && item.bundleId) {
+                // Non-active bundles
+                if (!item.bundleId.isActive) return true;
+                
+                // Time-limited bundles
+                if (item.bundleId.isTimeLimited) {
+                    const startDate = new Date(item.bundleId.startDate);
+                    const endDate = new Date(item.bundleId.endDate);
+                    if (now < startDate || now > endDate) return true;
+                }
+            }
+            
+            // Check products
+            if (item.itemType === 'product' && item.productId) {
+                // Inactive products
+                if (item.productId.publish === false) return true;
+                
+                // Out of stock products
+                if (item.productId.stock !== undefined && item.productId.stock === 0) return true;
+            }
+            
+            return false;
+        });
+
+        // If no invalid items, return early
+        if (itemsToRemove.length === 0) {
+            return res.json({
+                message: "No invalid items found in cart",
+                error: false,
+                success: true,
+                removedItems: []
+            });
+        }
+
+        // Extract IDs of items to remove
+        const idsToRemove = itemsToRemove.map(item => item._id);
+        
+        // Delete the invalid items
+        const result = await CartProductModel.deleteMany({
+            _id: { $in: idsToRemove },
+            userId: userId
+        });
+        
+        return res.json({
+            message: `${result.deletedCount} invalid items removed from cart`,
+            error: false,
+            success: true,
+            removedItems: itemsToRemove.map(item => ({
+                id: item._id,
+                name: item.itemType === 'product' ? item.productId?.name : item.bundleId?.title,
+                type: item.itemType
+            }))
+        });
+        
+    } catch (error) {
+        Logger.error("CartController", "Error cleaning cart items", error);
+        return ErrorHandler.serverError(res, "Failed to clean cart items", error);
     }
 }

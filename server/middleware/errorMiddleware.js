@@ -1,6 +1,8 @@
 
+import Logger from '../utils/logger.js';
+
 const errorHandler = (err, req, res, next) => {
-  console.error('Error handling request:', {
+  Logger.error('Error handling request:', {
     url: req.originalUrl,
     method: req.method,
     error: err.message,

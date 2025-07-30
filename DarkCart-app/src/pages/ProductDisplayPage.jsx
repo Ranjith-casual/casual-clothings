@@ -7,7 +7,7 @@ import { FaAngleRight, FaAngleLeft, FaRegHeart, FaHeart, FaShare, FaStar, FaArro
 import { FaShoppingCart } from "react-icons/fa";
 import { DisplayPriceInRupees } from '../utils/DisplayPriceInRupees'
 import Divider from '../components/Divider'
-import { pricewithDiscount } from '../utils/PriceWithDiscount'
+import { PricingService } from '../utils/PricingService'
 import AddToCartButton from '../components/AddToCartButton.jsx'
 import BuyNowButton from '../components/BuyNowButton.jsx'
 import SizeSelector from '../components/SizeSelector.jsx'
@@ -646,8 +646,8 @@ const ProductDisplayPage = () => {
                   <div className="flex items-center gap-4 mb-2">
                     <span className="text-2xl md:text-3xl font-medium font-['Poppins']">
                       {selectedSize && pricingUtil 
-                        ? DisplayPriceInRupees(pricewithDiscount(pricingUtil.calculateAdjustedPrice(data.price, selectedSize, data), data.discount))
-                        : DisplayPriceInRupees(pricewithDiscount(data.price, data.discount))
+                        ? DisplayPriceInRupees(PricingService.applyDiscount(pricingUtil.calculateAdjustedPrice(data.price, selectedSize, data), data.discount))
+                        : DisplayPriceInRupees(PricingService.applyDiscount(data.price, data.discount))
                       }
                     </span>
                     {data.discount > 0 && (

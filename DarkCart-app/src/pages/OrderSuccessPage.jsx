@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useLocation, Link } from 'react-router-dom';
 import OrderSuccessConfetti from '../components/OrderSuccessConfetti';
 import ConfettiGifAnimation from '../components/ConfettiGifAnimation';
@@ -7,7 +7,6 @@ import { useSelector } from 'react-redux';
 const OrderSuccessPage = () => {
   const location = useLocation();
   const [showAnimation, setShowAnimation] = useState(true);
-  const [imageLoaded, setImageLoaded] = useState(false);
   const [fadeIn, setFadeIn] = useState(false);
   const orderType = location.state?.text || "Order";
   const orderDetails = location.state?.orderDetails || null;
@@ -33,7 +32,7 @@ const OrderSuccessPage = () => {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4 py-16 relative overflow-hidden">
       {/* CSS for animations */}
-      <style jsx>{`
+      <style>{`
         @keyframes float {
           0% { transform: translateY(0px); }
           50% { transform: translateY(-10px); }
@@ -88,7 +87,7 @@ const OrderSuccessPage = () => {
               
               <h2 className="text-3xl font-bold mb-4 bg-clip-text bg-gradient-to-r from-green-600 to-gray-600 text-transparent">Thank You{user?.name ? `, ${user.name.split(' ')[0]}` : ''}!</h2>
               <p className="text-xl text-gray-600 mb-2">Your {orderType} has been placed successfully</p>
-              <p className="text-sm text-gray-500 mb-6">We'll send you a confirmation email with order details shortly.</p>
+              <p className="text-sm text-gray-500 mb-6">We&apos;ll send you a confirmation email with order details shortly.</p>
               
               {/* Order info animation */}
               <div className={`bg-gray-50 rounded-lg p-4 mb-6 border border-gray-100 transition-all duration-700 ${fadeIn ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`} style={{ transitionDelay: '600ms' }}>

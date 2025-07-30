@@ -1,4 +1,6 @@
 import crypto from 'crypto';
+import UserModel from '../models/users.model.js';
+import mongoose from 'mongoose';
 
 // Enhanced admin permission middleware
 export const enhancedAdminAuth = async (req, res, next) => {
@@ -42,12 +44,14 @@ export const enhancedAdminAuth = async (req, res, next) => {
         }
 
         // Log admin actions for security audit
-        console.log(`ADMIN ACTION: User ${userId} accessing ${req.method} ${req.path} at ${new Date().toISOString()}`);
+        const Logger = (await import('../utils/logger.js')).default;
+        Logger.info('AdminAuth', `ADMIN ACTION: User ${userId} accessing ${req.method} ${req.path}`);
         
         next();
 
     } catch (error) {
-        console.error("Enhanced admin auth error:", error);
+        const Logger = (await import('../utils/logger.js')).default;
+        Logger.error('AdminAuth', "Enhanced admin auth error", error);
         return res.status(500).json({
             message: "Authorization check failed",
             error: true,
@@ -75,12 +79,16 @@ export const validateResourceOwnership = (resourceType) => {
             
             switch (resourceType) {
                 case 'order':
+                    // Dynamically import order model to avoid circular dependencies
+                    const orderModel = mongoose.model('order');
                     resource = await orderModel.findOne({ 
                         _id: resourceId, 
                         userId: userId 
                     });
                     break;
                 case 'cart':
+                    // Dynamically import cart model to avoid circular dependencies
+                    const CartProductModel = mongoose.model('cartproduct');
                     resource = await CartProductModel.findOne({ 
                         _id: resourceId, 
                         userId: userId 

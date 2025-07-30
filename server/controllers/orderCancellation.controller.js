@@ -1499,12 +1499,29 @@ export const requestPartialItemCancellation = async (req, res) => {
                 console.log('✅ Using frontend refund amount for item:', itemRefundAmount);
             } else if (itemToCancel.pricingBreakdown?.refundAmount !== undefined) {
                 itemRefundAmount = itemToCancel.pricingBreakdown.refundAmount;
-                console.log('✅ Using pricingBreakdown refund amount for item:', itemRefundAmount);
             } else {
-                // Fallback calculation
+                // Fallback calculation using RefundPolicyService
                 const fallbackAmount = orderItem.itemTotal || (orderItem.sizeAdjustedPrice || orderItem.productDetails?.price || 0) * orderItem.quantity;
-                itemRefundAmount = fallbackAmount * 0.75; // Apply 75% refund
-                console.log('⚠️ Using fallback refund calculation for item:', itemRefundAmount);
+                
+                // Import RefundPolicyService
+                const { RefundPolicyService } = await import('../utils/RefundPolicyService.js');
+                
+                // Create a mock item-level cancellation request
+                const itemCancellationContext = {
+                    requestDate: new Date(),
+                    deliveryInfo: {
+                        wasPastDeliveryDate: order.estimatedDeliveryDate && new Date() > new Date(order.estimatedDeliveryDate),
+                        actualDeliveryDate: order.actualDeliveryDate
+                    }
+                };
+                
+                // Get refund calculation from the service
+                const refundResult = RefundPolicyService.calculateRefundAmount(
+                    { totalAmt: fallbackAmount }, 
+                    itemCancellationContext
+                );
+                
+                itemRefundAmount = refundResult.refundAmount;
             }
 
             if (itemToCancel.totalPrice !== undefined) {

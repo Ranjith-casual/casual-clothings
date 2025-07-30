@@ -5,8 +5,8 @@ import { useDispatch, useSelector } from "react-redux";
 import { handleAddItemCart } from "../store/cartProduct";
 import AxiosTostError from "../utils/AxiosTostError.js";
 import toast from "react-hot-toast";
-import { pricewithDiscount } from "../utils/PriceWithDiscount.js";
-import PricingService from "../utils/PricingService.js";
+// Removed unused import of pricewithDiscount
+import { PricingService } from "../utils/PricingService.js";
 import { handleAddAddress } from "../store/addressSlice.js";
 import { setOrders } from "../store/orderSlice.js";
 import { setWishlistItems, removeWishlistItem, setWishlistLoading } from "../store/wishlistSlice.js";

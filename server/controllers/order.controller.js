@@ -1188,10 +1188,13 @@ export const getAllOrdersController = async (req, res) => {
     }
 }
 
-// Also update the updateOrderStatusController to work with the new structure
+// Use OrderStatusManager to handle order status transitions
+import { OrderStatusManager } from "../utils/OrderStatusManager.js";
+import Logger from "../utils/logger.js";
+
 export const updateOrderStatusController = async (req, res) => {
     try {
-        const { orderId, orderStatus } = req.body;
+        const { orderId, orderStatus, notes } = req.body;
         
         // Validate input
         if (!orderId || !orderStatus) {
@@ -1202,13 +1205,14 @@ export const updateOrderStatusController = async (req, res) => {
             });
         }
         
-        // Valid status values
-        const validStatuses = ["ORDER PLACED", "PROCESSING", "OUT FOR DELIVERY", "DELIVERED", "CANCELLED"];
+        // Use OrderStatusManager for status validation
+        const validStatuses = Object.values(OrderStatusManager.ORDER_STATUS);
         if (!validStatuses.includes(orderStatus)) {
             return res.status(400).json({
                 success: false,
                 error: true,
-                message: "Invalid order status value"
+                message: "Invalid order status value",
+                validStatuses
             });
         }
 
@@ -1237,16 +1241,44 @@ export const updateOrderStatusController = async (req, res) => {
 
         const previousStatus = order.orderStatus;
 
+        // Use OrderStatusManager to validate the transition
+        if (!OrderStatusManager.isValidTransition(previousStatus, orderStatus)) {
+            Logger.warn("Order status transition rejected", {
+                orderId,
+                previousStatus,
+                attemptedStatus: orderStatus,
+                validTransitions: OrderStatusManager.getNextPossibleStatuses(previousStatus)
+            });
+            
+            return res.status(400).json({
+                success: false,
+                error: true,
+                message: `Invalid order status transition from ${previousStatus} to ${orderStatus}`,
+                validTransitions: OrderStatusManager.getNextPossibleStatuses(previousStatus)
+            });
+        }
+
         // Use transaction for data consistency
         const session = await mongoose.startSession();
         session.startTransaction();
 
         try {
-            // Prepare update object
-            const updateData = { orderStatus: orderStatus };
+            // Prepare update object with OrderStatusManager
+            const updateData = { 
+                orderStatus: orderStatus,
+                // Add entry to status history if it exists
+                $push: {
+                    statusHistory: {
+                        status: orderStatus,
+                        timestamp: new Date(),
+                        updatedBy: req.userId || 'system',
+                        notes: req.body.notes || ''
+                    }
+                }
+            };
             
             // If the order is delivered, set actual delivery date and payment status
-            if (orderStatus === "DELIVERED") {
+            if (orderStatus === OrderStatusManager.ORDER_STATUS.DELIVERED) {
                 updateData.actualDeliveryDate = new Date();
                 if (order.paymentStatus === "CASH ON DELIVERY") {
                     updateData.paymentStatus = "PAID";
@@ -1254,7 +1286,7 @@ export const updateOrderStatusController = async (req, res) => {
             }
 
             // Handle stock restoration for cancelled orders (updated for multiple items)
-            if (orderStatus === "CANCELLED" && previousStatus !== "CANCELLED") {
+            if (orderStatus === OrderStatusManager.ORDER_STATUS.CANCELLED && previousStatus !== OrderStatusManager.ORDER_STATUS.CANCELLED) {
                 // Restore stock for all items when order is cancelled
                 for (const item of order.items) {
                     if (item.itemType === 'bundle') {
@@ -1403,7 +1435,7 @@ export const updateOrderStatusController = async (req, res) => {
 // Bulk update order status for multiple orders
 export const bulkUpdateOrderStatusController = async (req, res) => {
     try {
-        const { orderIds, orderStatus } = req.body;
+        const { orderIds, orderStatus, notes } = req.body;
         
         if (!orderIds || !Array.isArray(orderIds) || orderIds.length === 0) {
             return res.status(400).json({
@@ -1421,12 +1453,14 @@ export const bulkUpdateOrderStatusController = async (req, res) => {
             });
         }
         
-        const validStatuses = ["ORDER PLACED", "PROCESSING", "OUT FOR DELIVERY", "DELIVERED", "CANCELLED"];
+        // Use OrderStatusManager for validation
+        const validStatuses = Object.values(OrderStatusManager.ORDER_STATUS);
         if (!validStatuses.includes(orderStatus)) {
             return res.status(400).json({
                 success: false,
                 error: true,
-                message: "Invalid order status value"
+                message: "Invalid order status value",
+                validStatuses
             });
         }
         

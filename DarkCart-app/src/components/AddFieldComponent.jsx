@@ -1,4 +1,4 @@
-import React from 'react'
+import PropTypes from 'prop-types';
 import { IoClose } from "react-icons/io5";
 
 const AddFieldComponent = ({close,value,onChange,submit}) => {
@@ -30,5 +30,12 @@ const AddFieldComponent = ({close,value,onChange,submit}) => {
    </section>
   )
 }
+
+AddFieldComponent.propTypes = {
+  close: PropTypes.func.isRequired,
+  value: PropTypes.string.isRequired,
+  onChange: PropTypes.func.isRequired,
+  submit: PropTypes.func.isRequired
+};
 
 export default AddFieldComponent

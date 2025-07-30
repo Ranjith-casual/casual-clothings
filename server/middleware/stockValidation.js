@@ -5,11 +5,7 @@ export const validateStockAvailability = async (req, res, next) => {
     try {
         const { list_items } = req.body;
         
-        console.log("=== STOCK VALIDATION MIDDLEWARE START ===");
-        console.log("List items:", JSON.stringify(list_items, null, 2));
-        
         if (!list_items || !Array.isArray(list_items)) {
-            console.log("Invalid list_items:", list_items);
             return res.status(400).json({
                 success: false,
                 error: true,
@@ -19,8 +15,6 @@ export const validateStockAvailability = async (req, res, next) => {
 
         // Check stock for each item
         for (const item of list_items) {
-            console.log("Processing item:", JSON.stringify(item, null, 2));
-            
             // Determine if this is a bundle or product item
             const isBundle = !!(item.bundleId && (
                 (typeof item.bundleId === 'object' && item.bundleId._id) || 
@@ -31,8 +25,6 @@ export const validateStockAvailability = async (req, res, next) => {
                 (typeof item.productId === 'object' && item.productId._id) || 
                 (typeof item.productId === 'string')
             ));
-            
-            console.log(`Item type - isBundle: ${isBundle}, isProduct: ${isProduct}`);
             
             if (isBundle) {
                 // Validate bundle exists
@@ -55,8 +47,6 @@ export const validateStockAvailability = async (req, res, next) => {
                         message: `Bundle "${bundle.title}" is not available for purchase`
                     });
                 }
-                
-                console.log(`Bundle ${bundle.title} validated successfully`);
                 
             } else if (isProduct) {
                 // Validate product exists and has sufficient stock
@@ -102,7 +92,6 @@ export const validateStockAvailability = async (req, res, next) => {
                         });
                     }
                     
-                    console.log(`Size ${normalizedSize} validated for product ${product.name} - Available: ${sizeStock}, Requested: ${item.quantity}`);
                 }
                 // Fallback to legacy stock check only if no size is specified
                 else if (!item.size && product.stock < item.quantity) {
@@ -125,30 +114,16 @@ export const validateStockAvailability = async (req, res, next) => {
                     });
                 }
                 
-                console.log(`Product ${product.name} validated successfully`);
-                
             } else {
-                console.log('Invalid item - neither product nor bundle:', item);
                 return res.status(400).json({
                     success: false,
                     error: true,
-                    message: `Invalid item: neither product nor bundle - ${JSON.stringify({
-                        hasProductId: !!item.productId,
-                        hasBundleId: !!item.bundleId,
-                        productIdType: typeof item.productId,
-                        bundleIdType: typeof item.bundleId
-                    })}`
+                    message: `Invalid item: neither product nor bundle specified`
                 });
             }
         }
-
-        console.log("=== STOCK VALIDATION MIDDLEWARE PASSED ===");
         next();
     } catch (error) {
-        console.error("=== STOCK VALIDATION ERROR ===");
-        console.error("Error details:", error);
-        console.error("Error message:", error.message);
-        console.error("Error stack:", error.stack);
         return res.status(500).json({
             success: false,
             error: true,
