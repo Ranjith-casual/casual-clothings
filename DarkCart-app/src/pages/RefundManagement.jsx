@@ -293,7 +293,11 @@ const RefundManagement = () => {
                                 <p><span className="font-medium">Order Status:</span> {order.orderStatus}</p>
                                 <p><span className="font-medium">Payment Method:</span> {order.paymentMethod}</p>
                                 <p><span className="font-medium">Payment Status:</span> {order.paymentStatus}</p>
-                                <p><span className="font-medium">Total Amount:</span> {DisplayPriceInRupees(order.totalAmt)}</p>
+                                <p><span className="font-medium">Subtotal:</span> {DisplayPriceInRupees(order.subTotalAmt || 0)}</p>
+                                {order.deliveryCharge > 0 && (
+                                    <p className="text-blue-700"><span className="font-medium">Delivery Charge:</span> {DisplayPriceInRupees(order.deliveryCharge)}</p>
+                                )}
+                                <p className="font-bold border-t border-gray-300 mt-2 pt-2"><span className="font-medium">Total Amount:</span> {DisplayPriceInRupees(order.totalAmt)}</p>
                             </div>
 
                             {/* Customer Details */}
@@ -320,7 +324,7 @@ const RefundManagement = () => {
                                     
                                     <div className="flex justify-between items-center px-3 py-1.5 bg-blue-50 border border-blue-100 rounded-md">
                                         <span className="font-medium text-blue-700">Refund Policy:</span>
-                                        <span className="text-blue-800">{adminResponse.refundPercentage || 75}% of item price</span>
+                                        <span className="text-blue-800">90% of item price</span>
                                     </div>
                                     
                                     {/* Calculate total refund with enhanced discount pricing support */}
@@ -328,7 +332,7 @@ const RefundManagement = () => {
                                         // Priority 1: Use enhanced refund data with discount pricing (HIGHEST PRIORITY)
                                         if (refundDetails.enhancedRefundData?.finalRefundAmount !== undefined) {
                                             const enhancedAmount = refundDetails.enhancedRefundData.finalRefundAmount;
-                                            console.log('✅ Using enhanced refund data (discount-based):', enhancedAmount);
+                                            console.log('✅ Using enhanced refund data (includes delivery):', enhancedAmount);
                                             
                                             return (
                                                 <div className="space-y-2">
@@ -336,14 +340,45 @@ const RefundManagement = () => {
                                                         <span className="font-medium text-green-700">Final Refund Amount:</span>
                                                         <span className="text-green-800 font-bold">{DisplayPriceInRupees(enhancedAmount)}</span>
                                                     </div>
-                                                    {refundDetails.enhancedRefundData.basedOnDiscountedPricing && (
-                                                        <div className="text-xs text-green-600 px-3 py-1 bg-green-50 rounded">
-                                                            ✅ Calculated using discounted prices customer actually paid
+                                                    
+                                                    {/* Show refund percentage */}
+                                                    <div className="flex justify-between items-center px-3 py-1.5 bg-blue-50 border border-blue-100 rounded-md">
+                                                        <span className="font-medium text-blue-700">Applied Refund Rate:</span>
+                                                        <span className="text-blue-800 font-semibold">
+                                                            90%
+                                                        </span>
+                                                    </div>
+                                                    
+                                                    {/* Show itemized breakdown if available */}
+                                                    {refundDetails.enhancedRefundData.itemsRefund !== undefined && (
+                                                        <div className="grid grid-cols-2 gap-2 px-3 py-2 bg-gray-50 border border-gray-200 rounded-md text-xs">
+                                                            <div className="font-medium text-gray-700">Items Refund:</div>
+                                                            <div className="text-right text-gray-800">{DisplayPriceInRupees(refundDetails.enhancedRefundData.itemsRefund)}</div>
+                                                            
+                                                            {order.deliveryCharge > 0 && refundDetails.enhancedRefundData.deliveryRefund !== undefined && (
+                                                                <>
+                                                                    <div className="font-medium text-blue-700">Delivery Refund:</div>
+                                                                    <div className="text-right text-blue-800">{DisplayPriceInRupees(refundDetails.enhancedRefundData.deliveryRefund)}</div>
+                                                                </>
+                                                            )}
+                                                            
+                                                            <div className="font-medium text-gray-800 border-t border-gray-300 pt-1">Total Refund:</div>
+                                                            <div className="text-right font-bold text-green-700 border-t border-gray-300 pt-1">{DisplayPriceInRupees(enhancedAmount)}</div>
                                                         </div>
                                                     )}
+                                                    
+                                                    {refundDetails.enhancedRefundData.basedOnDiscountedPricing && (
+                                                        <div className="text-xs text-green-600 px-3 py-1 bg-green-50 rounded">
+                                                            ✅ Calculated using discounted prices the customer actually paid
+                                                        </div>
+                                                    )}
+                                                    
                                                     {refundDetails.enhancedRefundData.cancellationType && (
                                                         <div className="text-xs text-blue-600 px-3 py-1 bg-blue-50 rounded">
-                                                            Cancellation Type: {refundDetails.enhancedRefundData.cancellationType.replace('_', ' ')}
+                                                            <span className="font-semibold">Type:</span> {refundDetails.enhancedRefundData.cancellationType.replace('_', ' ')}
+                                                            {refundDetails.enhancedRefundData.cancellationType === 'PARTIAL_ITEMS' && 
+                                                             order.deliveryCharge > 0 && 
+                                                             ' (includes proportional delivery charge)'}
                                                         </div>
                                                     )}
                                                 </div>
@@ -364,7 +399,8 @@ const RefundManagement = () => {
                                                 if (item.refundAmount && parseFloat(item.refundAmount) > 0) {
                                                     calculatedTotal += parseFloat(item.refundAmount);
                                                 } else {
-                                                    const refundPercentage = adminResponse.refundPercentage || 75;
+                                                    // Always use 90% as refund percentage, regardless of partial or full cancellation
+                                                    const refundPercentage = 90;
                                                     const itemPrice = 
                                                         item.productId?.price || 
                                                         item.productDetails?.price || 
@@ -376,21 +412,108 @@ const RefundManagement = () => {
                                                 }
                                             });
                                             
+                                            // Check if this is a partial order but effectively all items are being cancelled
+                                            // This can happen when the user cancels one item now and another item later
+                                            const isFullOrderCancellation = cancelledItems.length === order.items.length;
+                                            
+                                            // For any cancellation with all items cancelled, add full delivery charge refund at 90%
+                                            if (isFullOrderCancellation && order.deliveryCharge > 0) {
+                                                // Always use 90% for full order refunds
+                                                const deliveryRefund = (order.deliveryCharge * 90) / 100;
+                                                calculatedTotal += deliveryRefund;
+                                                console.log('Added full delivery charge refund (90%):', deliveryRefund);
+                                            }
+                                            // For partial cancellations, add proportional delivery refund
+                                            else if (!isFullOrderCancellation && order.deliveryCharge > 0 && cancelledItems.length > 0) {
+                                                const totalOrderValue = order.subTotalAmt || (order.totalAmt - order.deliveryCharge);
+                                                let cancelledValue = 0;
+                                                cancelledItems.forEach(item => {
+                                                    const itemPrice = item.productId?.price || item.productDetails?.price || item.price || 0;
+                                                    cancelledValue += itemPrice * (item.quantity || 1);
+                                                });
+                                                
+                                                if (totalOrderValue > 0) {
+                                                    const deliveryProportion = cancelledValue / totalOrderValue;
+                                                    // Always use 90% for partial cancellation delivery refunds
+                                                    const proportionalDeliveryRefund = (order.deliveryCharge * deliveryProportion * 90) / 100;
+                                                    calculatedTotal += proportionalDeliveryRefund;
+                                                    console.log('Added proportional delivery refund (90%):', proportionalDeliveryRefund);
+                                                }
+                                            }
+                                            
                                             if (calculatedTotal > 0) {
                                                 totalRefundAmount = calculatedTotal;
-                                                console.log(`⚠️ Fallback calculated total refund from items: ${totalRefundAmount}`);
+                                                console.log(`⚠️ Fallback calculated total refund (includes delivery): ${totalRefundAmount}`);
                                             }
                                         }
                                         
+                                        // Calculate the estimated portion of refund that came from delivery charge
+                                        const isFullOrderCancellation = order.items && 
+                                            Array.isArray(order.items) && 
+                                            order.items.length > 0 && 
+                                            order.items.every(item => item?.status === 'Cancelled' || item?.cancelApproved === true);
+                                            
+                                        const refundPercentage = 90; // Using consistent 90% refund rate
+                                        let estimatedDeliveryRefund = 0;
+                                        
+                                        if (order.deliveryCharge > 0) {
+                                            if (isFullOrderCancellation) {
+                                                estimatedDeliveryRefund = (order.deliveryCharge * refundPercentage / 100);
+                                            } else {
+                                                // For partial cancellations, estimate proportional delivery refund
+                                                const cancelledItems = order.items.filter(item => 
+                                                    item?.status === 'Cancelled' || item?.cancelApproved === true);
+                                                
+                                                if (cancelledItems.length > 0 && order.items.length > 0) {
+                                                    estimatedDeliveryRefund = (order.deliveryCharge * (cancelledItems.length / order.items.length) * refundPercentage / 100);
+                                                }
+                                            }
+                                        }
+                                        
+                                        const estimatedItemsRefund = totalRefundAmount - estimatedDeliveryRefund;
+                                            
                                         return (
                                             <div className="space-y-2">
                                                 <div className="flex justify-between items-center px-3 py-1.5 bg-green-50 border border-green-100 rounded-md">
                                                     <span className="font-medium text-green-700">Total Refund Amount:</span>
                                                     <span className="text-green-800 font-bold">{DisplayPriceInRupees(totalRefundAmount)}</span>
                                                 </div>
+                                                
+                                                {/* Show refund percentage */}
+                                                <div className="flex justify-between items-center px-3 py-1.5 bg-blue-50 border border-blue-100 rounded-md">
+                                                    <span className="font-medium text-blue-700">Applied Refund Rate:</span>
+                                                    <span className="text-blue-800 font-semibold">{refundPercentage}%</span>
+                                                </div>
+                                                
+                                                {/* Show estimated breakdown for better transparency */}
+                                                {order.deliveryCharge > 0 && (
+                                                    <div className="grid grid-cols-2 gap-2 px-3 py-2 bg-gray-50 border border-gray-200 rounded-md text-xs">
+                                                        <div className="font-medium text-gray-700">Estimated Items Refund:</div>
+                                                        <div className="text-right text-gray-800">{DisplayPriceInRupees(estimatedItemsRefund)}</div>
+                                                        
+                                                        <div className="font-medium text-blue-700">Estimated Delivery Refund:</div>
+                                                        <div className="text-right text-blue-800">{DisplayPriceInRupees(estimatedDeliveryRefund)}</div>
+                                                        
+                                                        <div className="font-medium text-gray-800 border-t border-gray-300 pt-1">Total Refund:</div>
+                                                        <div className="text-right font-bold text-green-700 border-t border-gray-300 pt-1">{DisplayPriceInRupees(totalRefundAmount)}</div>
+                                                    </div>
+                                                )}
+                                                
+                                                {isFullOrderCancellation && order.deliveryCharge > 0 && (
+                                                    <div className="text-xs text-blue-600 px-3 py-1 bg-blue-50 rounded">
+                                                        💡 Full order cancellation - includes {refundPercentage}% of delivery charge (₹{order.deliveryCharge})
+                                                    </div>
+                                                )}
+                                                
+                                                {!isFullOrderCancellation && order.deliveryCharge > 0 && (
+                                                    <div className="text-xs text-blue-600 px-3 py-1 bg-blue-50 rounded">
+                                                        💡 Partial cancellation - includes proportional delivery charge refund
+                                                    </div>
+                                                )}
+                                                
                                                 {totalRefundAmount > 0 && (
                                                     <div className="text-xs text-yellow-600 px-3 py-1 bg-yellow-50 rounded">
-                                                        ⚠️ Using fallback calculation - may not reflect discounted prices
+                                                        ⚠️ Using estimated calculation - refund values are approximate
                                                     </div>
                                                 )}
                                             </div>
@@ -505,7 +628,7 @@ const RefundManagement = () => {
                                             }
                                             
                                             // Calculate refund amount for this item if it's cancelled
-                                            const refundPercentage = adminResponse.refundPercentage || 75;
+                                            const refundPercentage = 90; // Using consistent 90% refund rate
                                             
                                             // Use item's saved refundAmount if available, otherwise calculate it
                                             let itemRefundAmount = 0;
@@ -568,15 +691,24 @@ const RefundManagement = () => {
                                                         
                                                         {isItemCancelled && (
                                                             <div className="mt-2 pt-2 border-t border-red-200">
-                                                                <div className="text-sm font-medium text-red-700">
-                                                                    <div className="flex justify-between">
+                                                                <div className="text-sm font-medium">
+                                                                    <div className="flex justify-between text-blue-700">
                                                                         <span>Refund Percentage:</span>
                                                                         <span>{refundPercentage}%</span>
                                                                     </div>
-                                                                    <div className="flex justify-between">
+                                                                    <div className="flex justify-between text-red-700">
                                                                         <span>Refund Amount:</span>
-                                                                        <span>{DisplayPriceInRupees(itemRefundAmount)}</span>
+                                                                        <span className="font-bold">{DisplayPriceInRupees(itemRefundAmount)}</span>
                                                                     </div>
+                                                                    {item.refundAmount && parseFloat(item.refundAmount) > 0 ? (
+                                                                        <div className="text-xs text-green-600 mt-1">
+                                                                            ✅ Using confirmed refund amount
+                                                                        </div>
+                                                                    ) : (
+                                                                        <div className="text-xs text-yellow-600 mt-1">
+                                                                            ⚠️ Estimated refund (calculated)
+                                                                        </div>
+                                                                    )}
                                                                 </div>
                                                             </div>
                                                         )}
@@ -615,9 +747,9 @@ const RefundManagement = () => {
                                         setShowCompleteModal(true);
                                         onClose();
                                     }}
-                                    className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 flex items-center"
+                                    className=""
                                 >
-                                    <FaCheck className="mr-2" /> Complete Refund
+                                    {/* <FaCheck className="mr-2" /> Complete Refund */}
                                 </button>
                             )}
                         </div>
@@ -660,12 +792,35 @@ const RefundManagement = () => {
                             <p className="mb-2">
                                 <span className="font-medium">Customer:</span> {selectedRefund.userId?.name}
                             </p>
-                            <div className="mb-2">
-                                <span className="font-medium">Refund Amount:</span> {DisplayPriceInRupees(finalRefundAmount)}
-                                {selectedRefund.refundDetails?.enhancedRefundData?.basedOnDiscountedPricing && (
-                                    <div className="text-xs text-green-600 mt-1">✅ Based on discounted prices customer paid</div>
+                            
+                            <div className="bg-blue-50 p-3 rounded-lg border border-blue-100 mb-3">
+                                <div className="flex justify-between items-center">
+                                    <span className="font-medium text-blue-700">Refund Policy:</span>
+                                    <span className="font-medium text-blue-800">
+                                        90%
+                                    </span>
+                                </div>
+                                
+                                {/* Display delivery info if available */}
+                                {selectedRefund.orderId?.deliveryCharge > 0 && (
+                                    <div className="text-xs text-blue-600 mt-1.5">
+                                        {selectedRefund.refundDetails?.enhancedRefundData?.cancellationType === 'PARTIAL_ITEMS' 
+                                        ? '💲 Includes proportional delivery charge refund' 
+                                        : '💲 Includes delivery charge in refund calculation'}
+                                    </div>
                                 )}
                             </div>
+                            
+                            <div className="flex justify-between items-center p-3 bg-green-50 border border-green-200 rounded-lg">
+                                <span className="font-medium text-green-700">Final Refund Amount:</span>
+                                <span className="font-bold text-green-800 text-xl">{DisplayPriceInRupees(finalRefundAmount)}</span>
+                            </div>
+                            
+                            {selectedRefund.refundDetails?.enhancedRefundData?.basedOnDiscountedPricing && (
+                                <div className="text-xs text-green-600 mt-2 bg-green-50 p-2 rounded-lg">
+                                    ✅ Calculated using actual discounted prices paid by customer
+                                </div>
+                            )}
                         </div>
                         
                         <div className="mb-4">
@@ -886,7 +1041,7 @@ const RefundManagement = () => {
                                                             if (item.refundAmount && parseFloat(item.refundAmount) > 0) {
                                                                 calculatedTotal += parseFloat(item.refundAmount);
                                                             } else {
-                                                                const refundPercentage = refund.adminResponse?.refundPercentage || 75;
+                                                                const refundPercentage = 90; // Using consistent 90% refund rate
                                                                 const itemPrice = 
                                                                     item.productId?.price || 
                                                                     item.productDetails?.price || 
@@ -913,7 +1068,7 @@ const RefundManagement = () => {
                                                 })()}
                                             </div>
                                             <div className="text-xs text-gray-500 mt-0.5">
-                                                {refund.adminResponse?.refundPercentage || 75}% of price
+                                                90% of price
                                             </div>
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap">

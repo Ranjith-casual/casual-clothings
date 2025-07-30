@@ -97,6 +97,10 @@ const orderCancellationSchema = mongoose.Schema({
         estimatedDeliveryDate: Date,
         actualDeliveryDate: Date,
         deliveryNotes: String,
+        deliveryCharge: {
+            type: Number,
+            default: 0
+        },
         wasPastDeliveryDate: {
             type: Boolean,
             default: false

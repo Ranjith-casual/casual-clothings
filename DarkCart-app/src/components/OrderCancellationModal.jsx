@@ -6,6 +6,7 @@ import toast from 'react-hot-toast'
 import AxiosTostError from '../utils/AxiosTostError'
 import noCart from '../assets/Empty-cuate.png'
 import ensureUserId from '../utils/ensureUserId'
+import { RefundPolicyService } from '../utils/RefundPolicyService'
 
 function OrderCancellationModal({ order, onClose, onCancellationRequested }) {
     const [reason, setReason] = useState('')
@@ -13,7 +14,17 @@ function OrderCancellationModal({ order, onClose, onCancellationRequested }) {
     const [loading, setLoading] = useState(false)
     const [policy, setPolicy] = useState(null)
     const [estimatedRefund, setEstimatedRefund] = useState(0)
-    const [cancelMode, setCancelMode] = useState('full') // 'full' or 'partial'
+    const [refundCalculation, setRefundCalculation] = useState(null)
+    const [cancelMode, setCancelMode] = useState(() => {
+        // Auto-determine initial cancel mode based on active items
+        if (order?.items) {
+            const activeItems = order.items.filter(item => 
+                item.status !== 'Cancelled' && !item.cancelApproved
+            );
+            return activeItems.length <= 1 ? 'full' : 'full'; // Default to 'full' always
+        }
+        return 'full';
+    }) // 'full' or 'partial'
     const [selectedItems, setSelectedItems] = useState({})
 
     // Calculate discounted price for an item
@@ -136,6 +147,22 @@ function OrderCancellationModal({ order, onClose, onCancellationRequested }) {
             console.log('Order items:', order.items);
             console.log('Order paymentStatus:', order.paymentStatus);
             console.log('Order paymentMethod:', order.paymentMethod);
+            
+            // Log active items count for debugging
+            const activeItems = order.items?.filter(item => 
+                item.status !== 'Cancelled' && !item.cancelApproved
+            ) || [];
+            console.log(`🔍 Active items count: ${activeItems.length} of ${order.items?.length || 0} total items`);
+            
+            // Log cancelled items for debugging
+            const cancelledItems = order.items?.filter(item => 
+                item.status === 'Cancelled' || item.cancelApproved
+            ) || [];
+            console.log(`❌ Cancelled items count: ${cancelledItems.length}`);
+            
+            if (activeItems.length === 1) {
+                console.log('💡 Only one active item remaining - will force full cancellation mode');
+            }
         }
     }, [])
     
@@ -152,6 +179,49 @@ function OrderCancellationModal({ order, onClose, onCancellationRequested }) {
         
         checkUserId();
     }, [])
+    
+    // Effect to recalculate refund when policy or order changes
+    useEffect(() => {
+        if (policy && order) {
+            try {
+                // Calculate refund details separately to prevent infinite loop
+                if (RefundPolicyService) {
+                    // Get user info for customer loyalty bonuses
+                    const customerInfo = {
+                        isVip: localStorage.getItem('userRole') === 'VIP' || localStorage.getItem('membershipTier') === 'VIP',
+                        membershipTier: localStorage.getItem('membershipTier') || 'REGULAR',
+                        orderHistory: order.orderHistory || [],
+                        purchaseHistory: localStorage.getItem('purchaseCount') ? parseInt(localStorage.getItem('purchaseCount')) : 0
+                    };
+                    
+                    // Prepare cancellation context
+                    const cancellationContext = {
+                        requestDate: new Date(),
+                        orderDate: new Date(order.orderDate || order.createdAt),
+                        deliveryInfo: {
+                            wasPastDeliveryDate: order.estimatedDeliveryDate && new Date() > new Date(order.estimatedDeliveryDate),
+                            actualDeliveryDate: order.actualDeliveryDate,
+                            estimatedDeliveryDate: order.estimatedDeliveryDate ? new Date(order.estimatedDeliveryDate) : null
+                        },
+                        orderStatus: order.orderStatus
+                    };
+                    
+                    // Calculate refund directly in this effect
+                    const calculation = RefundPolicyService.calculateRefundAmount(
+                        order, 
+                        cancellationContext,
+                        null,
+                        customerInfo
+                    );
+                    
+                    setRefundCalculation(calculation);
+                    console.log("Refund calculation refreshed due to policy or order change:", calculation);
+                }
+            } catch (err) {
+                console.error("Error refreshing refund calculation:", err);
+            }
+        }
+    }, [policy, order])
 
     useEffect(() => {
         if (policy && order) {
@@ -170,14 +240,13 @@ function OrderCancellationModal({ order, onClose, onCancellationRequested }) {
                     });
                 }
                 
-                // If we need to exclude delivery charge from refund calculation
-                // (this depends on your business policy)
+                // Include delivery charge in refund calculation for full order cancellation
+                // Customer paid for delivery and deserves refund if entire order is cancelled
                 const deliveryCharge = order.deliveryCharge || 0;
-                // Uncomment the line below if delivery charge should not be refunded
-                // activeItemsTotal -= deliveryCharge;
+                const totalWithDelivery = activeItemsTotal + deliveryCharge;
                 
-                console.log(`Full cancellation - Calculated discounted total: ${activeItemsTotal}, Refund %: ${refundPercentage}`);
-                setEstimatedRefund((activeItemsTotal * refundPercentage) / 100);
+                console.log(`Full cancellation - Calculated total with delivery: ${totalWithDelivery} (items: ${activeItemsTotal} + delivery: ${deliveryCharge}), Refund %: ${refundPercentage}`);
+                setEstimatedRefund((totalWithDelivery * refundPercentage) / 100);
             } else {
                 // For partial mode, calculation is handled by another useEffect
                 // that watches the selectedItems state
@@ -193,7 +262,8 @@ function OrderCancellationModal({ order, onClose, onCancellationRequested }) {
             
             if (response.data.success) {
                 console.log('Cancellation Policy:', response.data.data.refundPercentage)
-                setPolicy(75)
+                // Set the policy from the API response instead of hardcoding to 75
+                setPolicy(response.data.data)
             }
         } catch (error) {
             console.error('Error fetching cancellation policy:', error)
@@ -228,8 +298,17 @@ function OrderCancellationModal({ order, onClose, onCancellationRequested }) {
         }
         
         // Always convert both IDs to strings for consistent comparison
-        if (!currentUserId || !orderUserId || 
-            (currentUserId.toString() !== (orderUserId?.toString() || ''))) {
+        if (!currentUserId) {
+            toast.error("Authentication error: User ID not found, please log in again")
+            console.error('Current user ID missing')
+            return
+        }
+        
+        if (!orderUserId) {
+            // For order data that might not have userId populated correctly
+            // This could happen with partially cancelled orders or older orders
+            console.warn('Order user ID is missing, attempting to proceed anyway as this may be a legacy or partially processed order');
+        } else if (currentUserId.toString() !== (orderUserId?.toString() || '')) {
             toast.error("Authentication error: You can only cancel your own orders")
             console.error('User ID mismatch:', { 
                 currentUserId: currentUserId, 
@@ -240,16 +319,46 @@ function OrderCancellationModal({ order, onClose, onCancellationRequested }) {
             return
         }
 
-        // For partial cancellation, check if any items are selected
-        if (cancelMode === 'partial') {
-            const selectedItemIds = Object.keys(selectedItems).filter(id => selectedItems[id])
-            if (selectedItemIds.length === 0) {
-                toast.error('Please select at least one item to cancel')
-                return
-            }
-        }
-
-        setLoading(true)
+            // For partial cancellation, check if any items are selected
+            if (cancelMode === 'partial') {
+                const selectedItemIds = Object.keys(selectedItems).filter(id => selectedItems[id])
+                if (selectedItemIds.length === 0) {
+                    toast.error('Please select at least one item to cancel')
+                    return
+                }
+                
+                // Check if all active items are selected (effectively full cancellation)
+                const activeItems = order.items.filter(item => 
+                    item.status !== 'Cancelled' && !item.cancelApproved
+                );
+                
+                console.log('Cancellation check:', {
+                    selectedItems: selectedItemIds.length,
+                    activeItems: activeItems.length,
+                    totalItems: order.items.length,
+                    cancelledItems: order.items.filter(item => item.status === 'Cancelled' || item.cancelApproved).length,
+                    isLastRemainingItem: activeItems.length === 1 && selectedItemIds.length === 1
+                });
+                
+                if (activeItems.length === 1 && selectedItemIds.length === 1) {
+                    console.log('🔄 Last remaining item being cancelled - using special handling');
+                    toast.info('Processing final item cancellation from this order', {
+                        duration: 3000,
+                        position: 'top-center'
+                    });
+                    // Continue with partial cancellation but with special handling for last item
+                    // This avoids issues with user verification in multi-stage cancellations
+                } else if (selectedItemIds.length === activeItems.length) {
+                    console.log('🔄 Converting partial cancellation to full cancellation - all active items selected');
+                    toast.info('Converting to full order cancellation since all remaining items are selected', {
+                        duration: 3000,
+                        position: 'top-center'
+                    });
+                    // Switch to full mode and continue with full cancellation logic
+                    setCancelMode('full');
+                    // Don't return here - let it continue as full cancellation
+                }
+            }        setLoading(true)
 
         try {
             const token = localStorage.getItem('accessToken')
@@ -282,13 +391,18 @@ function OrderCancellationModal({ order, onClose, onCancellationRequested }) {
                     });
                 
                 const refundPercentage = getTimeBasedRefund();
+                const deliveryCharge = order.deliveryCharge || 0;
+                const totalWithDelivery = totalDiscountedAmount + deliveryCharge;
+                const refundWithDelivery = (totalWithDelivery * refundPercentage) / 100;
                 
                 console.log('🎯 Full Order Cancellation - Pricing Summary:', {
                     totalDiscountedAmount,
+                    deliveryCharge,
+                    totalWithDelivery,
                     totalOriginalAmount,
                     totalSavingsAmount,
                     refundPercentage,
-                    calculatedRefund: (totalDiscountedAmount * refundPercentage / 100),
+                    calculatedRefund: refundWithDelivery,
                     itemCount: itemPricingBreakdown.length
                 });
                 
@@ -303,13 +417,14 @@ function OrderCancellationModal({ order, onClose, onCancellationRequested }) {
                         additionalReason: additionalReason.trim(),
                         // Enhanced pricing information for admin review
                         pricingInformation: {
-                            totalAmountCustomerPaid: totalDiscountedAmount, // Total discounted amount customer actually paid
-                            totalOriginalRetailPrice: totalOriginalAmount, // Total if no discounts were applied
-                            totalCustomerSavings: totalSavingsAmount, // Total amount saved through discounts
+                            totalAmountCustomerPaid: totalWithDelivery, // Total including delivery charge
+                            totalOriginalRetailPrice: totalOriginalAmount + deliveryCharge, // Include delivery in original total
+                            totalCustomerSavings: totalSavingsAmount, // Savings from discounts (delivery charge not discounted)
                             refundPercentage: refundPercentage,
-                            calculatedRefundAmount: (totalDiscountedAmount * refundPercentage / 100),
+                            calculatedRefundAmount: refundWithDelivery,
+                            deliveryCharge: deliveryCharge,
                             itemBreakdown: itemPricingBreakdown,
-                            note: "Refund calculated based on discounted prices customer actually paid, not original retail prices"
+                            note: "Refund calculated based on discounted prices + delivery charge customer actually paid"
                         }
                     }
                 })
@@ -374,9 +489,40 @@ function OrderCancellationModal({ order, onClose, onCancellationRequested }) {
                     }))
                 });
                 
+                // Check if ALL available items are selected (effectively cancelling entire order)
+                const availableItems = order.items.filter(item => item.status !== 'Cancelled' && !item.cancelApproved);
+                const isEffectivelyFullCancellation = selectedItemIds.length === availableItems.length && availableItems.length > 0;
+                
                 // Calculate totals for backend
-                const totalRefundAmount = itemsToCancel.reduce((sum, item) => sum + item.refundAmount, 0);
+                let totalRefundAmount = itemsToCancel.reduce((sum, item) => sum + item.refundAmount, 0);
                 const totalItemValue = itemsToCancel.reduce((sum, item) => sum + item.totalPrice, 0);
+                
+                // Include delivery charge if all items are being cancelled
+                let deliveryChargeRefund = 0;
+                if (isEffectivelyFullCancellation) {
+                    const deliveryCharge = order.deliveryCharge || 0;
+                    deliveryChargeRefund = (deliveryCharge * getTimeBasedRefund()) / 100;
+                    totalRefundAmount += deliveryChargeRefund;
+                    
+                    console.log('🚚 Including delivery charge in partial cancellation (all items selected):', {
+                        deliveryCharge,
+                        deliveryChargeRefund,
+                        updatedTotalRefund: totalRefundAmount
+                    });
+                }
+                
+                // Special handling for continuation cancellations (when cancelling items from an order with existing cancellations)
+                const isContinuationCancellation = order.items.some(item => item.status === 'Cancelled' || item.cancelApproved);
+                const isLastRemainingItem = order.items.filter(item => 
+                    item.status !== 'Cancelled' && !item.cancelApproved
+                ).length === selectedItemIds.length;
+                
+                console.log('Cancellation request context:', {
+                    isContinuationCancellation,
+                    isLastRemainingItem,
+                    itemsToCancel: itemsToCancel.length,
+                    totalActiveItems: order.items.filter(item => item.status !== 'Cancelled' && !item.cancelApproved).length
+                });
                 
                 const response = await Axios({
                     ...SummaryApi.requestPartialItemCancellation,
@@ -390,7 +536,14 @@ function OrderCancellationModal({ order, onClose, onCancellationRequested }) {
                         additionalReason: additionalReason.trim(),
                         // Enhanced totals for backend processing
                         totalRefundAmount: totalRefundAmount,
-                        totalItemValue: totalItemValue
+                        totalItemValue: totalItemValue,
+                        // Add delivery charge information
+                        deliveryChargeRefund: deliveryChargeRefund,
+                        isEffectivelyFullCancellation: isEffectivelyFullCancellation || isLastRemainingItem,
+                        deliveryCharge: order.deliveryCharge || 0,
+                        // Add continuation cancellation flag
+                        isContinuationCancellation,
+                        isLastRemainingItem
                     }
                 })
 
@@ -423,10 +576,27 @@ function OrderCancellationModal({ order, onClose, onCancellationRequested }) {
                 [itemId]: !prev[itemId]
             }
             
+            // Check if ALL available items are selected (effectively cancelling entire order)
+            const availableItems = order.items.filter(item => item.status !== 'Cancelled' && !item.cancelApproved);
+            const selectedIds = Object.keys(newSelection).filter(id => newSelection[id]);
+            const isEffectivelyFullCancellation = selectedIds.length === availableItems.length && availableItems.length > 0;
+            
+            console.log(`[toggleItemSelection] Is effectively full cancellation? ${isEffectivelyFullCancellation} (selected: ${selectedIds.length}, available: ${availableItems.length})`);
+            
+            // If all items are selected, automatically switch to full cancellation mode
+            if (isEffectivelyFullCancellation && cancelMode === 'partial') {
+                console.log(`[toggleItemSelection] Switching to full cancellation mode since all items are selected`);
+                setCancelMode('full');
+                toast.success('Switched to full order cancellation since all items are selected', {
+                    duration: 3000,
+                    position: 'top-center'
+                });
+                return {}; // Clear item selection since we're switching to full mode
+            }
+            
             // Update estimated refund based on selected items
             if (order && policy) {
                 const refundPercentage = getTimeBasedRefund()
-                const selectedIds = Object.keys(newSelection).filter(id => newSelection[id])
                 
                 if (selectedIds.length === 0) {
                     setEstimatedRefund(0)
@@ -448,6 +618,17 @@ function OrderCancellationModal({ order, onClose, onCancellationRequested }) {
                             totalRefund += itemRefund
                         }
                     })
+                    
+                    // If ALL available items are selected, include delivery charge in refund
+                    if (isEffectivelyFullCancellation) {
+                        const deliveryCharge = order.deliveryCharge || 0;
+                        const deliveryRefund = (deliveryCharge * refundPercentage) / 100;
+                        totalRefund += deliveryRefund;
+                        
+                        console.log(`[toggleItemSelection] Adding delivery charge to partial cancellation: ${deliveryCharge} -> Refund: ${deliveryRefund}`);
+                        console.log(`[toggleItemSelection] Total refund with delivery: ${totalRefund}`);
+                    }
+                    
                     console.log(`Total refund amount: ${totalRefund}`);
                     setEstimatedRefund(totalRefund)
                 }
@@ -475,6 +656,12 @@ function OrderCancellationModal({ order, onClose, onCancellationRequested }) {
             const selectedItemIds = Object.keys(selectedItems).filter(id => selectedItems[id]);
             console.log('[useEffect Debug] Selected item IDs:', selectedItemIds);
             
+            // Check if ALL available items are selected (effectively cancelling entire order)
+            const availableItems = order.items.filter(item => item.status !== 'Cancelled' && !item.cancelApproved);
+            const isEffectivelyFullCancellation = selectedItemIds.length === availableItems.length && availableItems.length > 0;
+            
+            console.log(`[useEffect Debug] Is effectively full cancellation? ${isEffectivelyFullCancellation} (selected: ${selectedItemIds.length}, available: ${availableItems.length})`);
+            
             let totalRefund = 0
             selectedItemIds.forEach(itemId => {
                 const item = order.items.find(i => i._id === itemId)
@@ -493,10 +680,51 @@ function OrderCancellationModal({ order, onClose, onCancellationRequested }) {
                 }
             })
             
+            // If ALL available items are selected, include delivery charge in refund
+            if (isEffectivelyFullCancellation) {
+                const deliveryCharge = order.deliveryCharge || 0;
+                const deliveryRefund = (deliveryCharge * getTimeBasedRefund()) / 100;
+                totalRefund += deliveryRefund;
+                
+                console.log(`[useEffect Debug] Adding delivery charge to partial cancellation: ${deliveryCharge} -> Refund: ${deliveryRefund}`);
+                console.log(`[useEffect Debug] Total refund with delivery: ${totalRefund}`);
+            }
+            
             console.log(`[useEffect] Setting total refund amount: ${totalRefund}`);
             setEstimatedRefund(totalRefund)
         }
     }, [selectedItems, policy, order, cancelMode])
+
+    // Auto-switch to full cancellation mode when only one active item remains
+    useEffect(() => {
+        if (!order?.items) return;
+        
+        const availableItems = order.items.filter(item => 
+            item.status !== 'Cancelled' && !item.cancelApproved
+        );
+        
+        // If only one active item exists and user is in partial mode, switch to full
+        if (availableItems.length === 1 && cancelMode === 'partial') {
+            console.log('Auto-switching to full cancellation mode: only one active item available');
+            setCancelMode('full');
+            setSelectedItems({}); // Clear selections
+            
+            toast.info('Switched to full order cancellation since only one active item remains', {
+                duration: 4000,
+                position: 'top-center'
+            });
+        }
+        
+        // If no active items left, close the modal (shouldn't happen but safety check)
+        if (availableItems.length === 0) {
+            console.log('No active items left to cancel');
+            toast.error('No active items left to cancel in this order', {
+                duration: 3000,
+                position: 'top-center'
+            });
+            onClose();
+        }
+    }, [order?.items, cancelMode, onClose]);
 
     const getTimeBasedRefund = () => {
         if (!policy || !order) {
@@ -504,22 +732,43 @@ function OrderCancellationModal({ order, onClose, onCancellationRequested }) {
             return 75;
         }
 
-        const orderDate = new Date(order.orderDate)
-        const now = new Date()
-        const hoursSinceOrder = (now - orderDate) / (1000 * 60 * 60)
-        
-        const timeRule = policy.timeBasedRules?.find(rule => 
-            hoursSinceOrder <= rule.timeFrameHours
-        )
+        // Use the refundCalculation if it exists (set by the useEffect)
+        if (refundCalculation && refundCalculation.refundPercentage) {
+            return refundCalculation.refundPercentage;
+        }
 
-        const percentage = timeRule?.refundPercentage || policy.refundPercentage || 75;
-        console.log(`Calculated refund percentage: ${percentage}%`);
-        return percentage;
+        try {
+            // Fall back to legacy calculation if refundCalculation is not yet available
+            const orderDate = new Date(order.orderDate)
+            const now = new Date()
+            const hoursSinceOrder = (now - orderDate) / (1000 * 60 * 60)
+            
+            const timeRule = policy.timeBasedRules?.find(rule => 
+                hoursSinceOrder <= rule.timeFrameHours
+            )
+
+            const percentage = timeRule?.refundPercentage || policy.refundPercentage || 75;
+            console.log(`Using fallback calculation: ${percentage}%`);
+            return percentage;
+        } catch (error) {
+            console.error("Error in fallback refund calculation:", error);
+            return 75; // Default fallback
+        }
     }
 
     const canCancelOrder = () => {
         // Orders cannot be cancelled if they are delivered, already cancelled, or out for delivery
         const nonCancellableStatuses = ['DELIVERED', 'CANCELLED', 'OUT FOR DELIVERY']
+        
+        // Check if there are any active items left to cancel
+        const activeItems = order?.items?.filter(item => 
+            item.status !== 'Cancelled' && !item.cancelApproved
+        ) || [];
+        
+        if (activeItems.length === 0) {
+            console.log('No active items left to cancel');
+            return false;
+        }
         
         // Check user authentication - make sure current user matches order user
         const currentUserId = localStorage.getItem('userId')
@@ -596,6 +845,15 @@ function OrderCancellationModal({ order, onClose, onCancellationRequested }) {
                                         order
                                     });
                                     return "You don't have permission to cancel this order. It belongs to another account."
+                                }
+                                
+                                // Check if there are active items left
+                                const activeItems = order?.items?.filter(item => 
+                                    item.status !== 'Cancelled' && !item.cancelApproved
+                                ) || [];
+                                
+                                if (activeItems.length === 0) {
+                                    return "All items in this order have already been cancelled. No items left to cancel.";
                                 }
                                 
                                 // Status-based messages
@@ -825,20 +1083,54 @@ function OrderCancellationModal({ order, onClose, onCancellationRequested }) {
                             </label>
                         </div>
                         
-                        <div className="flex items-center space-x-2">
-                            <input
-                                type="radio"
-                                id="partialCancel"
-                                name="cancelType"
-                                value="partial"
-                                checked={cancelMode === 'partial'}
-                                onChange={() => setCancelMode('partial')}
-                                className="h-4 w-4 text-blue-600"
-                            />
-                            <label htmlFor="partialCancel" className="text-sm font-medium text-gray-700">
-                                Cancel specific items
-                            </label>
-                        </div>
+                        {/* Only show partial cancellation option if there are multiple ACTIVE items */}
+                        {(() => {
+                            const activeItems = order?.items?.filter(item => 
+                                item.status !== 'Cancelled' && !item.cancelApproved
+                            ) || [];
+                            
+                            console.log('Active items count for cancellation options:', activeItems.length);
+                            
+                            // Only show partial cancellation if there are 2 or more active items
+                            if (activeItems.length > 1) {
+                                return (
+                                    <div className="flex items-center space-x-2">
+                                        <input
+                                            type="radio"
+                                            id="partialCancel"
+                                            name="cancelType"
+                                            value="partial"
+                                            checked={cancelMode === 'partial'}
+                                            onChange={() => setCancelMode('partial')}
+                                            className="h-4 w-4 text-blue-600"
+                                        />
+                                        <label htmlFor="partialCancel" className="text-sm font-medium text-gray-700">
+                                            Cancel specific items
+                                        </label>
+                                    </div>
+                                );
+                            }
+                            
+                            return null; // Don't show partial cancellation option if 1 or 0 active items
+                        })()}
+                        
+                        {/* Show info when only one active item exists */}
+                        {(() => {
+                            const activeItems = order?.items?.filter(item => 
+                                item.status !== 'Cancelled' && !item.cancelApproved
+                            ) || [];
+                            
+                            return activeItems.length === 1 ? (
+                                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mt-3">
+                                    <div className="flex items-center">
+                                        <FaInfoCircle className="text-yellow-600 mr-2" />
+                                        <span className="text-sm text-yellow-800 font-medium">
+                                            Since this order contains only one remaining active item, cancelling it will cancel the entire order.
+                                        </span>
+                                    </div>
+                                </div>
+                            ) : null;
+                        })()}
                     </div>
                 </div>
 
@@ -851,6 +1143,29 @@ function OrderCancellationModal({ order, onClose, onCancellationRequested }) {
                                 <FaInfoCircle className="inline-block mr-1 text-blue-600" />
                                 Check the boxes next to items you wish to cancel. Refund amount will be calculated based on your selection.
                             </p>
+                            
+                            {/* Warning when selecting all items would effectively cancel entire order */}
+                            {(() => {
+                                const availableItems = order?.items?.filter(item => 
+                                    item.status !== 'Cancelled' && !item.cancelApproved
+                                ) || [];
+                                const selectedCount = Object.keys(selectedItems).filter(id => selectedItems[id]).length;
+                                const wouldCancelAll = selectedCount === availableItems.length - 1 && availableItems.length > 1;
+                                
+                                if (wouldCancelAll) {
+                                    return (
+                                        <div className="bg-orange-50 border border-orange-200 rounded-lg p-3">
+                                            <div className="flex items-center">
+                                                <FaExclamationTriangle className="text-orange-600 mr-2" />
+                                                <span className="text-sm text-orange-800 font-medium">
+                                                    Selecting one more item will cancel the entire order. Consider using "Cancel entire order" option.
+                                                </span>
+                                            </div>
+                                        </div>
+                                    );
+                                }
+                                return null;
+                            })()}
                             
                         </div>
                         {order?.items?.length > 0 ? (
@@ -1158,11 +1473,110 @@ function OrderCancellationModal({ order, onClose, onCancellationRequested }) {
                         <h4 className="font-medium text-gray-800 mb-2">Cancellation Terms:</h4>
                         <ul className="text-sm text-gray-600 space-y-1">
                             <li>• Admin will review your request within {policy?.responseTimeHours || 48} hours</li>
-                            <li>• Refund amount is {getTimeBasedRefund()}% of the <span className="font-medium text-green-700">discounted order value</span> (amount you actually paid)</li>
+                            <li>• Refund amount is <span className="font-semibold text-green-700">{getTimeBasedRefund()}%</span> of the <span className="font-medium text-green-700">discounted order value</span> (amount you actually paid)</li>
                             <li>• Approved refunds will be processed within 5-7 business days</li>
                             <li>• Refund will be credited to your original payment method</li>
                             <li>• This action cannot be undone once submitted</li>
                         </ul>
+
+                        {/* Enhanced Refund Calculation Details */}
+                        {refundCalculation && (
+                            <div className="mt-4 pt-3 border-t border-gray-200">
+                                <h5 className="font-medium text-gray-800 mb-2 flex items-center">
+                                    <FaTag className="mr-2 text-blue-600" /> 
+                                    Dynamic Refund Calculation:
+                                </h5>
+                                
+                                <div className="bg-white p-3 rounded border">
+                                    {/* Dynamic refund breakdown factors */}
+                                    {refundCalculation.breakdownFactors && refundCalculation.breakdownFactors.length > 0 ? (
+                                        <div className="space-y-2">
+                                            {refundCalculation.breakdownFactors.map((factor, idx) => (
+                                                <div key={idx} className="flex justify-between items-center text-xs">
+                                                    <div className="flex items-center">
+                                                        <span className="font-medium text-gray-700">{factor.name}:</span>
+                                                        <span className="ml-1 text-gray-600">{factor.value}</span>
+                                                        {factor.description && (
+                                                            <span className="ml-1 text-gray-500 italic">({factor.description})</span>
+                                                        )}
+                                                    </div>
+                                                    {factor.impact !== undefined && (
+                                                        <span className={`font-medium ${factor.impact >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                                            {factor.impact > 0 ? '+' : ''}{factor.impact}%
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            ))}
+                                        </div>
+                                    ) : refundCalculation.penalties && refundCalculation.bonuses ? (
+                                        <div className="space-y-2">
+                                            {/* Base percentage */}
+                                            <div className="flex justify-between items-center text-xs">
+                                                <span className="font-medium text-gray-700">Base refund rate:</span>
+                                                <span className="font-medium">{refundCalculation.appliedPolicy?.standardRefundPercentage || 75}%</span>
+                                            </div>
+                                            
+                                            {/* Show timing adjustment */}
+                                            <div className="flex justify-between items-center text-xs">
+                                                <div>
+                                                    <span className="font-medium text-gray-700">Order timing:</span>
+                                                    <span className="ml-1 text-gray-600">{refundCalculation.cancellationTiming?.toLowerCase()}</span>
+                                                    <span className="ml-1 text-gray-500 italic">({refundCalculation.daysSinceOrder} days since order)</span>
+                                                </div>
+                                                <span className={`font-medium ${refundCalculation.cancellationTiming === 'EARLY' ? 'text-green-600' : refundCalculation.cancellationTiming === 'LATE' ? 'text-red-600' : 'text-gray-600'}`}>
+                                                    {refundCalculation.cancellationTiming === 'EARLY' ? '+20%' : refundCalculation.cancellationTiming === 'LATE' ? '-25%' : '0%'}
+                                                </span>
+                                            </div>
+                                            
+                                            {/* Show penalties */}
+                                            {refundCalculation.penalties?.reasons && refundCalculation.penalties.reasons.length > 0 && (
+                                                <div className="mt-1">
+                                                    <div className="text-xs font-medium text-gray-700">Penalties:</div>
+                                                    {refundCalculation.penalties.reasons.map((reason, i) => (
+                                                        <div key={i} className="flex justify-between items-center text-xs mt-1">
+                                                            <span className="text-gray-600 ml-2">• {reason.split('(')[0]}</span>
+                                                            <span className="text-red-600 font-medium">
+                                                                {reason.includes('penalty') ? reason.match(/\(([^)]+)%/)?.[1] : null}
+                                                            </span>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            )}
+                                            
+                                            {/* Show bonuses */}
+                                            {refundCalculation.bonuses?.reasons && refundCalculation.bonuses.reasons.length > 0 && (
+                                                <div className="mt-1">
+                                                    <div className="text-xs font-medium text-gray-700">Bonuses:</div>
+                                                    {refundCalculation.bonuses.reasons.map((reason, i) => (
+                                                        <div key={i} className="flex justify-between items-center text-xs mt-1">
+                                                            <span className="text-gray-600 ml-2">• {reason.split('(')[0]}</span>
+                                                            <span className="text-green-600 font-medium">
+                                                                +{reason.match(/\(([^)]+)%/)?.[1]}
+                                                            </span>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </div>
+                                    ) : (
+                                        <p className="text-xs text-gray-600">Standard refund policy applied: {refundCalculation.refundPercentage || getTimeBasedRefund()}%</p>
+                                    )}
+
+                                    {/* Final calculation summary */}
+                                    <div className="flex justify-between items-center mt-3 pt-2 border-t border-gray-100">
+                                        <span className="font-semibold text-gray-800">Final Refund:</span>
+                                        <div className="text-right">
+                                            <div className="font-bold text-green-700">
+                                                ₹{(estimatedRefund || refundCalculation.refundAmount || 0).toFixed(2)}
+                                            </div>
+                                            <div className="text-xs text-gray-600">
+                                                ({refundCalculation.refundPercentage || getTimeBasedRefund()}% of order value)
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
                     </div>
 
                     {/* Action Buttons */}

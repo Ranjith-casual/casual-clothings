@@ -32,6 +32,19 @@ function CancellationManagement() {
         }
     };
 
+    // Helper function to get delivery charge consistently from any request or order object
+    const getDeliveryCharge = (requestOrOrder) => {
+        const deliveryCharge = requestOrOrder?.deliveryInfo?.deliveryCharge || 
+                              requestOrOrder?.orderId?.deliveryCharge || 
+                              requestOrOrder?.pricingInformation?.deliveryCharge ||
+                              (requestOrOrder?.deliveryCharge !== undefined ? requestOrOrder.deliveryCharge : 0);
+        
+        console.log('🚚 getDeliveryCharge found:', deliveryCharge, 'for request/order:', 
+            requestOrOrder?._id || requestOrOrder?.id || 'unknown');
+        
+        return deliveryCharge;
+    };
+    
     // Get size-based unit price
     const getSizeBasedUnitPrice = (item, productInfo = null) => {
         try {
@@ -105,18 +118,26 @@ function CancellationManagement() {
             return cancellationRequest.pricingInformation.calculatedRefundAmount;
         }
         
-        // Priority 2: Calculate using refund percentage and customer paid amount
+        // Priority 2: Calculate using refund percentage and customer paid amount + delivery charges
         const refundPercentage = cancellationRequest?.pricingInformation?.refundPercentage || 
                                 cancellationRequest?.adminResponse?.refundPercentage || 
+                                cancellationRequest?.refundPercentage || 
                                 75; // Default fallback
         
         const customerPaidAmount = cancellationRequest?.pricingInformation?.totalAmountCustomerPaid || 
                                   calculateOrderDiscountedTotal(cancellationRequest.orderId, cancellationRequest);
         
-        const calculatedRefund = (customerPaidAmount * refundPercentage) / 100;
+        // Use our helper to get delivery charge consistently
+        const deliveryCharge = getDeliveryCharge(cancellationRequest);
+                    
+        const totalAmountWithDelivery = customerPaidAmount + deliveryCharge;
         
-        console.log('📊 Full order refund calculation:', {
+        const calculatedRefund = (totalAmountWithDelivery * refundPercentage) / 100;
+        
+        console.log('📊 Full order refund calculation (with delivery):', {
             customerPaidAmount,
+            deliveryCharge,
+            totalAmountWithDelivery,
             refundPercentage,
             calculatedRefund
         });
@@ -207,6 +228,77 @@ function CancellationManagement() {
         return totalPartialAmount;
     };
 
+    // Calculate proportional delivery charge refund for partial cancellations
+    const calculateProportionalDeliveryRefund = (order, itemsToCancel, refundPercentage = null) => {
+        // Use provided refund percentage or get from request if available
+        const effectiveRefundPercentage = refundPercentage || 
+            itemsToCancel.refundPercentage ||
+            order?.refundPercentage || 
+            75; // Default fallback
+            
+        // Get delivery charge using our helper function
+        const deliveryCharge = getDeliveryCharge(order);
+        if (!deliveryCharge || deliveryCharge <= 0) {
+            return 0; // No delivery charge to refund
+        }
+
+        if (!order.items || order.items.length === 0) {
+            return 0; // No items in order
+        }
+
+        // Calculate total order value (excluding delivery)
+        const totalOrderValue = order.subTotalAmt || (order.totalAmt - deliveryCharge);
+        
+        // Calculate value of cancelled items
+        let cancelledItemsValue = 0;
+        
+        itemsToCancel.forEach(cancelItem => {
+            const orderItem = order.items.find(item => 
+                item._id && item._id.toString() === cancelItem.itemId.toString()
+            );
+            
+            if (orderItem) {
+                // Use the item total or calculate from unit price and quantity
+                const itemValue = orderItem.itemTotal || 
+                                 (orderItem.sizeAdjustedPrice || orderItem.productDetails?.price || 0) * orderItem.quantity;
+                cancelledItemsValue += itemValue;
+            }
+        });
+
+        // Calculate proportional delivery charge
+        // Special case: if all items are being cancelled, include full delivery charge
+        const orderItemsCount = order.items.length;
+        const cancellingItemsCount = itemsToCancel.length;
+        const isEffectivelyFullCancellation = orderItemsCount === cancellingItemsCount;
+        
+        let proportionalDeliveryCharge;
+        if (isEffectivelyFullCancellation) {
+            // If cancelling all items, refund full delivery charge
+            proportionalDeliveryCharge = deliveryCharge;
+        } else {
+            // Otherwise, calculate proportional delivery charge
+            const deliveryProportion = totalOrderValue > 0 ? (cancelledItemsValue / totalOrderValue) : 0;
+            proportionalDeliveryCharge = deliveryCharge * deliveryProportion;
+        }
+        
+        // Apply refund percentage to delivery charge
+        const deliveryRefund = (proportionalDeliveryCharge * effectiveRefundPercentage) / 100;
+        
+        console.log('📦 Frontend Proportional Delivery Refund:', {
+            totalOrderValue,
+            cancelledItemsValue,
+            deliveryCharge,
+            orderItemsCount,
+            cancellingItemsCount,
+            isEffectivelyFullCancellation,
+            proportionalDeliveryCharge,
+            refundPercentage: effectiveRefundPercentage,
+            deliveryRefund
+        });
+        
+        return Math.round(deliveryRefund * 100) / 100; // Round to 2 decimal places
+    };
+
     // Get the total refund amount for partial cancellation using dynamic refund percentage
     const getPartialCancellationRefundAmount = (cancellationRequest) => {
         console.log('📊 Calculating partial cancellation refund amount for:', cancellationRequest._id);
@@ -238,7 +330,22 @@ function CancellationManagement() {
             });
             
             if (hasIndividualRefunds) {
-                console.log('✅ Using sum of individual refund amounts:', totalRefund);
+                // Add proportional delivery charge refund
+                const refundPercentage = cancellationRequest?.refundPercentage || 
+                                        cancellationRequest?.adminResponse?.refundPercentage || 
+                                        75;
+                const deliveryRefund = calculateProportionalDeliveryRefund(
+                    cancellationRequest.orderId, 
+                    cancellationRequest.itemsToCancel, 
+                    refundPercentage
+                );
+                totalRefund += deliveryRefund;
+                
+                console.log('✅ Using sum of individual refund amounts + delivery:', {
+                    itemsRefund: totalRefund - deliveryRefund,
+                    deliveryRefund,
+                    totalRefund
+                });
                 return totalRefund;
             }
         }
@@ -250,11 +357,21 @@ function CancellationManagement() {
         
         // Calculate total and apply refund percentage
         const totalAmount = calculatePartialCancellationTotal(cancellationRequest);
-        const calculatedRefund = (totalAmount * refundPercentage) / 100;
         
-        console.log('📊 Fallback calculation:', {
+        // Add proportional delivery charge refund
+        const deliveryRefund = calculateProportionalDeliveryRefund(
+            cancellationRequest.orderId, 
+            cancellationRequest.itemsToCancel, 
+            refundPercentage
+        );
+        
+        const calculatedRefund = (totalAmount * refundPercentage) / 100 + deliveryRefund;
+        
+        console.log('📊 Fallback calculation (with delivery):', {
             totalAmount,
             refundPercentage,
+            itemsRefund: (totalAmount * refundPercentage) / 100,
+            deliveryRefund,
             calculatedRefund
         });
         
@@ -432,7 +549,13 @@ function CancellationManagement() {
         return null;
     }
 
-    const handleProcessRequest = async (requestId, action, adminComments = '', refundPercentage = 75) => {
+    const handleProcessRequest = async (requestId, action, adminComments = '', refundPercentage = null) => {
+        // Use provided refund percentage or get it from the request
+        const request = cancellationRequests.find(req => req._id === requestId);
+        const effectiveRefundPercentage = refundPercentage || 
+            request?.pricingInformation?.refundPercentage || 
+            request?.refundPercentage || 
+            75; // Default fallback
         setActionLoading(true)
         try {
             const token = localStorage.getItem('accessToken')
@@ -464,7 +587,7 @@ function CancellationManagement() {
                     data: {
                         action,
                         adminComments,
-                        refundPercentage,
+                        refundPercentage: effectiveRefundPercentage,
                         // Include calculated refund amounts based on discount pricing
                         calculatedRefundAmount: calculatedRefundAmount,
                         calculatedTotalValue: calculatedTotalValue,
@@ -556,7 +679,7 @@ function CancellationManagement() {
                     if (isPartialCancellation) {
                         const itemValueDisplay = selectedRequest.totalItemValue || 
                                                calculatePartialCancellationTotal(selectedRequest);
-                        toast.success(`Refund amount: ₹${refundAmount} (75% of cancelled items total: ₹${itemValueDisplay.toFixed(2)})`, {
+                        toast.success(`Refund amount: ₹${refundAmount} (${effectiveRefundPercentage}% of cancelled items total: ₹${itemValueDisplay.toFixed(2)})`, {
                             duration: 5000,
                             style: {
                                 background: '#F0FFF4',
@@ -566,7 +689,7 @@ function CancellationManagement() {
                         });
                     } else {
                         const totalAmount = selectedRequest.orderId?.totalAmt || 0;
-                        toast.success(`Refund amount: ₹${refundAmount} (75% of total order amount: ₹${totalAmount.toFixed(2)})`, {
+                        toast.success(`Refund amount: ₹${refundAmount} (${effectiveRefundPercentage}% of total order amount: ₹${totalAmount.toFixed(2)})`, {
                             duration: 5000,
                             style: {
                                 background: '#F0FFF4',
@@ -713,6 +836,19 @@ function CancellationManagement() {
                                         <span className="text-gray-600 font-medium">Order Amount:</span>
                                         <span className="font-semibold text-gray-800">₹{selectedRequest.orderId?.totalAmt?.toFixed(2)}</span>
                                     </div>
+                                    {/* Show delivery charge breakdown */}
+                                    {selectedRequest.orderId?.deliveryCharge && selectedRequest.orderId.deliveryCharge > 0 && (
+                                        <div className="flex flex-wrap justify-between items-center gap-2 pl-4 border-l-2 border-blue-200 bg-blue-50 p-2 rounded">
+                                            <span className="text-gray-600 font-medium text-sm">📦 Delivery Charge:</span>
+                                            <span className="font-semibold text-blue-600">₹{selectedRequest.orderId.deliveryCharge?.toFixed(2)}</span>
+                                        </div>
+                                    )}
+                                    {selectedRequest.orderId?.deliveryCharge && selectedRequest.orderId.deliveryCharge > 0 && (
+                                        <div className="flex flex-wrap justify-between items-center gap-2 pl-4 border-l-2 border-green-200 bg-green-50 p-2 rounded">
+                                            <span className="text-gray-600 font-medium text-sm">🛍️ Items Subtotal:</span>
+                                            <span className="font-semibold text-green-600">₹{(selectedRequest.orderId.totalAmt - selectedRequest.orderId.deliveryCharge)?.toFixed(2)}</span>
+                                        </div>
+                                    )}
                                     <div className="flex flex-wrap justify-between items-center gap-2">
                                         <span className="text-gray-600 font-medium">Order Date:</span>
                                         <span className="font-semibold text-gray-800">{formatDate(selectedRequest.orderId?.orderDate)}</span>
@@ -756,13 +892,51 @@ function CancellationManagement() {
                             <div className="bg-blue-50 p-4 sm:p-5 rounded-xl border border-blue-100">
                                 {selectedRequest.cancellationType === 'PARTIAL_ITEMS' ? (
                                     <div>
-                                        <div className="flex items-center gap-2 mb-3">
-                                            <div className="w-3 h-3 bg-orange-500 rounded-full"></div>
-                                            <span className="font-semibold text-orange-700 text-lg">Partial Item Cancellation</span>
-                                        </div>
-                                        <p className="text-gray-700 mb-3">
-                                            The customer requested to cancel specific items from their order:
-                                        </p>
+                                        {(() => {
+                                            // Check if this is effectively a full cancellation (only one item or all items selected)
+                                            const orderItems = selectedRequest.orderId?.items || [];
+                                            const cancelledItems = selectedRequest.itemsToCancel || [];
+                                            const isEffectivelyFullCancellation = orderItems.length === 1 || 
+                                                                                (orderItems.length > 0 && cancelledItems.length === orderItems.length);
+                                            
+                                            if (isEffectivelyFullCancellation && orderItems.length === 1) {
+                                                return (
+                                                    <>
+                                                        <div className="flex items-center gap-2 mb-3">
+                                                            <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
+                                                            <span className="font-semibold text-blue-700 text-lg">Single Item Order Cancellation</span>
+                                                        </div>
+                                                        <p className="text-gray-700 mb-3">
+                                                            This order contains only one item. Cancelling this item effectively cancels the entire order, including delivery charges.
+                                                        </p>
+                                                    </>
+                                                );
+                                            } else if (isEffectivelyFullCancellation) {
+                                                return (
+                                                    <>
+                                                        <div className="flex items-center gap-2 mb-3">
+                                                            <div className="w-3 h-3 bg-red-500 rounded-full"></div>
+                                                            <span className="font-semibold text-red-700 text-lg">Complete Order Cancellation</span>
+                                                        </div>
+                                                        <p className="text-gray-700 mb-3">
+                                                            The customer selected all items for cancellation, effectively cancelling the entire order including delivery charges.
+                                                        </p>
+                                                    </>
+                                                );
+                                            } else {
+                                                return (
+                                                    <>
+                                                        <div className="flex items-center gap-2 mb-3">
+                                                            <div className="w-3 h-3 bg-orange-500 rounded-full"></div>
+                                                            <span className="font-semibold text-orange-700 text-lg">Partial Item Cancellation</span>
+                                                        </div>
+                                                        <p className="text-gray-700 mb-3">
+                                                            The customer requested to cancel specific items from their order:
+                                                        </p>
+                                                    </>
+                                                );
+                                            }
+                                        })()}
                                         {selectedRequest.itemsToCancel && selectedRequest.itemsToCancel.length > 0 && (
                                             <div className="bg-white p-4 rounded-lg border border-orange-200">
                                                 <h4 className="font-medium text-gray-900 mb-3">Items to Cancel:</h4>
@@ -909,7 +1083,11 @@ function CancellationManagement() {
                                                                         
                                                                         {/* Refund Amount */}
                                                                         <div className="text-right">
-                                                                            <div className="text-sm text-gray-600 mb-1">Refund Amount (75%)</div>
+                                                                            <div className="text-sm text-gray-600 mb-1">
+                                                                                Refund Amount ({selectedRequest?.pricingInformation?.refundPercentage || 
+                                                                                selectedRequest?.adminResponse?.refundPercentage || 
+                                                                                selectedRequest?.refundPercentage || '75'}%)
+                                                                            </div>
                                                                             <div className="font-bold text-orange-600 text-lg">
                                                                                 ₹{(() => {
                                                                                     // Priority 1: Use refund amount from cancellation request
@@ -942,7 +1120,11 @@ function CancellationManagement() {
                                                 </div>
                                                 <div className="mt-4 pt-3 border-t border-orange-200">
                                                     <div className="flex justify-between items-center">
-                                                        <span className="font-semibold text-gray-800 text-lg">Total Expected Refund (75%):</span>
+                                                        <span className="font-semibold text-gray-800 text-lg">
+                                                            Total Expected Refund ({selectedRequest?.pricingInformation?.refundPercentage || 
+                                                             selectedRequest?.adminResponse?.refundPercentage || 
+                                                             selectedRequest?.refundPercentage || '75'}%):
+                                                        </span>
                                                         <span className="font-bold text-orange-600 text-xl">
                                                             ₹{getPartialCancellationRefundAmount(selectedRequest)?.toFixed(2)}
                                                         </span>
@@ -1579,29 +1761,101 @@ function CancellationManagement() {
                                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6">
                                     <div className="bg-white p-4 sm:p-5 rounded-lg text-center shadow-sm border border-blue-100 hover:shadow transition-all duration-300 transform hover:-translate-y-0.5">
                                         <div className="text-sm font-medium text-gray-600 mb-2">
-                                            {selectedRequest.cancellationType === 'PARTIAL_ITEMS' 
-                                                ? 'Cancelled Items Amount (With Discounts)' 
-                                                : 'Total Order Amount'}
+                                            {(() => {
+                                                const orderItems = selectedRequest.orderId?.items || [];
+                                                const cancelledItems = selectedRequest.itemsToCancel || [];
+                                                const isEffectivelyFullCancellation = orderItems.length === 1 || 
+                                                                                    (orderItems.length > 0 && cancelledItems.length === orderItems.length);
+                                                
+                                                if (selectedRequest.cancellationType === 'PARTIAL_ITEMS' && isEffectivelyFullCancellation) {
+                                                    return 'Total Order Amount (Including Delivery)';
+                                                } else if (selectedRequest.cancellationType === 'PARTIAL_ITEMS') {
+                                                    return 'Cancelled Items Amount (With Discounts)';
+                                                } else {
+                                                    return selectedRequest.orderId?.deliveryCharge > 0 
+                                                        ? 'Total Order Amount (Including Delivery)'
+                                                        : 'Total Order Amount';
+                                                }
+                                            })()}
                                         </div>
                                         <div className="text-lg sm:text-2xl font-bold text-gray-800 tracking-tight">
-                                            ₹{selectedRequest.cancellationType === 'PARTIAL_ITEMS' 
-                                                ? (selectedRequest.totalItemValue || calculatePartialCancellationTotal(selectedRequest))?.toFixed(2)
-                                                : selectedRequest.orderId?.totalAmt?.toFixed(2)}
+                                            ₹{(() => {
+                                                const orderItems = selectedRequest.orderId?.items || [];
+                                                const cancelledItems = selectedRequest.itemsToCancel || [];
+                                                const isEffectivelyFullCancellation = orderItems.length === 1 || 
+                                                                                    (orderItems.length > 0 && cancelledItems.length === orderItems.length);
+                                                
+                                                if (selectedRequest.cancellationType === 'PARTIAL_ITEMS' && isEffectivelyFullCancellation) {
+                                                    // For single item or all items cancelled, show total order amount with delivery noted
+                                                    return (
+                                                        <>
+                                                            {selectedRequest.orderId?.totalAmt?.toFixed(2)}
+                                                            {getDeliveryCharge(selectedRequest) > 0 && 
+                                                                <span className="block text-xs text-blue-600 mt-1">(Includes delivery: ₹{getDeliveryCharge(selectedRequest).toFixed(2)})</span>
+                                                            }
+                                                        </>
+                                                    );
+                                                } else if (selectedRequest.cancellationType === 'PARTIAL_ITEMS') {
+                                                    // For partial cancellation, show cancelled items total and note about proportional delivery charge
+                                                    const itemsValue = selectedRequest.totalItemValue || calculatePartialCancellationTotal(selectedRequest);
+                                                    const deliveryCharge = getDeliveryCharge(selectedRequest);
+                                                    
+                                                    return (
+                                                        <>
+                                                            {itemsValue?.toFixed(2)}
+                                                            {deliveryCharge > 0 && 
+                                                                <span className="block text-xs text-blue-600 mt-1">(+ proportional delivery charge)</span>
+                                                            }
+                                                        </>
+                                                    );
+                                                } else {
+                                                    // For full cancellation, show total order amount
+                                                    return selectedRequest.orderId?.totalAmt?.toFixed(2);
+                                                }
+                                            })()}
                                         </div>
-                                        {selectedRequest.cancellationType === 'PARTIAL_ITEMS' ? (
-                                            <div className="text-xs text-gray-500 mt-1">
-                                                Only cancelled items total
-                                            </div>
-                                        ) : (
-                                            <div className="text-xs text-gray-500 mt-1">
-                                                Including delivery charges
-                                            </div>
-                                        )}
+                                        {(() => {
+                                            // Use helper function to get delivery charge
+                                            const deliveryCharge = getDeliveryCharge(selectedRequest);
+                                            return (deliveryCharge > 0 && selectedRequest.cancellationType !== 'PARTIAL_ITEMS') ? (
+                                                <div className="text-xs text-blue-600 mt-2">
+                                                    (Items: ₹{(selectedRequest.orderId.totalAmt - deliveryCharge).toFixed(2)} + Delivery: ₹{deliveryCharge.toFixed(2)})
+                                                </div>
+                                            ) : null;
+                                        })()}
+                                        {(() => {
+                                            const orderItems = selectedRequest.orderId?.items || [];
+                                            const cancelledItems = selectedRequest.itemsToCancel || [];
+                                            const isEffectivelyFullCancellation = orderItems.length === 1 || 
+                                                                                (orderItems.length > 0 && cancelledItems.length === orderItems.length);
+                                            
+                                            if (selectedRequest.cancellationType === 'PARTIAL_ITEMS' && isEffectivelyFullCancellation) {
+                                                return (
+                                                    <div className="text-xs text-gray-500 mt-1">
+                                                        {orderItems.length === 1 ? 'Single item order - includes delivery' : 'All items cancelled - includes delivery'}
+                                                    </div>
+                                                );
+                                            } else if (selectedRequest.cancellationType === 'PARTIAL_ITEMS') {
+                                                return (
+                                                    <div className="text-xs text-gray-500 mt-1">
+                                                        Only cancelled items total
+                                                    </div>
+                                                );
+                                            } else {
+                                                return (
+                                                    <div className="text-xs text-gray-500 mt-1">
+                                                        Including delivery charges
+                                                    </div>
+                                                );
+                                            }
+                                        })()}
                                     </div>
                                     <div className="bg-white p-4 sm:p-5 rounded-lg text-center shadow-sm border border-blue-100 hover:shadow transition-all duration-300 transform hover:-translate-y-0.5">
                                         <div className="text-sm font-medium text-gray-600 mb-2">Refund Percentage</div>
                                         <div className="text-lg sm:text-2xl font-bold text-blue-600 tracking-tight flex items-center justify-center">
-                                            75%
+                                            {selectedRequest?.pricingInformation?.refundPercentage || 
+                                              selectedRequest?.adminResponse?.refundPercentage || 
+                                              selectedRequest?.refundPercentage || '75'}%
                                             <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 8l3 5m0 0l3-5m-3 5v4" />
                                             </svg>
@@ -1610,9 +1864,23 @@ function CancellationManagement() {
                                     <div className="bg-white p-4 sm:p-5 rounded-lg text-center shadow-sm border border-blue-100 hover:shadow transition-all duration-300 transform hover:-translate-y-0.5">
                                         <div className="text-sm font-medium text-gray-600 mb-2">Refund Amount</div>
                                         <div className="text-lg sm:text-2xl font-bold text-green-600 tracking-tight">
-                                            ₹{selectedRequest.cancellationType === 'PARTIAL_ITEMS' 
-                                                ? getPartialCancellationRefundAmount(selectedRequest)?.toFixed(2)
-                                                : getFullOrderRefundAmount(selectedRequest)?.toFixed(2)}
+                                            ₹{(() => {
+                                                const orderItems = selectedRequest.orderId?.items || [];
+                                                const cancelledItems = selectedRequest.itemsToCancel || [];
+                                                const isEffectivelyFullCancellation = orderItems.length === 1 || 
+                                                                                    (orderItems.length > 0 && cancelledItems.length === orderItems.length);
+                                                
+                                                if (selectedRequest.cancellationType === 'PARTIAL_ITEMS' && isEffectivelyFullCancellation) {
+                                                    // For single item or all items cancelled, use full order refund
+                                                    return getFullOrderRefundAmount(selectedRequest)?.toFixed(2);
+                                                } else if (selectedRequest.cancellationType === 'PARTIAL_ITEMS') {
+                                                    // For partial cancellation, use partial refund
+                                                    return getPartialCancellationRefundAmount(selectedRequest)?.toFixed(2);
+                                                } else {
+                                                    // For full cancellation, use full order refund
+                                                    return getFullOrderRefundAmount(selectedRequest)?.toFixed(2);
+                                                }
+                                            })()}
                                         </div>
                                     </div>
                                 </div>
@@ -1631,16 +1899,60 @@ function CancellationManagement() {
                                                 <span className="text-gray-600">Cancelled Items Total:</span>
                                                 <span className="font-medium">₹{(selectedRequest.totalItemValue || calculatePartialCancellationTotal(selectedRequest))?.toFixed(2)}</span>
                                             </div>
+                                            {(() => {
+                                                // Check if this is effectively a full cancellation (all items cancelled)
+                                                const orderItems = selectedRequest.orderId?.items || [];
+                                                const cancelledItems = selectedRequest.itemsToCancel || [];
+                                                const deliveryCharge = selectedRequest.orderId?.deliveryCharge || 0;
+                                                
+                                                // Always show delivery charge if it exists for partial cancellations
+                                                // This covers single-item orders and when all items are being cancelled
+                                                if (deliveryCharge > 0) {
+                                                    const isEffectivelyFullCancellation = orderItems.length > 0 && cancelledItems.length === orderItems.length;
+                                                    
+                                                    return (
+                                                        <div className="flex justify-between items-center py-1">
+                                                            <span className="text-gray-600">
+                                                                {isEffectivelyFullCancellation ? 'Delivery Charges (Full):' : 'Delivery Charges (Proportional):'}
+                                                            </span>
+                                                            <span className="font-medium">₹{deliveryCharge.toFixed(2)}</span>
+                                                        </div>
+                                                    );
+                                                }
+                                                return null;
+                                            })()}
                                             <div className="flex justify-between items-center py-1 border-t border-gray-200 pt-2">
                                                 <span className="text-gray-600">Refund Percentage:</span>
-                                                <span className="font-medium text-blue-600">75%</span>
+                                                <span className="font-medium text-blue-600">
+                                                    {selectedRequest?.pricingInformation?.refundPercentage || 
+                                                      selectedRequest?.adminResponse?.refundPercentage || 
+                                                      selectedRequest?.refundPercentage || '75'}%
+                                                </span>
                                             </div>
                                             <div className="flex justify-between items-center py-2 bg-green-50 px-3 rounded border-t-2 border-green-300">
                                                 <span className="font-semibold text-gray-800">Final Refund Amount:</span>
                                                 <span className="font-bold text-green-600 text-lg">₹{getPartialCancellationRefundAmount(selectedRequest)?.toFixed(2)}</span>
                                             </div>
                                             <div className="text-xs text-gray-500 mt-2 italic">
-                                                Calculation: ₹{(selectedRequest.totalItemValue || calculatePartialCancellationTotal(selectedRequest))?.toFixed(2)} × 75% = ₹{getPartialCancellationRefundAmount(selectedRequest)?.toFixed(2)}
+                                                {(() => {
+                                                    const orderItems = selectedRequest.orderId?.items || [];
+                                                    const cancelledItems = selectedRequest.itemsToCancel || [];
+                                                    const isEffectivelyFullCancellation = orderItems.length > 0 && cancelledItems.length === orderItems.length;
+                                                    const deliveryCharge = selectedRequest.orderId?.deliveryCharge || 0;
+                                                    const itemsTotal = selectedRequest.totalItemValue || calculatePartialCancellationTotal(selectedRequest);
+                                                    
+                                                    const refundPct = selectedRequest?.pricingInformation?.refundPercentage || 
+                                                      selectedRequest?.adminResponse?.refundPercentage || 
+                                                      selectedRequest?.refundPercentage || 75;
+                                                      
+                                                    if (isEffectivelyFullCancellation && deliveryCharge > 0) {
+                                                        const itemRefund = (itemsTotal * refundPct / 100).toFixed(2);
+                                                        const deliveryRefund = (deliveryCharge * refundPct / 100).toFixed(2);
+                                                        return `Calculation: (Items: ₹${itemsTotal?.toFixed(2)} × ${refundPct}% = ₹${itemRefund}) + (Delivery: ₹${deliveryCharge.toFixed(2)} × ${refundPct}% = ₹${deliveryRefund}) = Total Refund: ₹${getPartialCancellationRefundAmount(selectedRequest)?.toFixed(2)}`;
+                                                    } else {
+                                                        return `Calculation: ₹${itemsTotal?.toFixed(2)} × ${refundPct}% = ₹${getPartialCancellationRefundAmount(selectedRequest)?.toFixed(2)}`;
+                                                    }
+                                                })()}
                                             </div>
                                         </div>
                                     ) : (
@@ -1657,18 +1969,34 @@ function CancellationManagement() {
                                             )}
                                             {selectedRequest.pricingInformation?.totalCustomerSavings && (
                                                 <div className="flex justify-between items-center py-1">
-                                                    <span className="text-gray-600 text-xs text-green-600">• Customer Savings:</span>
+                                                    <span className="text-xs text-green-600">• Customer Savings:</span>
                                                     <span className="text-xs text-green-600">₹{selectedRequest.pricingInformation.totalCustomerSavings?.toFixed(2)}</span>
                                                 </div>
                                             )}
                                             <div className="flex justify-between items-center py-1">
-                                                <span className="text-gray-600 text-xs">• Delivery Charges:</span>
-                                                <span className="text-xs">₹{(selectedRequest.orderId?.totalAmt - calculateOrderDiscountedTotal(selectedRequest.orderId, selectedRequest))?.toFixed(2)}</span>
+                                                {(() => {
+                                                    // Use our helper function to get delivery charge
+                                                    const deliveryCharge = getDeliveryCharge(selectedRequest);
+                                                    const hasDeliveryCharge = deliveryCharge > 0;
+                                                    
+                                                    return (
+                                                        <>
+                                                            <span className={`${hasDeliveryCharge ? "text-blue-600 font-medium" : "text-gray-600"} text-sm`}>
+                                                                • Delivery Charges:
+                                                            </span>
+                                                            <span className={`${hasDeliveryCharge ? "text-blue-600 font-medium" : "text-gray-500"} text-sm`}>
+                                                                ₹{deliveryCharge.toFixed(2)}
+                                                            </span>
+                                                        </>
+                                                    );
+                                                })()}
                                             </div>
                                             <div className="flex justify-between items-center py-1 border-t border-gray-200 pt-2">
                                                 <span className="text-gray-600">Refund Percentage:</span>
                                                 <span className="font-medium text-blue-600">
-                                                    {selectedRequest.pricingInformation?.refundPercentage || 75}%
+                                                    {selectedRequest.pricingInformation?.refundPercentage || 
+                                                      selectedRequest.adminResponse?.refundPercentage || 
+                                                      selectedRequest.refundPercentage || '75'}%
                                                 </span>
                                             </div>
                                             <div className="flex justify-between items-center py-2 bg-green-50 px-3 rounded border-t-2 border-green-300">
@@ -1677,7 +2005,36 @@ function CancellationManagement() {
                                             </div>
                                             <div className="text-xs text-gray-500 mt-2 italic">
                                                 {selectedRequest.pricingInformation?.note || 
-                                                 "Refund calculated based on discounted prices customer actually paid, not original retail prices"}
+                                                 "Refund calculated based on discounted prices customer actually paid (including delivery charges) and not original retail prices"}
+                                            </div>
+                                            {(() => {
+                                                // Use our helper function to check for delivery charge
+                                                const deliveryCharge = getDeliveryCharge(selectedRequest);
+                                                return deliveryCharge > 0 ? (
+                                                    <div className="text-xs text-blue-600 mt-1 font-medium">
+                                                        💲 Delivery charge of ₹{deliveryCharge.toFixed(2)} is included in the refund calculation
+                                                    </div>
+                                                ) : null;
+                                            })()}
+                                            {/* Detailed Calculation */}
+                                            <div className="text-xs text-gray-600 mt-2 bg-gray-50 p-2 rounded border border-gray-100">
+                                                {(() => {
+                                                    const refundPct = selectedRequest?.pricingInformation?.refundPercentage || 
+                                                        selectedRequest?.adminResponse?.refundPercentage || 
+                                                        selectedRequest?.refundPercentage || 75;
+                                                    const itemsTotal = calculateOrderDiscountedTotal(selectedRequest.orderId, selectedRequest);
+                                                    // Use our helper function to get delivery charge consistently
+                                                    const deliveryCharge = getDeliveryCharge(selectedRequest);
+                                                    const itemRefund = (itemsTotal * refundPct / 100).toFixed(2);
+                                                    const deliveryRefund = deliveryCharge > 0 ? (deliveryCharge * refundPct / 100).toFixed(2) : 0;
+                                                    const totalRefund = getFullOrderRefundAmount(selectedRequest)?.toFixed(2);
+                                                    
+                                                    if (deliveryCharge > 0) {
+                                                        return `Detailed calculation: (Items: ₹${itemsTotal.toFixed(2)} × ${refundPct}% = ₹${itemRefund}) + (Delivery: ₹${deliveryCharge.toFixed(2)} × ${refundPct}% = ₹${deliveryRefund}) = Total Refund: ₹${totalRefund}`;
+                                                    } else {
+                                                        return `Detailed calculation: Items: ₹${itemsTotal.toFixed(2)} × ${refundPct}% = Total Refund: ₹${totalRefund}`;
+                                                    }
+                                                })()}
                                             </div>
                                             <div className="text-xs text-green-600 mt-1 font-medium">
                                                 ✅ Fair refund: Based on actual amount paid by customer
@@ -1738,21 +2095,48 @@ function CancellationManagement() {
                                     <div className="bg-blue-50 p-4 sm:p-5 rounded-xl border border-blue-200 shadow-sm hover:shadow-md transition-all duration-300">
                                         <div className="flex items-center gap-2 text-blue-700">
                                             <FaInfo className="text-blue-500 flex-shrink-0 h-5 w-5" />
-                                            <span className="font-semibold text-lg tracking-tight">Refund Policy: 75% of order amount will be refunded</span>
+                                            <span className="font-semibold text-lg tracking-tight">
+                                                Refund Policy: {selectedRequest?.pricingInformation?.refundPercentage || 
+                                                  selectedRequest?.adminResponse?.refundPercentage || 
+                                                  selectedRequest?.refundPercentage || '75'}% of order amount will be refunded
+                                            </span>
                                         </div>
                                         <p className="text-sm text-blue-600 mt-3 sm:ml-7 bg-white p-3 rounded-lg border border-blue-100 shadow-sm">
                                             Upon approval, the customer will receive a refund 
-                                            {selectedRequest.cancellationType === 'PARTIAL_ITEMS' ? (
-                                                <>
-                                                    of the cancelled items amount 
-                                                    <span className="font-semibold"> (₹{getPartialCancellationRefundAmount(selectedRequest)?.toFixed(2)})</span>
-                                                </>
-                                            ) : (
-                                                <>
-                                                    based on the discounted amount they actually paid 
-                                                    <span className="font-semibold"> (₹{getFullOrderRefundAmount(selectedRequest)?.toFixed(2)})</span>
-                                                </>
-                                            )}.
+                                            {(() => {
+                                                const orderItems = selectedRequest.orderId?.items || [];
+                                                const cancelledItems = selectedRequest.itemsToCancel || [];
+                                                const isEffectivelyFullCancellation = orderItems.length === 1 || 
+                                                                                    (orderItems.length > 0 && cancelledItems.length === orderItems.length);
+                                                
+                                                if (selectedRequest.cancellationType === 'PARTIAL_ITEMS' && isEffectivelyFullCancellation) {
+                                                    return (
+                                                        <>
+                                                            for the entire order including delivery charges 
+                                                            <span className="font-semibold"> (₹{getFullOrderRefundAmount(selectedRequest)?.toFixed(2)})</span>
+                                                            {orderItems.length === 1 && (
+                                                                <span className="text-xs block mt-1 text-blue-500">
+                                                                    * Single item order - treated as full cancellation
+                                                                </span>
+                                                            )}
+                                                        </>
+                                                    );
+                                                } else if (selectedRequest.cancellationType === 'PARTIAL_ITEMS') {
+                                                    return (
+                                                        <>
+                                                            of the cancelled items amount 
+                                                            <span className="font-semibold"> (₹{getPartialCancellationRefundAmount(selectedRequest)?.toFixed(2)})</span>
+                                                        </>
+                                                    );
+                                                } else {
+                                                    return (
+                                                        <>
+                                                            based on the discounted amount they actually paid 
+                                                            <span className="font-semibold"> (₹{getFullOrderRefundAmount(selectedRequest)?.toFixed(2)})</span>
+                                                        </>
+                                                    );
+                                                }
+                                            })()}.
                                             This information will be sent to the customer's email automatically.
                                         </p>
                                     </div>
@@ -1815,7 +2199,11 @@ function CancellationManagement() {
                                     </div>
                                     <div className="mb-3 flex flex-wrap justify-between items-center">
                                         <span className="font-semibold text-gray-700">Refund Percentage: </span>
-                                        <span className="text-blue-600 font-semibold">75%</span>
+                                        <span className="text-blue-600 font-semibold">
+                                            {selectedRequest?.pricingInformation?.refundPercentage || 
+                                              selectedRequest?.adminResponse?.refundPercentage || 
+                                              selectedRequest?.refundPercentage || '75'}%
+                                        </span>
                                     </div>
                                     {selectedRequest.status === 'APPROVED' && (
                                         <div className="mb-3 flex flex-wrap justify-between items-center">
@@ -2099,7 +2487,9 @@ function CancellationManagement() {
                                                 <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01" />
                                                 </svg>
-                                                75% refund
+                                                {request?.pricingInformation?.refundPercentage || 
+                                                  request?.adminResponse?.refundPercentage || 
+                                                  request?.refundPercentage || '75'}% refund
                                             </div>
                                         </td>
                                         <td className="px-4 sm:px-6 py-4 sm:py-5">

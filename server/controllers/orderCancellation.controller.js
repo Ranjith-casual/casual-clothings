@@ -9,6 +9,102 @@ import { sendRefundInvoiceEmail } from "./payment.controller.js";
 import fs from 'fs';
 import mongoose from "mongoose";
 
+// Helper function to calculate proportional delivery charge refund for partial cancellations
+const calculateProportionalDeliveryRefund = (order, itemsToCancel, refundPercentage = 75) => {
+    if (!order.deliveryCharge || order.deliveryCharge <= 0) {
+        return 0; // No delivery charge to refund
+    }
+
+    if (!order.items || order.items.length === 0) {
+        return 0; // No items in order
+    }
+
+    // Calculate total order value (excluding delivery)
+    const totalOrderValue = order.subTotalAmt || order.totalAmt - (order.deliveryCharge || 0);
+    
+    // Calculate value of cancelled items
+    let cancelledItemsValue = 0;
+    
+    itemsToCancel.forEach(cancelItem => {
+        const orderItem = order.items.find(item => 
+            item._id && item._id.toString() === cancelItem.itemId.toString()
+        );
+        
+        if (orderItem) {
+            // Use the item total or calculate from unit price and quantity
+            const itemValue = orderItem.itemTotal || 
+                             (orderItem.sizeAdjustedPrice || orderItem.productDetails?.price || 0) * orderItem.quantity;
+            cancelledItemsValue += itemValue;
+        }
+    });
+
+    // Calculate proportional delivery charge
+    const deliveryProportion = totalOrderValue > 0 ? (cancelledItemsValue / totalOrderValue) : 0;
+    const proportionalDeliveryCharge = order.deliveryCharge * deliveryProportion;
+    
+    // Apply refund percentage to delivery charge
+    const deliveryRefund = (proportionalDeliveryCharge * refundPercentage) / 100;
+    
+    console.log('📦 Proportional Delivery Refund Calculation:', {
+        totalOrderValue,
+        cancelledItemsValue,
+        deliveryCharge: order.deliveryCharge,
+        deliveryProportion,
+        proportionalDeliveryCharge,
+        refundPercentage,
+        deliveryRefund
+    });
+    
+    return Math.round(deliveryRefund * 100) / 100; // Round to 2 decimal places
+};
+
+// Helper function to update all items in a full order cancellation
+const updateFullOrderCancellation = async (orderId, cancellationId, refundPercentage) => {
+    try {
+        // Get the order with items to update each item status
+        const fullOrder = await orderModel.findById(orderId);
+        
+        if (fullOrder) {
+            // Update order status
+            fullOrder.orderStatus = 'CANCELLED';
+            fullOrder.paymentStatus = 'REFUND_PROCESSING';
+            fullOrder.isFullOrderCancelled = true;
+            
+            // Update each item's status and prepare refundSummary
+            const refundSummary = [];
+            
+            fullOrder.items.forEach(item => {
+                // Update item status fields
+                item.status = 'Cancelled';
+                item.cancelApproved = true;
+                item.refundStatus = 'Processing';
+                item.refundAmount = (item.itemTotal * refundPercentage / 100);
+                item.cancellationId = cancellationId;
+                
+                // Add to refundSummary
+                refundSummary.push({
+                    itemId: item._id,
+                    amount: item.refundAmount,
+                    status: 'Processing'
+                });
+            });
+            
+            fullOrder.refundSummary = refundSummary;
+            await fullOrder.save();
+        } else {
+            // Fallback if order not found
+            await orderModel.findByIdAndUpdate(orderId, {
+                orderStatus: 'CANCELLED',
+                paymentStatus: 'REFUND_PROCESSING',
+                isFullOrderCancelled: true
+            });
+        }
+    } catch (error) {
+        console.error("Error updating full order cancellation:", error);
+        throw error;
+    }
+};
+
 // Comprehensive Order Details Controller - Get complete order details with properly populated data
 export const getComprehensiveOrderDetails = async (req, res) => {
     try {
@@ -246,42 +342,133 @@ export const requestOrderCancellation = async (req, res) => {
             });
         }
 
-        // Check if cancellation request already exists
-        const existingRequest = await orderCancellationModel.findOne({
+        // Check if cancellation request already exists with status PENDING
+        // We only block if there's a PENDING request, allowing new requests after previous ones were APPROVED
+        const existingPendingRequest = await orderCancellationModel.findOne({
             orderId: orderId,
-            status: { $in: ['PENDING', 'APPROVED'] }
+            status: 'PENDING'
         });
 
-        if (existingRequest) {
+        if (existingPendingRequest) {
             return res.status(400).json({
                 success: false,
                 error: true,
-                message: "Cancellation request already exists for this order"
+                message: "A pending cancellation request already exists for this order"
+            });
+        }
+        
+        // Check if there are any remaining active items that can be cancelled
+        const activeItems = order.items.filter(item => 
+            item.status !== 'Cancelled' && !item.cancelApproved
+        );
+        
+        if (activeItems.length === 0) {
+            return res.status(400).json({
+                success: false,
+                error: true,
+                message: "No active items left to cancel in this order"
             });
         }
 
-        // Get current policy for refund calculation
+        // Get current policy for refund calculation (legacy)
         const policy = await cancellationPolicyModel.findOne({ isActive: true });
-        const refundPercentage = pricingInformation?.refundPercentage || 75;
-
+        
         // Check if cancellation is past estimated delivery date
         const now = new Date();
         const wasPastDeliveryDate = order.estimatedDeliveryDate && 
             now > new Date(order.estimatedDeliveryDate) && 
             !order.actualDeliveryDate;
+            
+        // Prepare cancellation request context for refund calculation
+        const cancellationContext = {
+            requestDate: now,
+            deliveryInfo: {
+                estimatedDeliveryDate: order.estimatedDeliveryDate,
+                actualDeliveryDate: order.actualDeliveryDate,
+                wasPastDeliveryDate: wasPastDeliveryDate
+            },
+            createdAt: now
+        };
 
-        // Calculate refund amount - use pricing information if available, otherwise fallback
+        // Calculate refund amount using the dynamic RefundPolicyService when possible
         let expectedRefundAmount;
+        let refundPercentage;
+        let refundCalculation = null;
+        
+        // Priority 1: Use frontend provided calculation if available
         if (pricingInformation?.calculatedRefundAmount !== undefined) {
             expectedRefundAmount = pricingInformation.calculatedRefundAmount;
+            refundPercentage = pricingInformation?.refundPercentage || 75;
             console.log('✅ Using pricing information refund amount:', expectedRefundAmount);
-        } else if (pricingInformation?.totalAmountCustomerPaid !== undefined) {
-            expectedRefundAmount = (pricingInformation.totalAmountCustomerPaid * refundPercentage) / 100;
-            console.log('✅ Calculating refund from customer paid amount:', expectedRefundAmount);
         } else {
-            // Fallback to original calculation
-            expectedRefundAmount = (order.totalAmt * refundPercentage) / 100;
-            console.log('⚠️ Using fallback refund calculation:', expectedRefundAmount);
+            try {
+                // Get customer information for loyalty bonuses
+                const user = await UserModel.findById(userId);
+                const customerInfo = user ? {
+                    isVip: user.role === 'VIP' || user.membershipTier === 'VIP',
+                    membershipTier: user.membershipTier || 'REGULAR',
+                    orderHistory: user.orderHistory || []
+                } : null;
+                
+                // Import RefundPolicyService for dynamic calculation
+                const { RefundPolicyService } = await import('../utils/RefundPolicyService.js');
+                
+                // Prepare order data for refund calculation
+                const orderForCalculation = {
+                    totalAmt: order.totalAmt,
+                    subTotalAmt: order.subTotalAmt,
+                    deliveryCharge: order.deliveryCharge,
+                    orderDate: order.orderDate || order.createdAt
+                };
+                
+                // Use enhanced pricing if available
+                if (pricingInformation?.totalAmountCustomerPaid !== undefined) {
+                    orderForCalculation.totalAmt = pricingInformation.totalAmountCustomerPaid + (order.deliveryCharge || 0);
+                    orderForCalculation.subTotalAmt = pricingInformation.totalAmountCustomerPaid;
+                }
+                
+                // Calculate refund using the enhanced policy service
+                refundCalculation = RefundPolicyService.calculateRefundAmount(
+                    orderForCalculation,
+                    cancellationContext,
+                    null, // No custom percentage
+                    customerInfo
+                );
+                
+                expectedRefundAmount = refundCalculation.refundAmount;
+                refundPercentage = refundCalculation.refundPercentage;
+                
+                console.log('💰 Dynamic Refund Calculation:', {
+                    baseAmount: refundCalculation.originalAmount,
+                    refundPercentage: refundCalculation.refundPercentage,
+                    finalRefundAmount: refundCalculation.refundAmount,
+                    cancellationTiming: refundCalculation.cancellationTiming,
+                    penalties: refundCalculation.penalties,
+                    bonuses: refundCalculation.bonuses
+                });
+                
+            } catch (calcError) {
+                // Fallback to legacy calculation if dynamic calculation fails
+                console.error('Error using RefundPolicyService:', calcError);
+                
+                refundPercentage = pricingInformation?.refundPercentage || 75;
+                
+                if (pricingInformation?.totalAmountCustomerPaid !== undefined) {
+                    // Include delivery charges in the total amount customer paid
+                    const totalWithDelivery = pricingInformation.totalAmountCustomerPaid + (order.deliveryCharge || 0);
+                    expectedRefundAmount = (totalWithDelivery * refundPercentage) / 100;
+                } else {
+                    // Fallback to original calculation - includes delivery charges in totalAmt
+                    expectedRefundAmount = (order.totalAmt * refundPercentage) / 100;
+                }
+                
+                console.log('⚠️ Using fallback refund calculation (includes delivery):', {
+                    orderTotal: order.totalAmt,
+                    deliveryCharge: order.deliveryCharge || 0,
+                    refundPercentage,
+                    expectedRefundAmount
+                });
+            }
         }
 
         // Create cancellation request with delivery information and pricing data
@@ -291,10 +478,20 @@ export const requestOrderCancellation = async (req, res) => {
             reason,
             additionalReason,
             pricingInformation: pricingInformation || null, // Store pricing information from frontend
+            refundDetails: {
+                enhancedRefundData: refundCalculation ? {
+                    calculationMethod: 'RefundPolicyService',
+                    cancellationTiming: refundCalculation.cancellationTiming,
+                    daysSinceOrder: refundCalculation.daysSinceOrder,
+                    penalties: refundCalculation.penalties,
+                    bonuses: refundCalculation.bonuses
+                } : null
+            },
             deliveryInfo: {
                 estimatedDeliveryDate: order.estimatedDeliveryDate,
                 actualDeliveryDate: order.actualDeliveryDate,
                 deliveryNotes: order.deliveryNotes,
+                deliveryCharge: order.deliveryCharge || 0, // Store delivery charge at time of cancellation
                 wasPastDeliveryDate
             },
             adminResponse: {
@@ -328,9 +525,37 @@ export const requestOrderCancellation = async (req, res) => {
                             <p><strong>Reason:</strong> ${reason}</p>
                             <p><strong>Request Date:</strong> ${new Date().toLocaleDateString()}</p>
                             ${order.estimatedDeliveryDate ? `<p><strong>Estimated Delivery Date:</strong> ${new Date(order.estimatedDeliveryDate).toLocaleDateString()}</p>` : ''}
-                            ${wasPastDeliveryDate ? '<p style="color: #dc3545;"><strong>Note:</strong> Cancellation requested after estimated delivery date</p>' : ''}
-                            <p><strong>Expected Refund:</strong> ₹${expectedRefundAmount.toFixed(2)} (${refundPercentage}% of ${pricingInformation?.totalAmountCustomerPaid ? 'discounted amount' : 'order value'})</p>
-                            ${pricingInformation?.totalCustomerSavings ? `<p><strong>Your Savings:</strong> ₹${pricingInformation.totalCustomerSavings.toFixed(2)} from discounts</p>` : ''}
+                            
+                            <div style="border-top: 1px solid #dee2e6; margin: 10px 0; padding-top: 10px;">
+                                <h4 style="margin-top: 0;">Refund Details:</h4>
+                                <p><strong>Expected Refund:</strong> ₹${expectedRefundAmount.toFixed(2)} (${refundPercentage}% of total order)</p>
+                                ${order.deliveryCharge && order.deliveryCharge > 0 ? `<p><strong>Delivery Charge:</strong> ₹${order.deliveryCharge.toFixed(2)} (included in refund calculation)</p>` : ''}
+                                ${pricingInformation?.totalCustomerSavings ? `<p><strong>Your Savings:</strong> ₹${pricingInformation.totalCustomerSavings.toFixed(2)} from discounts</p>` : ''}
+                                
+                                ${refundCalculation ? `
+                                <div style="margin-top: 10px; padding: 10px; background-color: #e9ecef; border-radius: 4px;">
+                                    <p><strong>Cancellation Timing:</strong> ${
+                                        refundCalculation.cancellationTiming === 'EARLY' ? 'Early (within 2 days) - 90% base refund' : 
+                                        refundCalculation.cancellationTiming === 'STANDARD' ? 'Standard (3-7 days) - 75% base refund' : 
+                                        'Late (after 7 days) - 50% base refund'
+                                    }</p>
+                                    
+                                    ${refundCalculation.bonuses?.totalBonus > 0 ? `
+                                    <p style="color: #28a745;"><strong>Customer Loyalty Bonus:</strong> +${refundCalculation.bonuses.totalBonus}%</p>
+                                    ${refundCalculation.bonuses.reasons?.map(reason => 
+                                        `<p style="color: #28a745; margin-left: 15px; font-size: 0.9em;">• ${reason}</p>`
+                                    ).join('') || ''}
+                                    ` : ''}
+                                    
+                                    ${refundCalculation.penalties?.totalPenalty > 0 ? `
+                                    <p style="color: #856404;"><strong>Applied Penalties:</strong> -${refundCalculation.penalties.totalPenalty}%</p>
+                                    ${refundCalculation.penalties.reasons?.map(reason => 
+                                        `<p style="color: #856404; margin-left: 15px; font-size: 0.9em;">• ${reason}</p>`
+                                    ).join('') || ''}
+                                    ` : ''}
+                                </div>
+                                ` : wasPastDeliveryDate ? '<p style="color: #dc3545;"><strong>Note:</strong> Cancellation requested after estimated delivery date</p>' : ''}
+                            </div>
                         </div>
                         
                         <p><strong>What happens next?</strong></p>
@@ -347,7 +572,8 @@ export const requestOrderCancellation = async (req, res) => {
             });
         }
 
-        res.status(200).json({
+        // Prepare enhanced response with refund calculation details
+        const responseData = {
             success: true,
             error: false,
             message: "Cancellation request submitted successfully",
@@ -355,9 +581,23 @@ export const requestOrderCancellation = async (req, res) => {
                 requestId: cancellationRequest._id,
                 expectedRefund: expectedRefundAmount.toFixed(2),
                 refundPercentage,
-                pricingUsed: pricingInformation ? 'Enhanced pricing from frontend' : 'Fallback calculation'
+                pricingUsed: pricingInformation ? 'Enhanced pricing from frontend' : 'Dynamic calculation'
             }
-        });
+        };
+        
+        // Add enhanced refund calculation details if available
+        if (refundCalculation) {
+            responseData.data.refundCalculation = {
+                cancellationTiming: refundCalculation.cancellationTiming,
+                daysSinceOrder: refundCalculation.daysSinceOrder,
+                penalties: refundCalculation.penalties,
+                bonuses: refundCalculation.bonuses,
+                originalAmount: refundCalculation.originalAmount,
+                finalRefundAmount: refundCalculation.refundAmount
+            };
+        }
+        
+        res.status(200).json(responseData);
 
     } catch (error) {
         console.error("Error in requestOrderCancellation:", error);
@@ -471,7 +711,16 @@ export const processCancellationRequest = async (req, res) => {
         const adminId = req.userId;
         const { requestId, action, adminComments, customRefundPercentage, calculatedRefundAmount, calculatedTotalValue, refundData } = req.body;
 
-        if (!['APPROVED', 'REJECTED'].includes(action)) {
+        // Validate required fields
+        if (!requestId) {
+            return res.status(400).json({
+                success: false,
+                error: true,
+                message: "Request ID is required"
+            });
+        }
+
+        if (!action || !['APPROVED', 'REJECTED'].includes(action)) {
             return res.status(400).json({
                 success: false,
                 error: true,
@@ -511,65 +760,87 @@ export const processCancellationRequest = async (req, res) => {
             });
         }
 
-        // Calculate refund amount with delivery date consideration and enhanced pricing
+        // Calculate refund amount using the enhanced RefundPolicyService
         const order = cancellationRequest.orderId;
-        let baseRefundPercentage = customRefundPercentage || cancellationRequest.adminResponse.refundPercentage;
         
         // Priority 1: Use frontend-calculated refund amount if available (includes discount pricing)
         let refundAmount = 0;
         let baseAmount = 0;
+        let finalRefundPercentage = 0;
+        let refundCalculation = null;
         
         if (action === 'APPROVED' && calculatedRefundAmount !== undefined && calculatedTotalValue !== undefined) {
             // Use the calculated amounts from frontend that incorporate discount pricing
             refundAmount = calculatedRefundAmount;
             baseAmount = calculatedTotalValue;
+            finalRefundPercentage = customRefundPercentage || cancellationRequest.adminResponse.refundPercentage || 75;
             
             console.log('💰 Using Frontend-Calculated Refund:', {
                 calculatedRefundAmount: refundAmount,
                 calculatedTotalValue: baseAmount,
-                frontendRefundPercentage: baseRefundPercentage,
+                frontendRefundPercentage: finalRefundPercentage,
                 basedOnDiscountedPricing: refundData?.basedOnDiscountedPricing || false
             });
-        } else {
-            // Fallback to original calculation logic for backward compatibility
-            // Use enhanced pricing information if available
+        } else if (action === 'APPROVED') {
+            // Get customer information for loyalty bonuses
+            const customer = cancellationRequest.userId;
+            const customerInfo = customer ? {
+                isVip: customer.role === 'VIP' || customer.membershipTier === 'VIP',
+                membershipTier: customer.membershipTier || 'REGULAR',
+                orderHistory: customer.orderHistory || []
+            } : null;
+            
+            // Use the enhanced RefundPolicyService for dynamic refund calculation
+            // Import RefundPolicyService
+            const { RefundPolicyService } = await import('../utils/RefundPolicyService.js');
+            
+            // Prepare order data for refund calculation
+            const orderForCalculation = {
+                totalAmt: order.totalAmt,
+                subTotalAmt: order.subTotalAmt,
+                deliveryCharge: order.deliveryCharge,
+                orderDate: order.orderDate || order.createdAt
+            };
+            
+            // Use pricing information if available for more accurate calculation
             if (cancellationRequest.pricingInformation?.totalAmountCustomerPaid) {
-                baseAmount = cancellationRequest.pricingInformation.totalAmountCustomerPaid;
-                console.log('✅ Using enhanced pricing - Customer paid amount:', baseAmount);
-            } else {
-                baseAmount = order.totalAmt;
-                console.log('⚠️ Using fallback pricing - Order total:', baseAmount);
+                orderForCalculation.totalAmt = cancellationRequest.pricingInformation.totalAmountCustomerPaid + (order.deliveryCharge || 0);
+                orderForCalculation.subTotalAmt = cancellationRequest.pricingInformation.totalAmountCustomerPaid;
+                
+                console.log('✅ Using enhanced pricing for refund calculation:', {
+                    customerPaid: cancellationRequest.pricingInformation.totalAmountCustomerPaid,
+                    deliveryCharge: order.deliveryCharge || 0,
+                    totalForCalculation: orderForCalculation.totalAmt
+                });
             }
             
-            // Adjust refund percentage based on delivery status
-            if (action === 'APPROVED' && cancellationRequest.deliveryInfo) {
-                const deliveryInfo = cancellationRequest.deliveryInfo;
-                
-                // If cancellation is requested after estimated delivery date, reduce refund
-                if (deliveryInfo.wasPastDeliveryDate) {
-                    baseRefundPercentage = Math.max(50, baseRefundPercentage - 15); // Reduce by 15% but minimum 50%
-                }
-                
-                // If order was already delivered, significantly reduce refund
-                if (deliveryInfo.actualDeliveryDate) {
-                    const daysSinceDelivery = Math.floor((new Date() - new Date(deliveryInfo.actualDeliveryDate)) / (1000 * 60 * 60 * 24));
-                    if (daysSinceDelivery > 7) {
-                        baseRefundPercentage = Math.max(25, baseRefundPercentage - 30); // Reduce by 30% but minimum 25%
-                    } else {
-                        baseRefundPercentage = Math.max(40, baseRefundPercentage - 20); // Reduce by 20% but minimum 40%
-                    }
-                }
-            }
+            // Calculate refund using the enhanced policy service
+            refundCalculation = RefundPolicyService.calculateRefundAmount(
+                orderForCalculation, 
+                cancellationRequest, 
+                customRefundPercentage,
+                customerInfo
+            );
             
-            const refundPercentage = baseRefundPercentage;
-            refundAmount = action === 'APPROVED' ? (baseAmount * refundPercentage / 100) : 0;
+            refundAmount = refundCalculation.refundAmount;
+            baseAmount = refundCalculation.originalAmount;
+            finalRefundPercentage = refundCalculation.refundPercentage;
             
-            console.log('💰 Fallback Refund Calculation:', {
+            console.log('💰 Dynamic Refund Calculation:', {
                 baseAmount: baseAmount,
-                refundPercentage: refundPercentage,
+                refundPercentage: finalRefundPercentage,
                 finalRefundAmount: refundAmount,
-                usingEnhancedPricing: !!cancellationRequest.pricingInformation?.totalAmountCustomerPaid
+                cancellationTiming: refundCalculation.cancellationTiming,
+                penalties: refundCalculation.penalties,
+                bonuses: refundCalculation.bonuses
             });
+        } else {
+            // If rejected, no refund
+            refundAmount = 0;
+            baseAmount = order.totalAmt;
+            finalRefundPercentage = 0;
+            
+            // This block is no longer needed as it's handled above
         }
 
         // Update cancellation request
@@ -578,9 +849,10 @@ export const processCancellationRequest = async (req, res) => {
         cancellationRequest.adminResponse.processedDate = new Date();
         cancellationRequest.adminResponse.adminComments = adminComments;
         cancellationRequest.adminResponse.refundAmount = refundAmount;
-        cancellationRequest.adminResponse.refundPercentage = baseRefundPercentage;
+        cancellationRequest.adminResponse.refundPercentage = finalRefundPercentage;
         
-        // Store enhanced refund data if provided from frontend
+        // Store enhanced refund data
+        // First priority: Frontend data if provided
         if (refundData) {
             cancellationRequest.refundDetails.enhancedRefundData = {
                 ...refundData,
@@ -588,70 +860,66 @@ export const processCancellationRequest = async (req, res) => {
                 processedBy: adminId
             };
             
-            console.log('📊 Stored enhanced refund data:', cancellationRequest.refundDetails.enhancedRefundData);
+            console.log('📊 Stored frontend enhanced refund data:', cancellationRequest.refundDetails.enhancedRefundData);
+        } 
+        // Second priority: RefundPolicyService calculation results
+        else if (refundCalculation) {
+            cancellationRequest.refundDetails.enhancedRefundData = {
+                calculationMethod: 'RefundPolicyService',
+                cancellationTiming: refundCalculation.cancellationTiming,
+                daysSinceOrder: refundCalculation.daysSinceOrder,
+                penalties: refundCalculation.penalties,
+                bonuses: refundCalculation.bonuses,
+                processedAt: new Date(),
+                processedBy: adminId
+            };
+            
+            console.log('📊 Stored policy-based refund data:', cancellationRequest.refundDetails.enhancedRefundData);
         }
 
         if (action === 'APPROVED') {
             cancellationRequest.refundDetails.refundStatus = 'PROCESSING';
             
-            // Mark all items as cancelled in full order cancellation
-            await updateFullOrderCancellation(order._id, cancellationRequest._id, baseRefundPercentage);
-            
-            // TODO: Integrate with payment gateway for actual refund processing
-            // await processPaymentRefund(order, refundAmount);
-            
-            // TODO: Restore inventory for cancelled items
-            // await restoreInventoryForOrder(order);
-            
-            console.log(`✅ Full order cancellation approved - Order: ${order.orderId}, Refund: ₹${refundAmount}`);
-        }
-        
-// Helper function to update all items in a full order cancellation
-const updateFullOrderCancellation = async (orderId, cancellationId, refundPercentage) => {
-    try {
-        // Get the order with items to update each item status
-        const fullOrder = await orderModel.findById(orderId);
-        
-        if (fullOrder) {
-            // Update order status
-            fullOrder.orderStatus = 'CANCELLED';
-            fullOrder.paymentStatus = 'REFUND_PROCESSING';
-            fullOrder.isFullOrderCancelled = true;
-            
-            // Update each item's status and prepare refundSummary
-            const refundSummary = [];
-            
-            fullOrder.items.forEach(item => {
-                // Update item status fields
-                item.status = 'Cancelled';
-                item.cancelApproved = true;
-                item.refundStatus = 'Processing';
-                item.refundAmount = (item.itemTotal * refundPercentage / 100);
-                item.cancellationId = cancellationId;
+            // Handle full vs partial cancellation differently
+            if (cancellationRequest.cancellationType === 'PARTIAL_ITEMS') {
+                // For partial cancellations, update only the specific items
+                const order = cancellationRequest.orderId;
+                const cancelledItemIds = cancellationRequest.itemsToCancel.map(item => item.itemId.toString());
                 
-                // Add to refundSummary
-                refundSummary.push({
-                    itemId: item._id,
-                    amount: item.refundAmount,
-                    status: 'Processing'
+                // Update only the cancelled items status
+                order.items.forEach(item => {
+                    if (cancelledItemIds.includes(item._id.toString())) {
+                        item.status = 'Cancelled';
+                        item.cancelApproved = true;
+                        item.refundStatus = 'Processing';
+                        item.refundAmount = (item.itemTotal * finalRefundPercentage / 100);
+                        item.cancellationId = cancellationRequest._id;
+                    }
                 });
-            });
-            
-            fullOrder.refundSummary = refundSummary;
-            await fullOrder.save();
-        } else {
-            // Fallback if order not found
-            await orderModel.findByIdAndUpdate(orderId, {
-                orderStatus: 'CANCELLED',
-                paymentStatus: 'REFUND_PROCESSING',
-                isFullOrderCancelled: true
-            });
+                
+                // Update order status to 'PARTIALLY_CANCELLED' if not all items are cancelled
+                const totalItems = order.items.length;
+                const cancelledItems = order.items.filter(item => item.status === 'Cancelled' || item.cancelApproved).length;
+                
+                if (cancelledItems === totalItems) {
+                    // All items cancelled - treat as full cancellation
+                    order.orderStatus = 'CANCELLED';
+                    order.paymentStatus = 'REFUND_PROCESSING';
+                    order.isFullOrderCancelled = true;
+                } else {
+                    // Partial cancellation
+                    order.orderStatus = 'PARTIALLY_CANCELLED';
+                    order.paymentStatus = 'PARTIAL_REFUND_PROCESSING';
+                }
+                
+                await order.save();
+                console.log(`✅ Partial item cancellation approved - Order: ${order.orderId}, Items cancelled: ${cancelledItems}/${totalItems}, Refund: ₹${refundAmount}`);
+            } else {
+                // Full order cancellation
+                await updateFullOrderCancellation(order._id, cancellationRequest._id, finalRefundPercentage);
+                console.log(`✅ Full order cancellation approved - Order: ${order.orderId}, Refund: ₹${refundAmount}`);
+            }
         }
-    } catch (error) {
-        console.error("Error updating full order cancellation:", error);
-        throw error;
-    }
-}
 
         await cancellationRequest.save();
         
@@ -660,7 +928,7 @@ const updateFullOrderCancellation = async (orderId, cancellationId, refundPercen
             orderNumber: order.orderId,
             action: action,
             refundAmount: action === 'APPROVED' ? refundAmount : 0,
-            refundPercentage: refundPercentage,
+            refundPercentage: finalRefundPercentage,
             adminId: adminId,
             processedAt: new Date().toISOString()
         });
@@ -668,25 +936,63 @@ const updateFullOrderCancellation = async (orderId, cancellationId, refundPercen
         // Send email to user
         const user = cancellationRequest.userId;
         if (user.email) {
+            const isPartialCancellation = cancellationRequest.cancellationType === 'PARTIAL_ITEMS';
             const emailSubject = action === 'APPROVED' 
-                ? "Order Cancellation Approved - Refund Processing"
-                : "Order Cancellation Request Rejected";
+                ? `${isPartialCancellation ? 'Partial Order' : 'Order'} Cancellation Approved - Refund Processing`
+                : `${isPartialCancellation ? 'Partial Order' : 'Order'} Cancellation Request Rejected`;
 
             const emailContent = action === 'APPROVED' 
                 ? `
                     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-                        <h2 style="color: #28a745;">Order Cancellation Approved</h2>
+                        <h2 style="color: #28a745;">${isPartialCancellation ? 'Partial Order' : 'Order'} Cancellation Approved</h2>
                         <p>Dear ${user.name},</p>
-                        <p>Your cancellation request for order <strong>#${order.orderId}</strong> has been approved.</p>
+                        <p>Your ${isPartialCancellation ? 'partial item' : 'full order'} cancellation request for order <strong>#${order.orderId}</strong> has been approved.</p>
+                        
+                        ${isPartialCancellation ? `
+                            <div style="background-color: #fff3cd; padding: 15px; border-radius: 5px; margin: 20px 0; border-left: 4px solid #ffc107;">
+                                <h4>Cancelled Items:</h4>
+                                <ul>
+                                    ${cancellationRequest.itemsToCancel.map(item => {
+                                        const orderItem = order.items.find(oi => oi._id.toString() === item.itemId.toString());
+                                        const itemName = orderItem?.productId?.name || orderItem?.bundleId?.title || 'Item';
+                                        return `<li><strong>${itemName}</strong> - Quantity: ${item.quantity}</li>`;
+                                    }).join('')}
+                                </ul>
+                                <p style="color: #856404;"><strong>Note:</strong> Other items in your order will continue to be processed normally.</p>
+                            </div>
+                        ` : ''}
                         
                         <div style="background-color: #d4edda; padding: 15px; border-radius: 5px; margin: 20px 0; border-left: 4px solid #28a745;">
                             <h3>Refund Details:</h3>
-                            <p><strong>Refund Amount:</strong> ₹${refundAmount.toFixed(2)}</p>
-                            <p><strong>Refund Percentage:</strong> ${refundPercentage}%</p>
-                            ${cancellationRequest.deliveryInfo?.wasPastDeliveryDate ? 
-                                '<p style="color: #856404;"><strong>Note:</strong> Refund percentage adjusted due to late cancellation</p>' : ''}
-                            ${cancellationRequest.deliveryInfo?.actualDeliveryDate ? 
+                            <p><strong>Refund Amount:</strong> ₹${refundAmount.toFixed(2)}${isPartialCancellation && order.deliveryCharge > 0 ? ' (includes proportional delivery charges)' : order.deliveryCharge > 0 ? ' (includes delivery charges)' : ''}</p>
+                            <p><strong>Refund Percentage:</strong> ${finalRefundPercentage}%</p>
+                            ${order.deliveryCharge && order.deliveryCharge > 0 ? `<p><strong>Original Delivery Charge:</strong> ₹${order.deliveryCharge.toFixed(2)}</p>` : ''}
+                            
+                            ${cancellationRequest.refundDetails?.enhancedRefundData?.cancellationTiming ? `
+                                <div style="margin-top: 10px; padding: 10px; background-color: #f8f9fa; border-radius: 4px;">
+                                    <p><strong>Cancellation Timing:</strong> ${cancellationRequest.refundDetails.enhancedRefundData.cancellationTiming === 'EARLY' ? 'Early (within 2 days)' : 
+                                                                             cancellationRequest.refundDetails.enhancedRefundData.cancellationTiming === 'STANDARD' ? 'Standard (3-7 days)' : 
+                                                                             'Late (after 7 days)'}</p>
+                                    ${cancellationRequest.refundDetails.enhancedRefundData.bonuses?.totalBonus > 0 ? `
+                                        <p style="color: #28a745;"><strong>Customer Loyalty Bonus:</strong> +${cancellationRequest.refundDetails.enhancedRefundData.bonuses.totalBonus}%</p>
+                                        ${cancellationRequest.refundDetails.enhancedRefundData.bonuses.reasons?.map(reason => 
+                                            `<p style="color: #28a745; margin-left: 15px; font-size: 0.9em;">• ${reason}</p>`
+                                        ).join('') || ''}
+                                    ` : ''}
+                                    
+                                    ${cancellationRequest.refundDetails.enhancedRefundData.penalties?.totalPenalty > 0 ? `
+                                        <p style="color: #856404;"><strong>Applied Penalties:</strong> -${cancellationRequest.refundDetails.enhancedRefundData.penalties.totalPenalty}%</p>
+                                        ${cancellationRequest.refundDetails.enhancedRefundData.penalties.reasons?.map(reason => 
+                                            `<p style="color: #856404; margin-left: 15px; font-size: 0.9em;">• ${reason}</p>`
+                                        ).join('') || ''}
+                                    ` : ''}
+                                </div>
+                            ` : 
+                            cancellationRequest.deliveryInfo?.wasPastDeliveryDate ? 
+                                '<p style="color: #856404;"><strong>Note:</strong> Refund percentage adjusted due to late cancellation</p>' : 
+                            cancellationRequest.deliveryInfo?.actualDeliveryDate ? 
                                 '<p style="color: #856404;"><strong>Note:</strong> Refund percentage adjusted as order was already delivered</p>' : ''}
+                            
                             <p><strong>Processing Time:</strong> 5-7 business days</p>
                             <p><strong>Refund Method:</strong> Original payment method</p>
                         </div>
@@ -725,16 +1031,28 @@ const updateFullOrderCancellation = async (orderId, cancellationId, refundPercen
             });
         }
 
-        res.status(200).json({
+        // Prepare enhanced response with refund calculation details
+        const responseData = {
             success: true,
             error: false,
             message: `Cancellation request ${action.toLowerCase()} successfully`,
             data: {
                 status: action,
                 refundAmount: refundAmount,
-                refundPercentage: refundPercentage
+                refundPercentage: finalRefundPercentage,
             }
-        });
+        };
+        
+        // Add enhanced refund calculation details if available
+        if (cancellationRequest.refundDetails?.enhancedRefundData) {
+            responseData.data.refundCalculation = {
+                ...cancellationRequest.refundDetails.enhancedRefundData,
+                originalAmount: baseAmount,
+                finalRefundAmount: refundAmount
+            };
+        }
+        
+        res.status(200).json(responseData);
 
     } catch (error) {
         console.error("Error in processCancellationRequest:", error);
@@ -1400,7 +1718,19 @@ export const getCancellationByOrderId = async (req, res) => {
 // Request Partial Item Cancellation
 export const requestPartialItemCancellation = async (req, res) => {
     try {
-        const { orderId, itemsToCancel, reason, additionalReason, totalRefundAmount, totalItemValue } = req.body;
+        const { 
+            orderId, 
+            itemsToCancel, 
+            reason, 
+            additionalReason, 
+            totalRefundAmount, 
+            totalItemValue,
+            deliveryChargeRefund,
+            isEffectivelyFullCancellation,
+            deliveryCharge,
+            isContinuationCancellation,
+            isLastRemainingItem
+        } = req.body;
         const userId = req.userId;
 
         console.log('Partial cancellation request data:', {
@@ -1408,8 +1738,13 @@ export const requestPartialItemCancellation = async (req, res) => {
             itemsToCancel,
             reason,
             additionalReason,
+            isContinuationCancellation,
+            isLastRemainingItem,
             totalRefundAmount,
             totalItemValue,
+            deliveryChargeRefund,
+            isEffectivelyFullCancellation,
+            deliveryCharge,
             body: req.body
         });
 
@@ -1440,13 +1775,22 @@ export const requestPartialItemCancellation = async (req, res) => {
             });
         }
 
-        // Check if user owns this order
-        if (order.userId.toString() !== userId) {
+        // Check if user owns this order - with special handling for continuation cancellations
+        if (!isContinuationCancellation && !isLastRemainingItem && order.userId.toString() !== userId) {
+            // For normal cancellations, strictly verify ownership
             return res.status(403).json({
                 success: false,
                 error: true,
                 message: "You don't have permission to cancel this order"
             });
+        }
+        
+        // For continuation cancellations or last remaining item, we're more lenient with verification
+        // because the user has already been verified for the initial cancellation
+        if ((isContinuationCancellation || isLastRemainingItem) && order.userId.toString() !== userId) {
+            console.log(`⚠️ User ID mismatch in continuation cancellation, but proceeding anyway: 
+                Current user: ${userId}, 
+                Order user: ${order.userId}`);
         }
 
         // Check if order is in a cancellable state
@@ -1465,12 +1809,67 @@ export const requestPartialItemCancellation = async (req, res) => {
             status: 'PENDING'
         });
 
-        if (existingCancellation) {
+        // Check if there's an approved cancellation but there are still active items that can be cancelled
+        const existingApprovedCancellations = await orderCancellationModel.find({
+            orderId: orderId,
+            status: 'APPROVED'
+        });
+        
+        // If there's a pending cancellation and no special flags for continuation
+        if (existingCancellation && !isContinuationCancellation && !isLastRemainingItem) {
             return res.status(400).json({
                 success: false,
                 error: true,
                 message: "There is already a pending cancellation request for this order"
             });
+        }
+        
+        // If we have approved cancellations, we need to check if there are still active items to cancel
+        if (existingApprovedCancellations.length > 0 && !isContinuationCancellation && !isLastRemainingItem) {
+            // Get all items that have been approved for cancellation
+            const cancelledItemIds = new Set();
+            
+            for (const cancelReq of existingApprovedCancellations) {
+                if (cancelReq.cancellationType === 'FULL_ORDER') {
+                    // If a full order cancellation was approved, no more items can be cancelled
+                    return res.status(400).json({
+                        success: false,
+                        error: true,
+                        message: "This order was already fully cancelled"
+                    });
+                }
+                
+                // For partial cancellations, collect all item IDs
+                if (cancelReq.itemsToCancel && Array.isArray(cancelReq.itemsToCancel)) {
+                    cancelReq.itemsToCancel.forEach(item => {
+                        cancelledItemIds.add(item.itemId.toString());
+                    });
+                }
+            }
+            
+            // Check if all items in the order are already cancelled
+            const allItemsAlreadyCancelled = order.items.every(item => 
+                cancelledItemIds.has(item._id.toString())
+            );
+            
+            if (allItemsAlreadyCancelled) {
+                return res.status(400).json({
+                    success: false,
+                    error: true,
+                    message: "All items in this order are already cancelled or pending cancellation"
+                });
+            }
+            
+            // Ensure the items being cancelled aren't already cancelled
+            for (const itemToCancel of itemsToCancel) {
+                if (cancelledItemIds.has(itemToCancel.itemId)) {
+                    return res.status(400).json({
+                        success: false,
+                        error: true,
+                        message: `Item with ID ${itemToCancel.itemId} is already cancelled or pending cancellation`
+                    });
+                }
+            }
         }
 
         // Validate items to cancel exist in the order and enhance with pricing data
@@ -1569,7 +1968,11 @@ export const requestPartialItemCancellation = async (req, res) => {
             estimatedDeliveryDate: order.estimatedDeliveryDate,
             actualDeliveryDate: order.actualDeliveryDate,
             deliveryNotes: order.deliveryNotes,
-            wasPastDeliveryDate: order.estimatedDeliveryDate ? new Date() > new Date(order.estimatedDeliveryDate) : false
+            deliveryCharge: order.deliveryCharge || 0, // Store delivery charge at time of cancellation
+            wasPastDeliveryDate: order.estimatedDeliveryDate ? new Date() > new Date(order.estimatedDeliveryDate) : false,
+            // Add new delivery refund information
+            deliveryChargeRefund: deliveryChargeRefund || 0,
+            isEffectivelyFullCancellation: isEffectivelyFullCancellation || false
         };
 
         // Create cancellation request with enhanced pricing data
@@ -1580,7 +1983,7 @@ export const requestPartialItemCancellation = async (req, res) => {
             itemsToCancel: validatedItemsToCancel,
             reason: reason,
             additionalReason: additionalReason,
-            totalRefundAmount: finalTotalRefundAmount,    // Store frontend total refund amount
+            totalRefundAmount: finalTotalRefundAmount,    // Store frontend total refund amount (includes delivery if applicable)
             totalItemValue: finalTotalItemValue,          // Store frontend total item value
             deliveryInfo: deliveryInfo,
             adminResponse: {
@@ -1615,6 +2018,10 @@ export const requestPartialItemCancellation = async (req, res) => {
                                 </ul>
                                 <p><strong>Total Expected Refund: ₹${finalTotalRefundAmount.toFixed(2)}</strong></p>
                                 <p><strong>Items Total Value: ₹${finalTotalItemValue.toFixed(2)}</strong></p>
+                                ${isEffectivelyFullCancellation && deliveryChargeRefund > 0 ? 
+                                    `<p><strong>Delivery Charge Refund: ₹${deliveryChargeRefund.toFixed(2)}</strong> (All items being cancelled)</p>` : 
+                                    (order.deliveryCharge && order.deliveryCharge > 0 ? `<p><strong>Note:</strong> Proportional delivery charge refund is included in the total refund amount</p>` : '')
+                                }
                             </div>
                             
                             <p><strong>Reason:</strong> ${reason}</p>
@@ -1659,11 +2066,18 @@ export const requestPartialItemCancellation = async (req, res) => {
 // Process Partial Item Cancellation (Admin)
 export const processPartialItemCancellation = async (req, res) => {
     try {
+        console.log('🔵 processPartialItemCancellation called with:', {
+            params: req.params,
+            body: req.body,
+            userId: req.userId
+        });
+        
         const { cancellationId } = req.params;
         const { action, adminComments, refundPercentage, calculatedRefundAmount, calculatedTotalValue, refundData } = req.body;
         const adminId = req.userId;
 
         if (!action || !['APPROVED', 'REJECTED'].includes(action)) {
+            console.log('❌ Invalid action:', action);
             return res.status(400).json({
                 success: false,
                 error: true,
@@ -1671,12 +2085,22 @@ export const processPartialItemCancellation = async (req, res) => {
             });
         }
 
+        console.log('🔍 Looking for cancellation request:', cancellationId);
+
         // Find the cancellation request
         const cancellationRequest = await orderCancellationModel.findById(cancellationId)
             .populate('orderId')
             .populate('userId');
 
+        console.log('📋 Found cancellation request:', {
+            id: cancellationRequest?._id,
+            status: cancellationRequest?.status,
+            orderId: cancellationRequest?.orderId?._id,
+            userId: cancellationRequest?.userId?._id
+        });
+
         if (!cancellationRequest) {
+            console.log('❌ Cancellation request not found:', cancellationId);
             return res.status(404).json({
                 success: false,
                 error: true,
@@ -1709,8 +2133,20 @@ export const processPartialItemCancellation = async (req, res) => {
                 // Use the calculated amounts from frontend that incorporate discount pricing
                 totalRefundAmount = calculatedRefundAmount;
                 
-                console.log('💰 Using Frontend-Calculated Partial Refund:', {
-                    calculatedRefundAmount: totalRefundAmount,
+                // Calculate proportional delivery charge refund for partial cancellations
+                const proportionalDeliveryRefund = calculateProportionalDeliveryRefund(
+                    order, 
+                    cancellationRequest.itemsToCancel, 
+                    finalRefundPercentage
+                );
+                
+                // Add proportional delivery charge to refund amount
+                totalRefundAmount += proportionalDeliveryRefund;
+                
+                console.log('💰 Using Frontend-Calculated Partial Refund (with delivery):', {
+                    calculatedRefundAmount: calculatedRefundAmount,
+                    proportionalDeliveryRefund: proportionalDeliveryRefund,
+                    totalRefundAmount: totalRefundAmount,
                     calculatedTotalValue: calculatedTotalValue,
                     frontendRefundPercentage: finalRefundPercentage,
                     basedOnDiscountedPricing: refundData?.basedOnDiscountedPricing || false
@@ -1721,20 +2157,33 @@ export const processPartialItemCancellation = async (req, res) => {
                     cancellationRequest.itemsToCancel.forEach(item => {
                         // Use the refund amount from the individual item if available
                         if (item.refundAmount !== undefined) {
-                            // Keep the individual item refund amount as sent from frontend
-                            totalRefundAmount += (item.refundAmount - (item.refundAmount || 0)); // Adjust if needed
+                            // The item refund amount is already included in totalRefundAmount calculation
+                            // No need to add it again here
+                            console.log('✅ Item refund amount already included:', item.refundAmount);
                         }
                     });
                 }
             } else {
                 // Fallback to original calculation logic for backward compatibility
+                let itemsRefundTotal = 0;
                 cancellationRequest.itemsToCancel.forEach(item => {
                     const calculatedRefund = (item.refundAmount * finalRefundPercentage) / 100;
                     item.refundAmount = Math.round(calculatedRefund * 100) / 100; // Round to 2 decimal places
-                    totalRefundAmount += item.refundAmount;
+                    itemsRefundTotal += item.refundAmount;
                 });
                 
-                console.log('💰 Fallback Partial Refund Calculation:', {
+                // Add proportional delivery charge refund for fallback calculation
+                const proportionalDeliveryRefund = calculateProportionalDeliveryRefund(
+                    order, 
+                    cancellationRequest.itemsToCancel, 
+                    finalRefundPercentage
+                );
+                
+                totalRefundAmount = itemsRefundTotal + proportionalDeliveryRefund;
+                
+                console.log('💰 Fallback Partial Refund Calculation (with delivery):', {
+                    itemsRefundTotal: itemsRefundTotal,
+                    proportionalDeliveryRefund: proportionalDeliveryRefund,
                     totalRefundAmount: totalRefundAmount,
                     refundPercentage: finalRefundPercentage
                 });
@@ -1755,8 +2204,9 @@ export const processPartialItemCancellation = async (req, res) => {
             }
 
             // Update order - mark cancelled items and adjust totals
-            const order = await orderModel.findById(cancellationRequest.orderId._id);
-            if (!order) {
+            // Use the already populated order from cancellationRequest
+            const orderToUpdate = cancellationRequest.orderId;
+            if (!orderToUpdate) {
                 throw new Error("Order not found during processing");
             }
             
@@ -1768,7 +2218,7 @@ export const processPartialItemCancellation = async (req, res) => {
             let newTotalQuantity = 0;
             
             // Update each item's status
-            order.items.forEach(item => {
+            orderToUpdate.items.forEach(item => {
                 if (itemsToCancel.includes(item._id.toString())) {
                     // Mark item as cancelled
                     item.status = 'Cancelled';
@@ -1799,30 +2249,30 @@ export const processPartialItemCancellation = async (req, res) => {
             });
             
             // Add refund summary to order
-            order.refundSummary = [...(order.refundSummary || []), ...refundSummary];
+            orderToUpdate.refundSummary = [...(orderToUpdate.refundSummary || []), ...refundSummary];
             
             // Count active and cancelled items
-            const activeItems = order.items.filter(item => item.status === 'Active').length;
-            const cancelledItems = order.items.filter(item => item.status === 'Cancelled').length;
+            const activeItems = orderToUpdate.items.filter(item => item.status === 'Active').length;
+            const cancelledItems = orderToUpdate.items.filter(item => item.status === 'Cancelled').length;
             
             // Only adjust totals if there are active items left
             if (activeItems > 0) {
-                order.subTotalAmt = newSubTotal;
-                order.totalAmt = newSubTotal; // Assuming no additional charges
-                order.totalQuantity = newTotalQuantity;
+                orderToUpdate.subTotalAmt = newSubTotal;
+                orderToUpdate.totalAmt = newSubTotal; // Assuming no additional charges
+                orderToUpdate.totalQuantity = newTotalQuantity;
             }
             
             // If all items cancelled, mark order as cancelled
             if (activeItems === 0 && cancelledItems > 0) {
-                order.orderStatus = 'CANCELLED';
-                order.isFullOrderCancelled = true;
+                orderToUpdate.orderStatus = 'CANCELLED';
+                orderToUpdate.isFullOrderCancelled = true;
                 
                 // If everything is cancelled, we need to preserve the original totals for accounting
                 // but mark it clearly as cancelled
-                order.paymentStatus = 'REFUND_PROCESSING';
+                orderToUpdate.paymentStatus = 'REFUND_PROCESSING';
             }
             
-            await order.save();
+            await orderToUpdate.save();
         }
 
         await cancellationRequest.save();
@@ -1832,8 +2282,8 @@ export const processPartialItemCancellation = async (req, res) => {
             const user = cancellationRequest.userId;
             if (user && user.email) {
                 const emailSubject = action === 'APPROVED' 
-                    ? `Partial Cancellation Approved - Order #${order.orderId}`
-                    : `Partial Cancellation Request Declined - Order #${order.orderId}`;
+                    ? `Partial Cancellation Approved - Order #${orderToUpdate.orderId}`
+                    : `Partial Cancellation Request Declined - Order #${orderToUpdate.orderId}`;
 
                 let emailContent = `
                     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
@@ -1845,13 +2295,13 @@ export const processPartialItemCancellation = async (req, res) => {
 
                 if (action === 'APPROVED') {
                     emailContent += `
-                        <p>Your request to cancel specific items from order <strong>#${order.orderId}</strong> has been approved.</p>
+                        <p>Your request to cancel specific items from order <strong>#${orderToUpdate.orderId}</strong> has been approved.</p>
                         
                         <div style="background-color: #f9f9f9; padding: 15px; border-radius: 5px; margin: 20px 0;">
                             <h3 style="margin-top: 0;">Cancelled Items:</h3>
                             <ul>
                                 ${cancellationRequest.itemsToCancel.map(item => {
-                                    const orderItem = order.items.find(oi => oi._id && oi._id.toString() === item.itemId.toString());
+                                    const orderItem = orderToUpdate.items.find(oi => oi._id && oi._id.toString() === item.itemId.toString());
                                     const itemName = orderItem?.productDetails?.name || orderItem?.bundleDetails?.title || 'Cancelled Item';
                                     return `<li>${itemName} ${item.size ? `(Size: ${item.size})` : ''} - ₹${item.refundAmount}</li>`;
                                 }).join('')}
@@ -1864,7 +2314,7 @@ export const processPartialItemCancellation = async (req, res) => {
                     `;
                 } else {
                     emailContent += `
-                        <p>Unfortunately, your request to cancel specific items from order <strong>#${order.orderId}</strong> has been declined.</p>
+                        <p>Unfortunately, your request to cancel specific items from order <strong>#${orderToUpdate.orderId}</strong> has been declined.</p>
                         ${adminComments ? `<p><strong>Reason:</strong> ${adminComments}</p>` : ''}
                         <p>If you have any questions, please contact our customer support.</p>
                     `;
@@ -1899,11 +2349,17 @@ export const processPartialItemCancellation = async (req, res) => {
         });
 
     } catch (error) {
-        console.error("Error processing partial item cancellation:", error);
+        console.error("❌ Error processing partial item cancellation:", {
+            error: error.message,
+            stack: error.stack,
+            cancellationId: req.params?.cancellationId,
+            userId: req.userId
+        });
         return res.status(500).json({
             success: false,
             error: true,
-            message: "Internal server error while processing cancellation"
+            message: "Internal server error while processing cancellation",
+            details: process.env.NODE_ENV === 'development' ? error.message : undefined
         });
     }
 };
