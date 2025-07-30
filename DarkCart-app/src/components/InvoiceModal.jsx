@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { FaTimes, FaFileInvoice, FaCalendarAlt, FaUser, FaMapMarkerAlt, FaPhone } from 'react-icons/fa'
+import { FaTimes, FaFileInvoice, FaCalendarAlt, FaUser, FaMapMarkerAlt, FaPhone, FaReply } from 'react-icons/fa'
 import Axios from '../utils/Axios'
 import SummaryApi from '../common/SummaryApi'
 
@@ -13,6 +13,11 @@ function InvoiceModal({ payment: originalPayment, onClose }) {
     const calculateSizeBasedPrice = (item, productInfo = null) => {
         try {
             const size = item?.size;
+            
+            // First check if we already have sizeAdjustedPrice (most reliable)
+            if (item?.sizeAdjustedPrice && item?.sizeAdjustedPrice > 0) {
+                return item.sizeAdjustedPrice * (item?.quantity || 1);
+            }
             
             // If no size, return original price
             if (!size) {
@@ -68,16 +73,237 @@ function InvoiceModal({ payment: originalPayment, onClose }) {
 
         } catch (error) {
             console.error('Error calculating size-based price:', error);
-            // Fallback to original pricing
-            return item?.itemTotal || 
+            // Fallback to original pricing with sizeAdjustedPrice check
+            return item?.sizeAdjustedPrice * (item?.quantity || 1) || 
+                   item?.itemTotal || 
                    (productInfo?.price || productInfo?.bundlePrice || 0) * (item?.quantity || 1);
         }
     };
 
     // Get size-based unit price
     const getSizeBasedUnitPrice = (item, productInfo = null) => {
+        // First check if we already have sizeAdjustedPrice (most reliable)
+        if (item?.sizeAdjustedPrice && item?.sizeAdjustedPrice > 0) {
+            return item.sizeAdjustedPrice;
+        }
+        
         const totalPrice = calculateSizeBasedPrice(item, productInfo);
         return totalPrice / (item?.quantity || 1);
+    };
+
+    // Calculate pricing details with discount information
+    const getPricingDetails = (item, productInfo = null) => {
+        try {
+            const product = productInfo || item?.productId || item?.bundleId || item?.productDetails || item?.bundleDetails;
+            
+            // Deep debug logging to understand data structure
+            console.log('🔍 DEEP DEBUG - Payment item structure:', {
+                item_keys: Object.keys(item || {}),
+                productId_exists: !!item?.productId,
+                productId_type: typeof item?.productId,
+                productId_keys: item?.productId ? Object.keys(item.productId) : 'N/A',
+                productId_discount: item?.productId?.discount,
+                productId_discountedPrice: item?.productId?.discountedPrice,
+                productDetails_exists: !!item?.productDetails,
+                productDetails_keys: item?.productDetails ? Object.keys(item.productDetails) : 'N/A',
+                product_selected: product ? Object.keys(product) : 'N/A',
+                product_discount: product?.discount,
+                product_discountedPrice: product?.discountedPrice
+            });
+            
+            console.log('🔍 Invoice Pricing Debug:', {
+                itemName: product?.name || 'Unknown',
+                sizeAdjustedPrice: item?.sizeAdjustedPrice,
+                calculatedPrice: item?.calculatedPrice,
+                productPrice: product?.price,
+                productDiscount: product?.discount,
+                productDiscountedPrice: product?.discountedPrice,
+                size: item?.size,
+                itemType: item?.itemType,
+                // Check all possible sources for discount
+                productId_discount: item?.productId?.discount,
+                productDetails_discount: item?.productDetails?.discount,
+                bundleDetails_discount: item?.bundleDetails?.discount,
+                // Full objects for debugging
+                productId_full: item?.productId,
+                productDetails_full: item?.productDetails
+            });
+            
+            // Get original price and final price
+            let originalPrice = 0;
+            let finalPrice = 0;
+            
+            // Check if this is a bundle or product
+            const isBundle = item?.itemType === 'bundle';
+
+            if (isBundle) {
+                // For bundles, use sizeAdjustedPrice as final price
+                finalPrice = item?.sizeAdjustedPrice || 0;
+                originalPrice = product?.originalPrice || product?.bundlePrice || finalPrice;
+            } else {
+                // For products, sizeAdjustedPrice is the ORIGINAL price before discount
+                if (item?.sizeAdjustedPrice && item.sizeAdjustedPrice > 0) {
+                    originalPrice = item.sizeAdjustedPrice;
+                    
+                    // Get discount from all possible sources (productId, productDetails, product)
+                    let discount = 0;
+                    let discountSource = 'none';
+                    
+                    // Priority order: productId > productDetails > product fallback
+                    if (item?.productId?.discount && item.productId.discount > 0) {
+                        discount = item.productId.discount;
+                        discountSource = 'productId';
+                    } else if (item?.productDetails?.discount && item.productDetails.discount > 0) {
+                        discount = item.productDetails.discount;
+                        discountSource = 'productDetails';
+                    } else if (product?.discount && product.discount > 0) {
+                        discount = product.discount;
+                        discountSource = 'product';
+                    }
+                    
+                    console.log('💡 Applying discount:', {
+                        originalPrice,
+                        discount,
+                        discountSource,
+                        availableDiscounts: {
+                            productId: item?.productId?.discount,
+                            productDetails: item?.productDetails?.discount,
+                            product: product?.discount
+                        }
+                    });
+                    
+                    // Apply discount to calculate final price
+                    finalPrice = discount > 0 ? originalPrice * (1 - discount/100) : originalPrice;
+                    
+                    // Priority order: productId > productDetails > product fallback
+                    if (item?.productId?.discount && item.productId.discount > 0) {
+                        discount = item.productId.discount;
+                        discountSource = 'productId';
+                    } else if (item?.productDetails?.discount && item.productDetails.discount > 0) {
+                        discount = item.productDetails.discount;
+                        discountSource = 'productDetails';
+                    } else if (product?.discount && product.discount > 0) {
+                        discount = product.discount;
+                        discountSource = 'product';
+                    }
+                    
+                    console.log('💡 Applying discount:', {
+                        originalPrice,
+                        discount,
+                        discountSource,
+                        availableDiscounts: {
+                            productId: item?.productId?.discount,
+                            productDetails: item?.productDetails?.discount,
+                            product: product?.discount
+                        }
+                    });
+                    
+                    // Apply discount
+                    finalPrice = discount > 0 ? originalPrice * (1 - discount/100) : originalPrice;
+                } else {
+                    // Fallback calculation
+                    const basePrice = product?.price || 0;
+                    const discount = product?.discount || 0;
+                    const size = item?.size;
+                    
+                    const sizeMultipliers = {
+                        'XS': 0.9, 'S': 1.0, 'M': 1.1, 'L': 1.2, 'XL': 1.3, 'XXL': 1.4
+                    };
+                    const multiplier = sizeMultipliers[size?.toUpperCase()] || 1.0;
+                    
+                    originalPrice = basePrice * multiplier;
+                    finalPrice = discount > 0 ? originalPrice * (1 - discount/100) : originalPrice;
+                }
+            }
+
+            // Calculate discount details
+            const discountAmount = Math.max(0, originalPrice - finalPrice);
+            const discountPercentage = originalPrice > 0 ? Math.round((discountAmount / originalPrice) * 100) : 0;
+
+            console.log('💰 Final Invoice Pricing:', {
+                originalPrice,
+                finalPrice,
+                discountAmount,
+                discountPercentage,
+                hasDiscount: discountAmount > 0.01
+            });
+
+            return {
+                originalPrice,
+                finalPrice,
+                discountAmount,
+                discountPercentage,
+                hasDiscount: discountAmount > 0.01
+            };
+        } catch (error) {
+            console.error('Error calculating pricing details:', error);
+            const fallbackPrice = getSizeBasedUnitPrice(item, productInfo);
+            return {
+                originalPrice: fallbackPrice,
+                finalPrice: fallbackPrice,
+                discountAmount: 0,
+                discountPercentage: 0,
+                hasDiscount: false
+            };
+        }
+    };
+
+    // Calculate total discount savings
+    const calculateTotalDiscountSavings = () => {
+        try {
+            let totalSavings = 0;
+            let totalOriginalAmount = 0;
+            let totalFinalAmount = 0;
+
+            if (payment.items && payment.items.length > 0) {
+                // Calculate for items array
+                payment.items.forEach(item => {
+                    const productInfo = item?.productDetails || item?.bundleDetails || 
+                                      (item?.productId && typeof item.productId === 'object' ? item.productId : null) ||
+                                      (item?.bundleId && typeof item.bundleId === 'object' ? item.bundleId : null);
+                    
+                    const pricingDetails = getPricingDetails(item, productInfo);
+                    const quantity = item.quantity || 1;
+                    
+                    totalOriginalAmount += pricingDetails.originalPrice * quantity;
+                    totalFinalAmount += pricingDetails.finalPrice * quantity;
+                    totalSavings += pricingDetails.discountAmount * quantity;
+                });
+            } else {
+                // Calculate for legacy order structure
+                const legacyItem = {
+                    size: payment.size || payment.productDetails?.size,
+                    quantity: payment.orderQuantity || payment.totalQuantity || 1,
+                    itemTotal: payment.subTotalAmt,
+                    sizeAdjustedPrice: payment.sizeAdjustedPrice,
+                    originalPrice: payment.productDetails?.originalPrice || payment.productDetails?.price
+                };
+                
+                const pricingDetails = getPricingDetails(legacyItem, payment.productDetails);
+                const quantity = legacyItem.quantity;
+                
+                totalOriginalAmount = pricingDetails.originalPrice * quantity;
+                totalFinalAmount = pricingDetails.finalPrice * quantity;
+                totalSavings = pricingDetails.discountAmount * quantity;
+            }
+
+            return {
+                totalSavings,
+                totalOriginalAmount,
+                totalFinalAmount,
+                hasSavings: totalSavings > 0,
+                savingsPercentage: totalOriginalAmount > 0 ? Math.round((totalSavings / totalOriginalAmount) * 100) : 0
+            };
+        } catch (error) {
+            console.error('Error calculating total discount savings:', error);
+            return {
+                totalSavings: 0,
+                totalOriginalAmount: 0,
+                totalFinalAmount: 0,
+                hasSavings: false,
+                savingsPercentage: 0
+            };
+        }
     };
     
     // Enhanced bundle fetching logic
@@ -460,14 +686,14 @@ function InvoiceModal({ payment: originalPayment, onClose }) {
                         <div className="mb-8">
                             <h3 className="text-lg font-semibold text-gray-900 mb-3 flex items-center">
                                 <FaCalendarAlt className="mr-2 text-red-600" />
-                                Refund Information
+                                Refund Information & Tracking
                             </h3>
                             <div className="bg-red-50 p-4 rounded-lg border border-red-100">
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     <div className="col-span-1 md:col-span-2">
                                         <div className="flex flex-wrap items-center mb-2">
                                             <span className="bg-red-100 text-red-800 px-3 py-1 rounded-full text-sm font-medium mr-2">
-                                                REFUNDED
+                                                REFUND PROCESSED
                                             </span>
                                             <span className="text-sm text-gray-600">
                                                 {payment.refundDetails && payment.refundDetails.refundDate ? 
@@ -545,7 +771,8 @@ function InvoiceModal({ payment: originalPayment, onClose }) {
                                     </div>
                                     
                                     <div className="bg-white p-3 rounded-lg border border-red-100 col-span-1 md:col-span-2">
-                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <h4 className="font-medium text-gray-700 mb-3">Refund Calculation Breakdown</h4>
+                                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                             <div>
                                                 <p className="text-xs text-gray-500">ORIGINAL ORDER AMOUNT</p>
                                                 <p className="text-xl font-bold text-gray-900">{formatCurrency(payment.totalAmt || 0)}</p>
@@ -568,13 +795,233 @@ function InvoiceModal({ payment: originalPayment, onClose }) {
                                                 </p>
                                             </div>
                                         </div>
-                                    </div>
+                                        
+                                        {/* Processing Timeline */}
+                                        <div className="mt-4 pt-3 border-t border-gray-200">
+                                            <h5 className="text-sm font-medium text-gray-700 mb-2">Refund Processing Timeline</h5>
+                                            <div className="space-y-2 text-xs">
+                                                <div className="flex justify-between">
+                                                    <span className="text-gray-600">1. Cancellation Requested:</span>
+                                                    <span className="text-green-600">✓ Completed</span>
+                                                </div>
+                                                <div className="flex justify-between">
+                                                    <span className="text-gray-600">2. Admin Review:</span>
+                                                    <span className="text-green-600">✓ Approved</span>
+                                                </div>
+                                                <div className="flex justify-between">
+                                                    <span className="text-gray-600">3. Refund Processing:</span>
+                                                    <span className="text-green-600">✓ Completed</span>
+                                                </div>
+                                                <div className="flex justify-between">
+                                                    <span className="text-gray-600">4. Amount Credited:</span>
+                                                    <span className="text-green-600">✓ {payment.refundDetails?.refundDate ? 
+                                                        new Date(payment.refundDetails.refundDate).toLocaleDateString('en-IN') : 'Completed'}</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        
+                        {/* Refund Note */}
+                        <div className="mt-3 p-2 bg-blue-50 border border-blue-200 rounded text-xs">
+                            <p className="text-blue-800">
+                                <strong>Note:</strong> Refund amount has been credited to your original payment method. 
+                                It may take 3-5 business days for the amount to reflect in your account statement.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    )}
+
+    {/* Return Tracking - Show only if the payment has returns */}
+    {(payment.orderStatus === 'RETURNED' || payment.returnDetails || payment.returnTracking) && (
+        <div className="mb-8">
+            <h3 className="text-lg font-semibold text-gray-900 mb-3 flex items-center">
+                <FaReply className="mr-2 text-orange-600" />
+                Return Tracking & Management
+            </h3>
+            <div className="bg-orange-50 p-4 rounded-lg border border-orange-100">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="col-span-1 md:col-span-2">
+                        <div className="flex flex-wrap items-center mb-2">
+                            <span className={`px-3 py-1 rounded-full text-sm font-medium mr-2 ${
+                                payment.orderStatus === 'RETURNED' ? 
+                                'bg-orange-100 text-orange-800' : 
+                                'bg-blue-100 text-blue-800'
+                            }`}>
+                                {payment.orderStatus === 'RETURNED' ? 'RETURNED' : 'RETURN PROCESSING'}
+                            </span>
+                            <span className="text-sm text-gray-600">
+                                {payment.returnDetails?.initiatedDate ? 
+                                  `Initiated on ${new Date(payment.returnDetails.initiatedDate).toLocaleDateString('en-IN')}` : 
+                                  'Return processing in progress'}
+                            </span>
+                        </div>
+                        
+                        <div className="bg-white p-3 rounded-lg mt-2 text-sm">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-2">
+                                <div>
+                                    <p className="font-medium text-gray-700">Return Request Date:</p>
+                                    <p>{payment.returnDetails?.requestDate ? 
+                                        new Date(payment.returnDetails.requestDate).toLocaleDateString('en-IN') : 'N/A'}</p>
                                 </div>
+                                
+                                {payment.returnDetails?.pickupDate && (
+                                    <div>
+                                        <p className="font-medium text-gray-700">Pickup Scheduled:</p>
+                                        <p>{new Date(payment.returnDetails.pickupDate).toLocaleDateString('en-IN')}</p>
+                                    </div>
+                                )}
+                                
+                                {payment.returnDetails?.receivedDate && (
+                                    <div>
+                                        <p className="font-medium text-gray-700">Product Received:</p>
+                                        <p>{new Date(payment.returnDetails.receivedDate).toLocaleDateString('en-IN')}</p>
+                                    </div>
+                                )}
+                                
+                                {payment.returnDetails?.approvalDate && (
+                                    <div>
+                                        <p className="font-medium text-gray-700">Return Approved:</p>
+                                        <p>{new Date(payment.returnDetails.approvalDate).toLocaleDateString('en-IN')}</p>
+                                    </div>
+                                )}
+                                
+                                {payment.returnDetails?.reason && (
+                                    <div className="col-span-1 md:col-span-2">
+                                        <p className="font-medium text-gray-700">Return Reason:</p>
+                                        <p>{payment.returnDetails.reason}</p>
+                                    </div>
+                                )}
+                                
+                                {payment.returnDetails?.customerComments && (
+                                    <div className="col-span-1 md:col-span-2">
+                                        <p className="font-medium text-gray-700">Customer Comments:</p>
+                                        <p>{payment.returnDetails.customerComments}</p>
+                                    </div>
+                                )}
+                                
+                                {payment.returnDetails?.qualityCheckNotes && (
+                                    <div className="col-span-1 md:col-span-2">
+                                        <p className="font-medium text-gray-700">Quality Check Notes:</p>
+                                        <p>{payment.returnDetails.qualityCheckNotes}</p>
+                                    </div>
+                                )}
                             </div>
                         </div>
-                    )}
-
-                    {/* Order Items */}
+                    </div>
+                    
+                    <div>
+                        <p className="text-sm text-gray-600">Return ID</p>
+                        <p className="font-semibold">{payment.returnDetails?.returnId || 'N/A'}</p>
+                    </div>
+                    
+                    <div>
+                        <p className="text-sm text-gray-600">Return Status</p>
+                        <p className="font-semibold capitalize">
+                            {payment.returnDetails?.status || payment.orderStatus || 'Processing'}
+                        </p>
+                    </div>
+                    
+                    <div>
+                        <p className="text-sm text-gray-600">Pickup Partner</p>
+                        <p className="font-semibold">{payment.returnDetails?.pickupPartner || 'TBD'}</p>
+                    </div>
+                    
+                    <div>
+                        <p className="text-sm text-gray-600">Expected Processing</p>
+                        <p className="font-semibold">3-5 business days</p>
+                    </div>
+                    
+                    {/* Return Timeline */}
+                    <div className="col-span-1 md:col-span-2 bg-white p-3 rounded-lg border border-orange-100">
+                        <h4 className="font-medium text-gray-700 mb-3">Return Processing Timeline</h4>
+                        <div className="space-y-3">
+                            {/* Step 1: Return Request */}
+                            <div className="flex items-center">
+                                <div className={`w-3 h-3 rounded-full mr-3 ${
+                                    payment.returnDetails?.requestDate ? 'bg-green-500' : 'bg-gray-300'
+                                }`}></div>
+                                <div className="flex-1">
+                                    <p className="text-sm font-medium">Return Request Submitted</p>
+                                    <p className="text-xs text-gray-500">
+                                        {payment.returnDetails?.requestDate ? 
+                                            new Date(payment.returnDetails.requestDate).toLocaleDateString('en-IN') : 
+                                            'Pending'}
+                                    </p>
+                                </div>
+                                {payment.returnDetails?.requestDate && (
+                                    <span className="text-green-600 text-xs">✓</span>
+                                )}
+                            </div>
+                            
+                            {/* Step 2: Pickup Scheduled */}
+                            <div className="flex items-center">
+                                <div className={`w-3 h-3 rounded-full mr-3 ${
+                                    payment.returnDetails?.pickupDate ? 'bg-green-500' : 'bg-gray-300'
+                                }`}></div>
+                                <div className="flex-1">
+                                    <p className="text-sm font-medium">Pickup Scheduled</p>
+                                    <p className="text-xs text-gray-500">
+                                        {payment.returnDetails?.pickupDate ? 
+                                            new Date(payment.returnDetails.pickupDate).toLocaleDateString('en-IN') : 
+                                            'Will be scheduled within 24 hours'}
+                                    </p>
+                                </div>
+                                {payment.returnDetails?.pickupDate && (
+                                    <span className="text-green-600 text-xs">✓</span>
+                                )}
+                            </div>
+                            
+                            {/* Step 3: Product Received */}
+                            <div className="flex items-center">
+                                <div className={`w-3 h-3 rounded-full mr-3 ${
+                                    payment.returnDetails?.receivedDate ? 'bg-green-500' : 'bg-gray-300'
+                                }`}></div>
+                                <div className="flex-1">
+                                    <p className="text-sm font-medium">Product Received & Quality Check</p>
+                                    <p className="text-xs text-gray-500">
+                                        {payment.returnDetails?.receivedDate ? 
+                                            new Date(payment.returnDetails.receivedDate).toLocaleDateString('en-IN') : 
+                                            'Awaiting product receipt'}
+                                    </p>
+                                </div>
+                                {payment.returnDetails?.receivedDate && (
+                                    <span className="text-green-600 text-xs">✓</span>
+                                )}
+                            </div>
+                            
+                            {/* Step 4: Return Approved & Refund */}
+                            <div className="flex items-center">
+                                <div className={`w-3 h-3 rounded-full mr-3 ${
+                                    payment.returnDetails?.approvalDate ? 'bg-green-500' : 'bg-gray-300'
+                                }`}></div>
+                                <div className="flex-1">
+                                    <p className="text-sm font-medium">Return Approved & Refund Processed</p>
+                                    <p className="text-xs text-gray-500">
+                                        {payment.returnDetails?.approvalDate ? 
+                                            new Date(payment.returnDetails.approvalDate).toLocaleDateString('en-IN') : 
+                                            'Pending quality verification'}
+                                    </p>
+                                </div>
+                                {payment.returnDetails?.approvalDate && (
+                                    <span className="text-green-600 text-xs">✓</span>
+                                )}
+                            </div>
+                        </div>
+                        
+                        {/* Return Note */}
+                        <div className="mt-3 p-2 bg-orange-50 border border-orange-200 rounded text-xs">
+                            <p className="text-orange-800">
+                                <strong>Note:</strong> Once your return is approved, refund will be processed within 3-5 business days. 
+                                You will receive email notifications at each step of the return process.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    )}                    {/* Order Items */}
                     <div className="mb-8">
                         <h3 className="text-lg font-semibold text-gray-900 mb-4">Order Items</h3>
                         <div className="overflow-x-auto">
@@ -590,11 +1037,20 @@ function InvoiceModal({ payment: originalPayment, onClose }) {
                                         <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b">
                                             Quantity
                                         </th>
+                                        <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b">
+                                            Original Price
+                                        </th>
+                                        <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b">
+                                            Discount
+                                        </th>
                                         <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider border-b">
-                                            Unit Price
+                                            Final Price
                                         </th>
                                         <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider border-b">
                                             Total
+                                        </th>
+                                        <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b">
+                                            Status
                                         </th>
                                     </tr>
                                 </thead>
@@ -628,10 +1084,19 @@ function InvoiceModal({ payment: originalPayment, onClose }) {
 
                                             // Enhanced price calculation with size-based pricing
                                             const getProductInfo = () => {
-                                                if (item.productDetails) return item.productDetails;
-                                                if (item.bundleDetails) return item.bundleDetails;
-                                                if (item.productId && typeof item.productId === 'object') return item.productId;
-                                                if (item.bundleId && typeof item.bundleId === 'object') return item.bundleId;
+                                                // Try multiple sources for product information with proper fallbacks
+                                                if (item.productDetails && typeof item.productDetails === 'object') {
+                                                    return item.productDetails;
+                                                }
+                                                if (item.bundleDetails && typeof item.bundleDetails === 'object') {
+                                                    return item.bundleDetails;
+                                                }
+                                                if (item.productId && typeof item.productId === 'object') {
+                                                    return item.productId;
+                                                }
+                                                if (item.bundleId && typeof item.bundleId === 'object') {
+                                                    return item.bundleId;
+                                                }
                                                 return null;
                                             };
 
@@ -639,9 +1104,36 @@ function InvoiceModal({ payment: originalPayment, onClose }) {
                                             const sizeBasedUnitPrice = getSizeBasedUnitPrice(item, productInfo);
                                             const sizeBasedTotalPrice = calculateSizeBasedPrice(item, productInfo);
 
-                                            // Use size-based pricing if available, otherwise fallback
-                                            const unitPrice = sizeBasedUnitPrice || item.itemTotal || 0;
-                                            const itemTotal = sizeBasedTotalPrice || item.itemTotal || unitPrice;
+                                            // Use enhanced pricing with comprehensive fallbacks
+                                            let unitPrice = 0;
+                                            let itemTotal = 0;
+                                            
+                                            // Priority 1: Use sizeAdjustedPrice if available (most accurate)
+                                            if (item.sizeAdjustedPrice && item.sizeAdjustedPrice > 0) {
+                                                unitPrice = item.sizeAdjustedPrice;
+                                                itemTotal = item.sizeAdjustedPrice * (item.quantity || 1);
+                                            }
+                                            // Priority 2: Use calculated size-based pricing
+                                            else if (sizeBasedUnitPrice > 0) {
+                                                unitPrice = sizeBasedUnitPrice;
+                                                itemTotal = sizeBasedTotalPrice;
+                                            }
+                                            // Priority 3: Use unitPrice if set correctly in the order
+                                            else if (item.unitPrice && item.unitPrice > 0) {
+                                                unitPrice = item.unitPrice;
+                                                itemTotal = item.unitPrice * (item.quantity || 1);
+                                            }
+                                            // Priority 4: Use itemTotal and calculate unit price
+                                            else if (item.itemTotal && item.itemTotal > 0) {
+                                                itemTotal = item.itemTotal;
+                                                unitPrice = item.itemTotal / (item.quantity || 1);
+                                            }
+                                            // Priority 5: Use product price as fallback
+                                            else {
+                                                const fallbackPrice = item.productId?.price || item.productDetails?.price || 0;
+                                                unitPrice = fallbackPrice;
+                                                itemTotal = fallbackPrice * (item.quantity || 1);
+                                            }
                                             
                                             // Enhanced bundle detection - check multiple sources
                                             const isBundle = item.itemType === 'bundle' || 
@@ -650,8 +1142,80 @@ function InvoiceModal({ payment: originalPayment, onClose }) {
                                                            (item.type === 'Bundle') ||
                                                            (item.productType === 'bundle');
 
+                                            // Get item-specific status
+                                            const getItemStatus = () => {
+                                                const itemStatus = item.status || 'Active';
+                                                const isCancelled = item.status === 'Cancelled' || item.cancelApproved === true;
+                                                const isReturned = item.status === 'Returned' || item.returnStatus === 'Approved';
+                                                const hasReturnRequest = item.returnStatus === 'Pending' || item.returnRequested === true;
+                                                const hasCancelRequest = item.cancelRequested === true && !item.cancelApproved;
+                                                
+                                                // Priority order: Returned > Cancelled > Return Pending > Cancel Pending > Active
+                                                if (isReturned) {
+                                                    return {
+                                                        text: 'RETURNED',
+                                                        colorClass: 'bg-purple-100 text-purple-800 border border-purple-200',
+                                                        icon: '↩️'
+                                                    };
+                                                } else if (isCancelled) {
+                                                    return {
+                                                        text: 'CANCELLED',
+                                                        colorClass: 'bg-red-100 text-red-800 border border-red-200',
+                                                        icon: '❌'
+                                                    };
+                                                } else if (hasReturnRequest) {
+                                                    return {
+                                                        text: 'RETURN PENDING',
+                                                        colorClass: 'bg-orange-100 text-orange-800 border border-orange-200',
+                                                        icon: '⏳'
+                                                    };
+                                                } else if (hasCancelRequest) {
+                                                    return {
+                                                        text: 'CANCEL PENDING',
+                                                        colorClass: 'bg-yellow-100 text-yellow-800 border border-yellow-200',
+                                                        icon: '⏳'
+                                                    };
+                                                } else {
+                                                    return {
+                                                        text: 'ACTIVE',
+                                                        colorClass: 'bg-green-100 text-green-800 border border-green-200',
+                                                        icon: '✅'
+                                                    };
+                                                }
+                                            };
+
+                                            const itemStatusInfo = getItemStatus();
+                                            const isCancelled = item.status === 'Cancelled' || item.cancelApproved === true;
+                                            const isReturned = item.status === 'Returned' || item.returnStatus === 'Approved';
+
+                                            // Get pricing details
+                                            const pricingDetails = getPricingDetails(item, productInfo);
+
+                                            // Debug log for pricing details
+                                            console.log('📋 Invoice Pricing Debug:', {
+                                                itemName: getProductName(),
+                                                originalItemData: {
+                                                    sizeAdjustedPrice: item?.sizeAdjustedPrice,
+                                                    calculatedPrice: item?.calculatedPrice,
+                                                    unitPrice: item?.unitPrice,
+                                                    itemTotal: item?.itemTotal,
+                                                    size: item?.size,
+                                                    quantity: item?.quantity
+                                                },
+                                                productData: {
+                                                    price: productInfo?.price,
+                                                    discount: productInfo?.discount,
+                                                    originalPrice: productInfo?.originalPrice
+                                                },
+                                                calculatedPricing: pricingDetails
+                                            });
+
                                             return (
-                                                <tr key={index} className="border-b border-gray-200">
+                                                <tr key={index} className={`border-b border-gray-200 ${
+                                                    isCancelled ? 'bg-red-50 opacity-75' : 
+                                                    isReturned ? 'bg-purple-50 opacity-75' : 
+                                                    'bg-white'
+                                                }`}>
                                                     <td className="px-4 py-3">
                                                         <div className="flex items-center">
                                             {/* Product Image */}
@@ -694,11 +1258,13 @@ function InvoiceModal({ payment: originalPayment, onClose }) {
                                                 const imageUrl = getProductImage();
                                                 
                                                 return imageUrl ? (
-                                                    <div className="w-12 h-12 mr-4 overflow-hidden rounded border border-gray-200">
+                                                    <div className="w-12 h-12 mr-4 overflow-hidden rounded border border-gray-200 relative">
                                                         <img 
                                                             src={imageUrl} 
                                                             alt={getProductName()}
-                                                            className="w-full h-full object-cover"
+                                                            className={`w-full h-full object-cover ${
+                                                                isCancelled || isReturned ? 'grayscale opacity-60' : ''
+                                                            }`}
                                                             onError={(e) => {
                                                                 e.target.style.display = 'none';
                                                                 e.target.parentElement.innerHTML = `
@@ -710,12 +1276,28 @@ function InvoiceModal({ payment: originalPayment, onClose }) {
                                                                 `;
                                                             }}
                                                         />
+                                                        {(isCancelled || isReturned) && (
+                                                            <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-40 rounded">
+                                                                <span className="text-white text-xs font-bold">
+                                                                    {isCancelled ? 'CANCELLED' : 'RETURNED'}
+                                                                </span>
+                                                            </div>
+                                                        )}
                                                     </div>
                                                 ) : (
-                                                    <div className="w-12 h-12 mr-4 bg-gray-100 rounded flex items-center justify-center">
+                                                    <div className={`w-12 h-12 mr-4 bg-gray-100 rounded flex items-center justify-center relative ${
+                                                        isCancelled || isReturned ? 'opacity-60' : ''
+                                                    }`}>
                                                         <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
                                                         </svg>
+                                                        {(isCancelled || isReturned) && (
+                                                            <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-40 rounded">
+                                                                <span className="text-white text-xs font-bold">
+                                                                    {isCancelled ? 'CANCELLED' : 'RETURNED'}
+                                                                </span>
+                                                            </div>
+                                                        )}
                                                     </div>
                                                 );
                                                             })()}
@@ -723,7 +1305,11 @@ function InvoiceModal({ payment: originalPayment, onClose }) {
                                                             {/* Product Name and Type */}
                                                             <div>
                                                                 <div className="flex items-center gap-2">
-                                                                    <p className="font-medium text-gray-900">
+                                                                    <p className={`font-medium ${
+                                                                        isCancelled ? 'text-red-600 line-through' : 
+                                                                        isReturned ? 'text-purple-600 line-through' : 
+                                                                        'text-gray-900'
+                                                                    }`}>
                                                                         {getProductName()}
                                                                     </p>
                                                                     {isBundle && (
@@ -732,9 +1318,23 @@ function InvoiceModal({ payment: originalPayment, onClose }) {
                                                                         </span>
                                                                     )}
                                                                 </div>
-                                                                <p className="text-sm text-gray-500">
+                                                                <p className={`text-sm ${
+                                                                    isCancelled || isReturned ? 'text-gray-400' : 'text-gray-500'
+                                                                }`}>
                                                                     Type: {isBundle ? 'Bundle' : 'Product'}
                                                                 </p>
+                                                                
+                                                                {/* Show cancellation/return details if applicable */}
+                                                                {isCancelled && item.refundAmount && (
+                                                                    <p className="text-xs text-red-600 font-medium mt-1">
+                                                                        Refunded: ₹{item.refundAmount}
+                                                                    </p>
+                                                                )}
+                                                                {isReturned && item.returnAmount && (
+                                                                    <p className="text-xs text-purple-600 font-medium mt-1">
+                                                                        Return Amount: ₹{item.returnAmount}
+                                                                    </p>
+                                                                )}
                                                                 
                                                                 {/* Bundle Items Details */}
                                                                 {isBundle && (() => {
@@ -1076,77 +1676,344 @@ function InvoiceModal({ payment: originalPayment, onClose }) {
                                                     </td>
                                                     <td className="px-4 py-3 text-center text-gray-900">
                                                         {item.size ? (
-                                                            <span className="inline-block bg-green-100 text-green-800 px-2 py-1 rounded-md text-xs font-semibold">
+                                                            <span className={`inline-block px-2 py-1 rounded-md text-xs font-semibold ${
+                                                                isCancelled ? 'bg-red-100 text-red-600' :
+                                                                isReturned ? 'bg-purple-100 text-purple-600' :
+                                                                'bg-green-100 text-green-800'
+                                                            }`}>
                                                                 {item.size}
                                                             </span>
                                                         ) : (
                                                             <span className="text-gray-500 text-xs">N/A</span>
                                                         )}
                                                     </td>
-                                                    <td className="px-4 py-3 text-center text-gray-900">
+                                                    <td className={`px-4 py-3 text-center ${
+                                                        isCancelled ? 'text-red-600 line-through' :
+                                                        isReturned ? 'text-purple-600 line-through' :
+                                                        'text-gray-900'
+                                                    }`}>
                                                         {item.quantity}
                                                     </td>
-                                                    <td className="px-4 py-3 text-right text-gray-900">
-                                                        {formatCurrency(unitPrice)}
+                                                    {/* Original Price Column */}
+                                                    <td className="px-4 py-3 text-center">
+                                                        <div className={`${
+                                                            isCancelled ? 'text-red-600' :
+                                                            isReturned ? 'text-purple-600' :
+                                                            'text-gray-900'
+                                                        }`}>
+                                                            {pricingDetails.hasDiscount ? (
+                                                                <span className="line-through text-gray-500 text-sm">
+                                                                    {formatCurrency(pricingDetails.originalPrice)}
+                                                                </span>
+                                                            ) : (
+                                                                <span className={isCancelled || isReturned ? 'line-through' : ''}>
+                                                                    {formatCurrency(pricingDetails.originalPrice)}
+                                                                </span>
+                                                            )}
+                                                        </div>
                                                     </td>
-                                                    <td className="px-4 py-3 text-right font-medium text-gray-900">
-                                                        {formatCurrency(itemTotal)}
+                                                    {/* Discount Column */}
+                                                    <td className="px-4 py-3 text-center">
+                                                        {pricingDetails.hasDiscount ? (
+                                                            <div className="space-y-1">
+                                                                <div className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                                                    -{pricingDetails.discountPercentage}% OFF
+                                                                </div>
+                                                                <div className="text-xs text-green-600 font-medium">
+                                                                    Save: {formatCurrency(pricingDetails.discountAmount)}
+                                                                </div>
+                                                                {/* Show discount source */}
+                                                                <div className="text-xs text-gray-500">
+                                                                    {(() => {
+                                                                        const productInfo = getProductInfo();
+                                                                        const hasProductDiscount = productInfo?.discount && productInfo.discount > 0;
+                                                                        const hasSize = item?.size;
+                                                                        
+                                                                        if (hasProductDiscount && hasSize) {
+                                                                            return `Size ${item.size} + ${productInfo.discount}% Off`;
+                                                                        } else if (hasProductDiscount) {
+                                                                            return `${productInfo.discount}% Product Discount`;
+                                                                        } else if (hasSize) {
+                                                                            return `Size ${item.size} Pricing`;
+                                                                        } else {
+                                                                            return 'Discount Applied';
+                                                                        }
+                                                                    })()}
+                                                                </div>
+                                                            </div>
+                                                        ) : (
+                                                            <div className="space-y-1">
+                                                                <span className="text-gray-400 text-xs">No Discount</span>
+                                                                {item?.size && (
+                                                                    <div className="text-xs text-purple-600">
+                                                                        Size: {item.size}
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        )}
+                                                    </td>
+                                                    {/* Final Price Column */}
+                                                    <td className={`px-4 py-3 text-right ${
+                                                        isCancelled ? 'text-red-600 line-through' :
+                                                        isReturned ? 'text-purple-600 line-through' :
+                                                        'text-gray-900'
+                                                    }`}>
+                                                        <div className="space-y-1">
+                                                            <div className="font-medium">
+                                                                {formatCurrency(pricingDetails.finalPrice)}
+                                                            </div>
+                                                            {pricingDetails.hasDiscount && (
+                                                                <div className="text-xs text-green-600 font-medium">
+                                                                    After Discount
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    </td>
+                                                    {/* Total Column */}
+                                                    {/* Total Column */}
+                                                    <td className={`px-4 py-3 text-right font-medium ${
+                                                        isCancelled ? 'text-red-600 line-through' :
+                                                        isReturned ? 'text-purple-600 line-through' :
+                                                        'text-gray-900'
+                                                    }`}>
+                                                        <div className="space-y-1">
+                                                            <div className="font-bold">
+                                                                {formatCurrency(pricingDetails.finalPrice * (item.quantity || 1))}
+                                                            </div>
+                                                            {pricingDetails.hasDiscount && (
+                                                                <div className="text-xs text-gray-500">
+                                                                    <span className="line-through">
+                                                                        {formatCurrency(pricingDetails.originalPrice * (item.quantity || 1))}
+                                                                    </span>
+                                                                </div>
+                                                            )}
+                                                            {pricingDetails.hasDiscount && (
+                                                                <div className="text-xs text-green-600 font-medium">
+                                                                    Saved: {formatCurrency(pricingDetails.discountAmount * (item.quantity || 1))}
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    </td>
+                                                    <td className="px-4 py-3 text-center">
+                                                        <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${itemStatusInfo.colorClass}`}>
+                                                            <span className="mr-1">{itemStatusInfo.icon}</span>
+                                                            {itemStatusInfo.text}
+                                                        </span>
+                                                        {/* Additional status details */}
+                                                        {(isCancelled || isReturned) && (
+                                                            <div className="mt-1">
+                                                                {item.cancelDate && (
+                                                                    <p className="text-xs text-red-500">
+                                                                        Cancelled: {new Date(item.cancelDate).toLocaleDateString('en-IN')}
+                                                                    </p>
+                                                                )}
+                                                                {item.returnDate && (
+                                                                    <p className="text-xs text-purple-500">
+                                                                        Returned: {new Date(item.returnDate).toLocaleDateString('en-IN')}
+                                                                    </p>
+                                                                )}
+                                                            </div>
+                                                        )}
                                                     </td>
                                                 </tr>
                                             );
                                         })
                                     ) : (
                                         // Fallback for legacy order structure
-                                        <tr className="border-b border-gray-200">
-                                            <td className="px-4 py-3">
-                                                <div>
-                                                    <p className="font-medium text-gray-900">
-                                                        {payment.productDetails?.name || payment.productDetails?.title || 'Product Item'}
-                                                    </p>
-                                                    <p className="text-sm text-gray-500">Product</p>
-                                                </div>
-                                            </td>
-                                            <td className="px-4 py-3 text-center text-gray-900">
-                                                {payment.size || payment.productDetails?.size ? (
-                                                    <span className="inline-block bg-green-100 text-green-800 px-2 py-1 rounded-md text-xs font-semibold">
-                                                        {payment.size || payment.productDetails?.size}
-                                                    </span>
-                                                ) : (
-                                                    <span className="text-gray-500 text-xs">N/A</span>
-                                                )}
-                                            </td>
-                                            <td className="px-4 py-3 text-center text-gray-900">
-                                                {payment.orderQuantity || payment.totalQuantity || 1}
-                                            </td>
-                                            <td className="px-4 py-3 text-right text-gray-900">
-                                                {(() => {
-                                                    // Calculate size-based price for legacy orders
-                                                    const legacyItem = {
-                                                        size: payment.size || payment.productDetails?.size,
-                                                        quantity: payment.orderQuantity || payment.totalQuantity || 1,
-                                                        itemTotal: payment.subTotalAmt
+                                        (() => {
+                                            // Get legacy order status
+                                            const getLegacyOrderStatus = () => {
+                                                const orderStatus = payment.orderStatus || 'Active';
+                                                const paymentStatus = payment.paymentStatus || '';
+                                                
+                                                if (orderStatus === 'CANCELLED' || paymentStatus.includes('REFUND')) {
+                                                    return {
+                                                        text: 'CANCELLED',
+                                                        colorClass: 'bg-red-100 text-red-800 border border-red-200',
+                                                        icon: '❌',
+                                                        isCancelled: true
                                                     };
-                                                    const legacyUnitPrice = getSizeBasedUnitPrice(legacyItem, payment.productDetails) || 
-                                                                          payment.productDetails?.price || 
-                                                                          (payment.subTotalAmt / (payment.orderQuantity || payment.totalQuantity || 1));
-                                                    return formatCurrency(legacyUnitPrice);
-                                                })()}
-                                            </td>
-                                            <td className="px-4 py-3 text-right font-medium text-gray-900">
-                                                {(() => {
-                                                    // Calculate size-based total for legacy orders
-                                                    const legacyItem = {
-                                                        size: payment.size || payment.productDetails?.size,
-                                                        quantity: payment.orderQuantity || payment.totalQuantity || 1,
-                                                        itemTotal: payment.subTotalAmt
+                                                } else if (orderStatus === 'RETURNED') {
+                                                    return {
+                                                        text: 'RETURNED',
+                                                        colorClass: 'bg-purple-100 text-purple-800 border border-purple-200',
+                                                        icon: '↩️',
+                                                        isReturned: true
                                                     };
-                                                    const legacyTotalPrice = calculateSizeBasedPrice(legacyItem, payment.productDetails) || 
-                                                                           payment.subTotalAmt || 
-                                                                           payment.totalAmt;
-                                                    return formatCurrency(legacyTotalPrice);
-                                                })()}
-                                            </td>
-                                        </tr>
+                                                } else {
+                                                    return {
+                                                        text: 'ACTIVE',
+                                                        colorClass: 'bg-green-100 text-green-800 border border-green-200',
+                                                        icon: '✅',
+                                                        isCancelled: false,
+                                                        isReturned: false
+                                                    };
+                                                }
+                                            };
+                                            
+                                            const legacyStatusInfo = getLegacyOrderStatus();
+                                            const isCancelled = legacyStatusInfo.isCancelled;
+                                            const isReturned = legacyStatusInfo.isReturned;
+                                            
+                                            // Calculate legacy pricing details
+                                            const legacyItem = {
+                                                size: payment.size || payment.productDetails?.size,
+                                                quantity: payment.orderQuantity || payment.totalQuantity || 1,
+                                                itemTotal: payment.subTotalAmt,
+                                                sizeAdjustedPrice: payment.sizeAdjustedPrice,
+                                                originalPrice: payment.productDetails?.originalPrice || payment.productDetails?.price,
+                                                calculatedPrice: payment.calculatedPrice, // Add calculated price if available
+                                                itemType: 'product' // Legacy orders are typically products
+                                            };
+                                            const legacyPricingDetails = getPricingDetails(legacyItem, payment.productDetails);
+                                            
+                                            // Debug log for legacy pricing
+                                            console.log('📋 Legacy Invoice Pricing Debug:', {
+                                                legacyItem,
+                                                paymentProductDetails: payment.productDetails,
+                                                calculatedPricing: legacyPricingDetails
+                                            });
+                                            
+                                            return (
+                                                <tr className={`border-b border-gray-200 ${
+                                                    isCancelled ? 'bg-red-50 opacity-75' : 
+                                                    isReturned ? 'bg-purple-50 opacity-75' : 
+                                                    'bg-white'
+                                                }`}>
+                                                    <td className="px-4 py-3">
+                                                        <div>
+                                                            <p className={`font-medium ${
+                                                                isCancelled ? 'text-red-600 line-through' : 
+                                                                isReturned ? 'text-purple-600 line-through' : 
+                                                                'text-gray-900'
+                                                            }`}>
+                                                                {payment.productDetails?.name || payment.productDetails?.title || 'Product Item'}
+                                                            </p>
+                                                            <p className={`text-sm ${
+                                                                isCancelled || isReturned ? 'text-gray-400' : 'text-gray-500'
+                                                            }`}>Product</p>
+                                                        </div>
+                                                    </td>
+                                                    <td className="px-4 py-3 text-center text-gray-900">
+                                                        {payment.size || payment.productDetails?.size ? (
+                                                            <span className={`inline-block px-2 py-1 rounded-md text-xs font-semibold ${
+                                                                isCancelled ? 'bg-red-100 text-red-600' :
+                                                                isReturned ? 'bg-purple-100 text-purple-600' :
+                                                                'bg-green-100 text-green-800'
+                                                            }`}>
+                                                                {payment.size || payment.productDetails?.size}
+                                                            </span>
+                                                        ) : (
+                                                            <span className="text-gray-500 text-xs">N/A</span>
+                                                        )}
+                                                    </td>
+                                                    <td className={`px-4 py-3 text-center ${
+                                                        isCancelled ? 'text-red-600 line-through' :
+                                                        isReturned ? 'text-purple-600 line-through' :
+                                                        'text-gray-900'
+                                                    }`}>
+                                                        {payment.orderQuantity || payment.totalQuantity || 1}
+                                                    </td>
+                                                    {/* Legacy Original Price Column */}
+                                                    <td className="px-4 py-3 text-center">
+                                                        <div className={`${
+                                                            isCancelled ? 'text-red-600' :
+                                                            isReturned ? 'text-purple-600' :
+                                                            'text-gray-900'
+                                                        }`}>
+                                                            {legacyPricingDetails.hasDiscount ? (
+                                                                <span className="line-through text-gray-500 text-sm">
+                                                                    {formatCurrency(legacyPricingDetails.originalPrice)}
+                                                                </span>
+                                                            ) : (
+                                                                <span className={isCancelled || isReturned ? 'line-through' : ''}>
+                                                                    {formatCurrency(legacyPricingDetails.originalPrice)}
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                    </td>
+                                                    {/* Legacy Discount Column */}
+                                                    <td className="px-4 py-3 text-center">
+                                                        {legacyPricingDetails.hasDiscount ? (
+                                                            <div className="space-y-1">
+                                                                <div className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                                                    -{legacyPricingDetails.discountPercentage}%
+                                                                </div>
+                                                                <div className="text-xs text-green-600 font-medium">
+                                                                    -{formatCurrency(legacyPricingDetails.discountAmount)}
+                                                                </div>
+                                                            </div>
+                                                        ) : (
+                                                            <span className="text-gray-400 text-xs">No Discount</span>
+                                                        )}
+                                                    </td>
+                                                    {/* Legacy Final Price Column */}
+                                                    <td className={`px-4 py-3 text-right ${
+                                                        isCancelled ? 'text-red-600 line-through' :
+                                                        isReturned ? 'text-purple-600 line-through' :
+                                                        'text-gray-900'
+                                                    }`}>
+                                                        <div className="space-y-1">
+                                                            <div className="font-medium">
+                                                                {formatCurrency(legacyPricingDetails.finalPrice)}
+                                                            </div>
+                                                            {legacyPricingDetails.hasDiscount && (
+                                                                <div className="text-xs text-green-600 font-medium">
+                                                                    After Discount
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    </td>
+                                                    {/* Legacy Total Column */}
+                                                            
+                                                    {/* Legacy Total Column */}
+                                                    <td className={`px-4 py-3 text-right font-medium ${
+                                                        isCancelled ? 'text-red-600 line-through' :
+                                                        isReturned ? 'text-purple-600 line-through' :
+                                                        'text-gray-900'
+                                                    }`}>
+                                                        <div className="space-y-1">
+                                                            <div className="font-bold">
+                                                                {formatCurrency(legacyPricingDetails.finalPrice * (legacyItem.quantity || 1))}
+                                                            </div>
+                                                            {legacyPricingDetails.hasDiscount && (
+                                                                <div className="text-xs text-gray-500">
+                                                                    <span className="line-through">
+                                                                        {formatCurrency(legacyPricingDetails.originalPrice * (legacyItem.quantity || 1))}
+                                                                    </span>
+                                                                </div>
+                                                            )}
+                                                            {legacyPricingDetails.hasDiscount && (
+                                                                <div className="text-xs text-green-600 font-medium">
+                                                                    Saved: {formatCurrency(legacyPricingDetails.discountAmount * (legacyItem.quantity || 1))}
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    </td>
+                                                    <td className="px-4 py-3 text-center">
+                                                        <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${legacyStatusInfo.colorClass}`}>
+                                                            <span className="mr-1">{legacyStatusInfo.icon}</span>
+                                                            {legacyStatusInfo.text}
+                                                        </span>
+                                                        {/* Additional status details for legacy orders */}
+                                                        {(isCancelled || isReturned) && (
+                                                            <div className="mt-1">
+                                                                {payment.refundDetails?.refundDate && (
+                                                                    <p className="text-xs text-red-500">
+                                                                        Refunded: {new Date(payment.refundDetails.refundDate).toLocaleDateString('en-IN')}
+                                                                    </p>
+                                                                )}
+                                                                {payment.returnDetails?.returnDate && (
+                                                                    <p className="text-xs text-purple-500">
+                                                                        Returned: {new Date(payment.returnDetails.returnDate).toLocaleDateString('en-IN')}
+                                                                    </p>
+                                                                )}
+                                                            </div>
+                                                        )}
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })()
                                     )}
                                 </tbody>
                             </table>
@@ -1159,6 +2026,42 @@ function InvoiceModal({ payment: originalPayment, onClose }) {
                             <div className="bg-gray-50 p-6 rounded-lg border">
                                 <h3 className="text-lg font-semibold text-gray-900 mb-4">Payment Summary</h3>
                                 <div className="space-y-3">
+                                    {(() => {
+                                        const discountSummary = calculateTotalDiscountSavings();
+                                        return (
+                                            <>
+                                                {/* Show original pricing if there are discounts */}
+                                                {discountSummary.hasSavings && (
+                                                    <div className="bg-green-50 p-3 rounded-lg border border-green-100">
+                                                        <h4 className="text-sm font-medium text-green-800 mb-2 flex items-center">
+                                                            🎉 You Saved Money!
+                                                        </h4>
+                                                        <div className="space-y-1 text-xs">
+                                                            <div className="flex justify-between">
+                                                                <span className="text-green-700">Original Amount:</span>
+                                                                <span className="text-green-700 line-through">
+                                                                    {formatCurrency(discountSummary.totalOriginalAmount)}
+                                                                </span>
+                                                            </div>
+                                                            <div className="flex justify-between">
+                                                                <span className="text-green-700">After Discount:</span>
+                                                                <span className="text-green-700 font-medium">
+                                                                    {formatCurrency(discountSummary.totalFinalAmount)}
+                                                                </span>
+                                                            </div>
+                                                            <div className="flex justify-between border-t border-green-200 pt-1">
+                                                                <span className="text-green-800 font-medium">Total Savings ({discountSummary.savingsPercentage}%):</span>
+                                                                <span className="text-green-800 font-bold">
+                                                                    {formatCurrency(discountSummary.totalSavings)}
+                                                                </span>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                )}
+                                            </>
+                                        );
+                                    })()}
+                                    
                                     <div className="flex justify-between text-sm">
                                         <span className="text-gray-600">Subtotal:</span>
                                         <span className="text-gray-900">{formatCurrency(payment.subTotalAmt)}</span>
@@ -1166,17 +2069,74 @@ function InvoiceModal({ payment: originalPayment, onClose }) {
                                     <div className="flex justify-between text-sm">
                                         <span className="text-gray-600">Delivery Charges:</span>
                                         <span className="text-gray-900">
-                                            {formatCurrency((payment.totalAmt || 0) - (payment.subTotalAmt || 0))}
+                                            {formatCurrency(payment.deliveryCharge || (payment.totalAmt || 0) - (payment.subTotalAmt || 0))}
                                         </span>
                                     </div>
-                                    <div className="flex justify-between text-sm">
-                                        <span className="text-gray-600">Tax (GST):</span>
-                                        <span className="text-gray-900">Included</span>
-                                    </div>
+                                    {payment.taxAmount && payment.taxAmount > 0 ? (
+                                        <div className="flex justify-between text-sm">
+                                            <span className="text-gray-600">Tax (GST):</span>
+                                            <span className="text-gray-900">{formatCurrency(payment.taxAmount)}</span>
+                                        </div>
+                                    ) : (
+                                        <div className="flex justify-between text-sm">
+                                            <span className="text-gray-600">Tax (GST):</span>
+                                            <span className="text-gray-900">Included</span>
+                                        </div>
+                                    )}
+                                    {payment.discountAmount && payment.discountAmount > 0 && (
+                                        <div className="flex justify-between text-sm text-green-600">
+                                            <span>Discount Applied:</span>
+                                            <span>-{formatCurrency(payment.discountAmount)}</span>
+                                        </div>
+                                    )}
                                     <div className="border-t pt-3">
                                         <div className="flex justify-between text-lg font-bold">
                                             <span className="text-gray-900">Total Amount:</span>
                                             <span className="text-gray-900">{formatCurrency(payment.totalAmt)}</span>
+                                        </div>
+                                    </div>
+                                    
+                                    {/* Payment Method and Transaction Details */}
+                                    <div className="mt-4 pt-3 border-t">
+                                        <div className="space-y-2 text-sm">
+                                            <div className="flex justify-between">
+                                                <span className="text-gray-600">Payment Method:</span>
+                                                <span className="text-gray-900 font-medium">{payment.paymentMethod || 'Cash on Delivery'}</span>
+                                            </div>
+                                            <div className="flex justify-between">
+                                                <span className="text-gray-600">Payment Status:</span>
+                                                <span className={`font-medium px-2 py-1 rounded-full text-xs ${
+                                                    payment.paymentStatus?.toLowerCase() === 'paid' 
+                                                        ? 'bg-green-100 text-green-800' 
+                                                        : payment.paymentStatus?.includes('REFUND')
+                                                        ? 'bg-red-100 text-red-800'
+                                                        : 'bg-yellow-100 text-yellow-800'
+                                                }`}>
+                                                    {payment.paymentStatus}
+                                                </span>
+                                            </div>
+                                            {payment.paymentId && (
+                                                <div className="flex justify-between">
+                                                    <span className="text-gray-600">Transaction ID:</span>
+                                                    <span className="text-gray-900 font-mono text-xs">{payment.paymentId}</span>
+                                                </div>
+                                            )}
+                                            <div className="flex justify-between">
+                                                <span className="text-gray-600">Order Date:</span>
+                                                <span className="text-gray-900">{new Date(payment.orderDate).toLocaleDateString('en-IN')}</span>
+                                            </div>
+                                            {payment.estimatedDeliveryDate && (
+                                                <div className="flex justify-between">
+                                                    <span className="text-gray-600">Expected Delivery:</span>
+                                                    <span className="text-gray-900">{new Date(payment.estimatedDeliveryDate).toLocaleDateString('en-IN')}</span>
+                                                </div>
+                                            )}
+                                            {payment.actualDeliveryDate && (
+                                                <div className="flex justify-between">
+                                                    <span className="text-gray-600">Delivered On:</span>
+                                                    <span className="text-green-600 font-medium">{new Date(payment.actualDeliveryDate).toLocaleDateString('en-IN')}</span>
+                                                </div>
+                                            )}
                                         </div>
                                     </div>
                                 </div>

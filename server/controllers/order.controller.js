@@ -1003,7 +1003,7 @@ export const getOrderController = async (req, res) => {
           .populate("items.productId", "name image price stock discount sizePricing discountedPrice") // Include discountedPrice
           .populate("items.bundleId", "title description image images bundlePrice originalPrice stock items") // Include items array
           .populate("deliveryAddress", "address_line city state pincode country landmark addressType mobile")
-          .populate("userId", "name email phone");
+          .populate("userId", "name email mobile");
           
         // Enhanced order details with cancellation requests for each order
         const ordersWithDetails = await Promise.all(orders.map(async (order) => {
@@ -1056,7 +1056,7 @@ export const getOrderByIdController = async (req, res) => {
           .populate("items.productId", "name image price stock discount description brand sizePricing discountedPrice") // Include discountedPrice
           .populate("items.bundleId", "title description image images bundlePrice originalPrice stock items discount")
           .populate("deliveryAddress", "address_line city state pincode country landmark addressType mobile")
-          .populate("userId", "name email phone");
+          .populate("userId", "name email mobile");
           
         if (!order) {
             return res.status(404).json({
@@ -1151,10 +1151,10 @@ export const getAllOrdersController = async (req, res) => {
     try {
         const orders = await orderModel.find({})
           .sort({createdAt: -1})
-          .populate("userId", "name email")
+          .populate("userId", "name email mobile")
           .populate("items.productId", "name image price stock discount discountedPrice") // Include discountedPrice
           .populate("items.bundleId", "title description image images bundlePrice originalPrice stock items") // Include items array
-          .populate("deliveryAddress", "address_line city state pincode country");
+          .populate("deliveryAddress", "address_line city state pincode country mobile");
 
         // Add cancellation request information for each order
         const ordersWithCancellationInfo = await Promise.all(
@@ -1188,13 +1188,10 @@ export const getAllOrdersController = async (req, res) => {
     }
 }
 
-// Use OrderStatusManager to handle order status transitions
-import { OrderStatusManager } from "../utils/OrderStatusManager.js";
-import Logger from "../utils/logger.js";
-
+// Also update the updateOrderStatusController to work with the new structure
 export const updateOrderStatusController = async (req, res) => {
     try {
-        const { orderId, orderStatus, notes } = req.body;
+        const { orderId, orderStatus } = req.body;
         
         // Validate input
         if (!orderId || !orderStatus) {
@@ -1205,14 +1202,13 @@ export const updateOrderStatusController = async (req, res) => {
             });
         }
         
-        // Use OrderStatusManager for status validation
-        const validStatuses = Object.values(OrderStatusManager.ORDER_STATUS);
+        // Valid status values
+        const validStatuses = ["ORDER PLACED", "PROCESSING", "OUT FOR DELIVERY", "DELIVERED", "CANCELLED"];
         if (!validStatuses.includes(orderStatus)) {
             return res.status(400).json({
                 success: false,
                 error: true,
-                message: "Invalid order status value",
-                validStatuses
+                message: "Invalid order status value"
             });
         }
 
@@ -1241,44 +1237,16 @@ export const updateOrderStatusController = async (req, res) => {
 
         const previousStatus = order.orderStatus;
 
-        // Use OrderStatusManager to validate the transition
-        if (!OrderStatusManager.isValidTransition(previousStatus, orderStatus)) {
-            Logger.warn("Order status transition rejected", {
-                orderId,
-                previousStatus,
-                attemptedStatus: orderStatus,
-                validTransitions: OrderStatusManager.getNextPossibleStatuses(previousStatus)
-            });
-            
-            return res.status(400).json({
-                success: false,
-                error: true,
-                message: `Invalid order status transition from ${previousStatus} to ${orderStatus}`,
-                validTransitions: OrderStatusManager.getNextPossibleStatuses(previousStatus)
-            });
-        }
-
         // Use transaction for data consistency
         const session = await mongoose.startSession();
         session.startTransaction();
 
         try {
-            // Prepare update object with OrderStatusManager
-            const updateData = { 
-                orderStatus: orderStatus,
-                // Add entry to status history if it exists
-                $push: {
-                    statusHistory: {
-                        status: orderStatus,
-                        timestamp: new Date(),
-                        updatedBy: req.userId || 'system',
-                        notes: req.body.notes || ''
-                    }
-                }
-            };
+            // Prepare update object
+            const updateData = { orderStatus: orderStatus };
             
             // If the order is delivered, set actual delivery date and payment status
-            if (orderStatus === OrderStatusManager.ORDER_STATUS.DELIVERED) {
+            if (orderStatus === "DELIVERED") {
                 updateData.actualDeliveryDate = new Date();
                 if (order.paymentStatus === "CASH ON DELIVERY") {
                     updateData.paymentStatus = "PAID";
@@ -1286,7 +1254,7 @@ export const updateOrderStatusController = async (req, res) => {
             }
 
             // Handle stock restoration for cancelled orders (updated for multiple items)
-            if (orderStatus === OrderStatusManager.ORDER_STATUS.CANCELLED && previousStatus !== OrderStatusManager.ORDER_STATUS.CANCELLED) {
+            if (orderStatus === "CANCELLED" && previousStatus !== "CANCELLED") {
                 // Restore stock for all items when order is cancelled
                 for (const item of order.items) {
                     if (item.itemType === 'bundle') {
@@ -1435,7 +1403,7 @@ export const updateOrderStatusController = async (req, res) => {
 // Bulk update order status for multiple orders
 export const bulkUpdateOrderStatusController = async (req, res) => {
     try {
-        const { orderIds, orderStatus, notes } = req.body;
+        const { orderIds, orderStatus } = req.body;
         
         if (!orderIds || !Array.isArray(orderIds) || orderIds.length === 0) {
             return res.status(400).json({
@@ -1453,14 +1421,12 @@ export const bulkUpdateOrderStatusController = async (req, res) => {
             });
         }
         
-        // Use OrderStatusManager for validation
-        const validStatuses = Object.values(OrderStatusManager.ORDER_STATUS);
+        const validStatuses = ["ORDER PLACED", "PROCESSING", "OUT FOR DELIVERY", "DELIVERED", "CANCELLED"];
         if (!validStatuses.includes(orderStatus)) {
             return res.status(400).json({
                 success: false,
                 error: true,
-                message: "Invalid order status value",
-                validStatuses
+                message: "Invalid order status value"
             });
         }
         

@@ -870,7 +870,7 @@ export const getOrderWithReturnDetails = async (req, res) => {
 
         // Find the order with all items
         const order = await orderModel.findById(orderId)
-            .populate('userId', 'name email phone')
+            .populate('userId', 'name email mobile')
             .populate('deliveryAddress')
             .populate({
                 path: 'items.productId',

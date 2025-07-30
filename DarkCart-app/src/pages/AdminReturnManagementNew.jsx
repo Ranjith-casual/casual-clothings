@@ -532,9 +532,8 @@ const AdminReturnManagement = () => {
                                     <div>
                                         <p className="text-xs sm:text-sm text-gray-600 mb-1">Phone Number</p>
                                         <p className="font-medium text-gray-900 text-sm sm:text-base">
-                                            {orderDetails.order.customer.phone || 
+                                            {orderDetails.order.customer.mobile || 
                                              orderDetails.order.deliveryAddress?.mobile || 
-                                             orderDetails.order.deliveryAddress?.phone || 
                                              'Not provided'}
                                         </p>
                                     </div>

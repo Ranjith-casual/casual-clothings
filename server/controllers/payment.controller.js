@@ -68,11 +68,28 @@ export const getAllPayments = async (req, res) => {
         const payments = await orderModel.find(query)
             .populate('userId', 'name email')
             .populate('deliveryAddress')
-            .populate("items.productId", "name image price stock") // Add product population
-            .populate("items.bundleId", "title image images bundlePrice stock") // Include both image and images for bundles
+            .populate("items.productId", "name image price stock discount discountedPrice") // Add discount fields
+            .populate("items.bundleId", "title image images bundlePrice stock discount") // Add discount for bundles
             .sort({ orderDate: -1 })
             .skip(skip)
             .limit(parseInt(limit));
+
+        // Debug logging to check if discount fields are populated
+        if (payments.length > 0) {
+            console.log('🔍 Backend Payment Debug - First payment items:');
+            payments[0].items.forEach((item, index) => {
+                if (item.productId) {
+                    console.log(`Item ${index}:`, {
+                        productName: item.productId.name,
+                        productPrice: item.productId.price,
+                        productDiscount: item.productId.discount,
+                        productDiscountedPrice: item.productId.discountedPrice,
+                        itemQuantity: item.quantity,
+                        itemSize: item.size
+                    });
+                }
+            });
+        }
         
         // For refunded orders, get cancellation request details
         const formattedPayments = await Promise.all(payments.map(async payment => {

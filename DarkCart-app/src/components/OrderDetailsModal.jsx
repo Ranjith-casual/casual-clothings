@@ -145,7 +145,7 @@ const OrderDetailsModal = ({ order, onClose, isLoading }) => {
                 <span className="font-medium">Email:</span> {order.userId?.email || order.user?.email || order.customerInfo?.email || 'N/A'}
               </p>
               <p className="text-sm">
-                <span className="font-medium">Phone:</span> {order.userId?.phone || order.user?.phone || order.customerInfo?.phone || order.deliveryAddress?.mobile || 'N/A'}
+                <span className="font-medium">Phone:</span> {order.userId?.mobile || order.user?.mobile || order.customerInfo?.mobile || order.deliveryAddress?.mobile || 'N/A'}
               </p>
             </div>
           </div>

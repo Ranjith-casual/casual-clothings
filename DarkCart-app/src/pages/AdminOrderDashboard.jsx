@@ -129,6 +129,18 @@ const AdminOrderDashboard = () => {
                                Array.isArray(order.refundSummary) && 
                                order.refundSummary.length > 0;
 
+      // Special case: If order status is CANCELLED, return zero amounts
+      if (order.orderStatus === 'CANCELLED') {
+        return {
+          activeItems: [],
+          activeItemCount: 0,
+          remainingTotal: 0,
+          remainingSubtotal: 0,
+          deliveryCharge: 0,
+          hasCancelledItems: true
+        };
+      }
+
       // If no cancellation data from any source, return original order
       if (!hasOrderCancellation && !hasRefundSummary) {
         return {
@@ -177,17 +189,23 @@ const AdminOrderDashboard = () => {
         activeItemCount += item.quantity || 1;
       });
 
-      // Add delivery charge if any
-      const deliveryCharge = order.deliveryCharge || 0;
+      // Determine delivery charge
+      // If no active items remain, delivery charge should be 0
+      const deliveryCharge = activeItems.length > 0 ? (order.deliveryCharge || 0) : 0;
       const remainingTotal = remainingSubtotal + deliveryCharge;
+
+      // Check if all items are cancelled
+      const totalOriginalItems = order.items?.length || 0;
+      const isFullyCancelled = totalOriginalItems > 0 && activeItems.length === 0;
 
       return {
         activeItems,
         activeItemCount,
-        remainingTotal,
-        remainingSubtotal,
-        deliveryCharge,
-        hasCancelledItems: cancelledItemIds.size > 0
+        remainingTotal: isFullyCancelled ? 0 : remainingTotal,
+        remainingSubtotal: isFullyCancelled ? 0 : remainingSubtotal,
+        deliveryCharge: isFullyCancelled ? 0 : deliveryCharge,
+        hasCancelledItems: cancelledItemIds.size > 0,
+        isFullyCancelled
       };
 
     } catch (error) {
@@ -1466,7 +1484,17 @@ const AdminOrderDashboard = () => {
                                 {activeOrderInfo.hasCancelledItems && (
                                   <div className="text-xs text-amber-600 mt-1">
                                     <span className="line-through">₹{order.totalAmt.toFixed(2)}</span>
-                                    <span className="ml-1">(adjusted)</span>
+                                    <span className="ml-1">
+                                      {activeOrderInfo.isFullyCancelled || order.orderStatus === 'CANCELLED' 
+                                        ? '(fully cancelled)' 
+                                        : '(adjusted)'}
+                                    </span>
+                                  </div>
+                                )}
+                                {order.orderStatus === 'CANCELLED' && !activeOrderInfo.hasCancelledItems && (
+                                  <div className="text-xs text-red-600 mt-1">
+                                    <span className="line-through">₹{order.totalAmt.toFixed(2)}</span>
+                                    <span className="ml-1">(cancelled)</span>
                                   </div>
                                 )}
                               </div>

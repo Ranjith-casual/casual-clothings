@@ -1613,7 +1613,7 @@ export const getRefundInvoice = async (req, res) => {
                 }
             ]
         })
-        .populate('userId', 'name email phone');
+        .populate('userId', 'name email mobile');
         
         if (!refund) {
             return res.status(404).json({
