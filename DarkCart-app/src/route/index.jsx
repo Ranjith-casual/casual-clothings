@@ -20,7 +20,8 @@ import UserMenuMobile from "../pages/UserMenuMobile";
 import Dashboard from "../layout/Dashboard";
 import Profile from "../pages/Profile";
 import MyOrders from "../pages/MyOrders";
-import MyRefunds from "../pages/MyRefunds";
+// import MyRefunds from "../pages/MyRefunds";
+import UserRefundManagement from "../pages/UserRefundManagement";
 import ReturnProduct from "../pages/ReturnProduct";
 import Address from "../pages/Address";
 import WishlistPage from "../pages/WishlistPage";
@@ -149,9 +150,14 @@ const router = createBrowserRouter([
                 },{
                     path:"myorders",
                     element:<MyOrders/>
-                },{
-                    path:"myrefunds",
-                    element:<MyRefunds/>
+                },
+                // {
+                //     path:"myrefunds",
+                //     element:<MyRefunds/>
+                // }
+                ,{
+                    path:"refund-dashboard", // User refund dashboard
+                    element:<UserRefundManagement/>
                 },{
                     path:"return-product",
                     element:<ReturnProduct/>
@@ -238,7 +244,7 @@ const router = createBrowserRouter([
                     element:<AdminPermission><CancellationPolicyPage/></AdminPermission>
                 },
                 {
-                    path:"refund-management",
+                    path:"admin/refund-management", // Admin refund management
                     element:<AdminPermission><RefundManagementPage/></AdminPermission>
                 },
                 {

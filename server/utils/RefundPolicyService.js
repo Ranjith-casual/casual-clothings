@@ -15,7 +15,7 @@ export class RefundPolicyService {
             const refundPolicy = {
                 // Base percentages for different timing scenarios
                 earlyRefundPercentage: 90,  // 1-2 days
-                standardRefundPercentage: 75, // 3-7 days
+                standardRefundPercentage: 75, // 3-7 days - fallback only
                 lateRefundPercentage: 50,   // 7+ days
                 
                 // Penalties
@@ -49,8 +49,18 @@ export class RefundPolicyService {
                 basePercentage = refundPolicy.lateRefundPercentage;
             }
             
-            // Use custom percentage if provided
-            let refundPercentage = customRefundPercentage || basePercentage;
+            // Use custom percentage if provided (from admin response), otherwise calculate base
+            let refundPercentage;
+            if (customRefundPercentage !== null && customRefundPercentage !== undefined) {
+                // Admin has set a custom refund percentage - use it directly
+                refundPercentage = customRefundPercentage;
+            } else if (cancellationRequest.adminResponse?.refundPercentage) {
+                // Admin response contains refund percentage - use it
+                refundPercentage = cancellationRequest.adminResponse.refundPercentage;
+            } else {
+                // Fall back to calculated base percentage
+                refundPercentage = basePercentage;
+            }
             
             // Calculate penalties based on delivery status and timing
             const penalties = this.calculateRefundPenalties(order, cancellationRequest, refundPolicy);
@@ -228,7 +238,16 @@ export class RefundPolicyService {
             });
             
             // Apply refund percentage to cancelled items total
-            const baseRefundPercentage = refundPolicy.baseRefundPercentage || 75;
+            // Check if there's an admin-set refund percentage in the refund policy
+            let baseRefundPercentage;
+            if (refundPolicy.adminRefundPercentage) {
+                baseRefundPercentage = refundPolicy.adminRefundPercentage;
+            } else if (refundPolicy.customRefundPercentage) {
+                baseRefundPercentage = refundPolicy.customRefundPercentage;
+            } else {
+                baseRefundPercentage = refundPolicy.baseRefundPercentage || 75; // fallback only
+            }
+            
             const refundAmount = Math.round((totalCancelledAmount * baseRefundPercentage / 100) * 100) / 100;
             
             return {

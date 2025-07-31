@@ -773,12 +773,19 @@ export const processCancellationRequest = async (req, res) => {
             // Use the calculated amounts from frontend that incorporate discount pricing
             refundAmount = calculatedRefundAmount;
             baseAmount = calculatedTotalValue;
-            finalRefundPercentage = customRefundPercentage || cancellationRequest.adminResponse.refundPercentage || 75;
+            
+            // Calculate actual refund percentage based on the frontend calculated amounts
+            if (calculatedTotalValue > 0) {
+                finalRefundPercentage = Math.round((calculatedRefundAmount / calculatedTotalValue) * 100);
+            } else {
+                finalRefundPercentage = customRefundPercentage || cancellationRequest.adminResponse.refundPercentage || 75;
+            }
             
             console.log('💰 Using Frontend-Calculated Refund:', {
                 calculatedRefundAmount: refundAmount,
                 calculatedTotalValue: baseAmount,
-                frontendRefundPercentage: finalRefundPercentage,
+                calculatedRefundPercentage: finalRefundPercentage,
+                customRefundPercentage: customRefundPercentage,
                 basedOnDiscountedPricing: refundData?.basedOnDiscountedPricing || false
             });
         } else if (action === 'APPROVED') {
@@ -886,13 +893,28 @@ export const processCancellationRequest = async (req, res) => {
                 const order = cancellationRequest.orderId;
                 const cancelledItemIds = cancellationRequest.itemsToCancel.map(item => item.itemId.toString());
                 
-                // Update only the cancelled items status
+                // Update only the cancelled items status with proper refund amounts
                 order.items.forEach(item => {
                     if (cancelledItemIds.includes(item._id.toString())) {
+                        // Find the corresponding cancelled item to get the correct refund amount
+                        const cancelledItem = cancellationRequest.itemsToCancel.find(
+                            cancelItem => cancelItem.itemId.toString() === item._id.toString()
+                        );
+                        
                         item.status = 'Cancelled';
                         item.cancelApproved = true;
                         item.refundStatus = 'Processing';
-                        item.refundAmount = (item.itemTotal * finalRefundPercentage / 100);
+                        
+                        // Use the specific refund amount from frontend calculation if available
+                        if (cancelledItem && cancelledItem.refundAmount !== undefined) {
+                            item.refundAmount = cancelledItem.refundAmount;
+                            console.log(`✅ Using frontend calculated refund amount for item ${item._id}: ₹${cancelledItem.refundAmount}`);
+                        } else {
+                            // Fallback to percentage-based calculation
+                            item.refundAmount = (item.itemTotal * finalRefundPercentage / 100);
+                            console.log(`⚠️ Using percentage-based refund calculation for item ${item._id}: ₹${item.refundAmount} (${finalRefundPercentage}% of ₹${item.itemTotal})`);
+                        }
+                        
                         item.cancellationId = cancellationRequest._id;
                     }
                 });

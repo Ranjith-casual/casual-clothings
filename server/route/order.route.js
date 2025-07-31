@@ -22,6 +22,10 @@ import {
     getCancellationPolicy,
     updateCancellationPolicy
 } from '../controllers/orderCancellation.controller.js';
+import { 
+    getUserRefundDashboard,
+    getUserRefundStats
+} from '../controllers/userRefundManagement.controller.js';
 import { admin } from '../middleware/Admin.js';
 
 const orderRouter = Router();
@@ -46,6 +50,10 @@ orderRouter.get('/cancellation-requests', Auth, admin, getCancellationRequests);
 orderRouter.post('/process-cancellation', Auth, admin, processCancellationRequest);
 orderRouter.get('/cancellation-policy', getCancellationPolicy);
 orderRouter.put('/update-cancellation-policy', Auth, admin, updateCancellationPolicy);
+
+// User Refund Management Routes
+orderRouter.get('/user/refund-dashboard', Auth, getUserRefundDashboard);
+orderRouter.get('/user/refund-stats', Auth, getUserRefundStats);
 
 // Import the comprehensive order details controller
 import { getComprehensiveOrderDetails } from '../controllers/orderCancellation.controller.js';

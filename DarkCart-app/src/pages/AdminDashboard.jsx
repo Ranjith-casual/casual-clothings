@@ -75,7 +75,7 @@ function AdminDashboard() {
         {
             title: "Refund Management",
             description: "Process and track refunds for cancelled orders",
-            path: "/dashboard/refund-management",
+            path: "/dashboard/admin/refund-management",
             icon: <FaMoneyBillWave className="text-green-600" />
         },{
             title: "Custom T-Shirt Requests",

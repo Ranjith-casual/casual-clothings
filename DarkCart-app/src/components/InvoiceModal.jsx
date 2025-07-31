@@ -96,144 +96,36 @@ function InvoiceModal({ payment: originalPayment, onClose }) {
         try {
             const product = productInfo || item?.productId || item?.bundleId || item?.productDetails || item?.bundleDetails;
             
-            // Deep debug logging to understand data structure
-            console.log('🔍 DEEP DEBUG - Payment item structure:', {
-                item_keys: Object.keys(item || {}),
-                productId_exists: !!item?.productId,
-                productId_type: typeof item?.productId,
-                productId_keys: item?.productId ? Object.keys(item.productId) : 'N/A',
-                productId_discount: item?.productId?.discount,
-                productId_discountedPrice: item?.productId?.discountedPrice,
-                productDetails_exists: !!item?.productDetails,
-                productDetails_keys: item?.productDetails ? Object.keys(item.productDetails) : 'N/A',
-                product_selected: product ? Object.keys(product) : 'N/A',
-                product_discount: product?.discount,
-                product_discountedPrice: product?.discountedPrice
-            });
-            
-            console.log('🔍 Invoice Pricing Debug:', {
-                itemName: product?.name || 'Unknown',
-                sizeAdjustedPrice: item?.sizeAdjustedPrice,
-                calculatedPrice: item?.calculatedPrice,
-                productPrice: product?.price,
-                productDiscount: product?.discount,
-                productDiscountedPrice: product?.discountedPrice,
-                size: item?.size,
-                itemType: item?.itemType,
-                // Check all possible sources for discount
-                productId_discount: item?.productId?.discount,
-                productDetails_discount: item?.productDetails?.discount,
-                bundleDetails_discount: item?.bundleDetails?.discount,
-                // Full objects for debugging
-                productId_full: item?.productId,
-                productDetails_full: item?.productDetails
-            });
-            
-            // Get original price and final price
+            // Get original price before any discounts
             let originalPrice = 0;
-            let finalPrice = 0;
             
-            // Check if this is a bundle or product
-            const isBundle = item?.itemType === 'bundle';
-
-            if (isBundle) {
-                // For bundles, use sizeAdjustedPrice as final price
-                finalPrice = item?.sizeAdjustedPrice || 0;
-                originalPrice = product?.originalPrice || product?.bundlePrice || finalPrice;
-            } else {
-                // For products, sizeAdjustedPrice is the ORIGINAL price before discount
-                if (item?.sizeAdjustedPrice && item.sizeAdjustedPrice > 0) {
-                    originalPrice = item.sizeAdjustedPrice;
-                    
-                    // Get discount from all possible sources (productId, productDetails, product)
-                    let discount = 0;
-                    let discountSource = 'none';
-                    
-                    // Priority order: productId > productDetails > product fallback
-                    if (item?.productId?.discount && item.productId.discount > 0) {
-                        discount = item.productId.discount;
-                        discountSource = 'productId';
-                    } else if (item?.productDetails?.discount && item.productDetails.discount > 0) {
-                        discount = item.productDetails.discount;
-                        discountSource = 'productDetails';
-                    } else if (product?.discount && product.discount > 0) {
-                        discount = product.discount;
-                        discountSource = 'product';
-                    }
-                    
-                    console.log('💡 Applying discount:', {
-                        originalPrice,
-                        discount,
-                        discountSource,
-                        availableDiscounts: {
-                            productId: item?.productId?.discount,
-                            productDetails: item?.productDetails?.discount,
-                            product: product?.discount
-                        }
-                    });
-                    
-                    // Apply discount to calculate final price
-                    finalPrice = discount > 0 ? originalPrice * (1 - discount/100) : originalPrice;
-                    
-                    // Priority order: productId > productDetails > product fallback
-                    if (item?.productId?.discount && item.productId.discount > 0) {
-                        discount = item.productId.discount;
-                        discountSource = 'productId';
-                    } else if (item?.productDetails?.discount && item.productDetails.discount > 0) {
-                        discount = item.productDetails.discount;
-                        discountSource = 'productDetails';
-                    } else if (product?.discount && product.discount > 0) {
-                        discount = product.discount;
-                        discountSource = 'product';
-                    }
-                    
-                    console.log('💡 Applying discount:', {
-                        originalPrice,
-                        discount,
-                        discountSource,
-                        availableDiscounts: {
-                            productId: item?.productId?.discount,
-                            productDetails: item?.productDetails?.discount,
-                            product: product?.discount
-                        }
-                    });
-                    
-                    // Apply discount
-                    finalPrice = discount > 0 ? originalPrice * (1 - discount/100) : originalPrice;
-                } else {
-                    // Fallback calculation
-                    const basePrice = product?.price || 0;
-                    const discount = product?.discount || 0;
-                    const size = item?.size;
-                    
-                    const sizeMultipliers = {
-                        'XS': 0.9, 'S': 1.0, 'M': 1.1, 'L': 1.2, 'XL': 1.3, 'XXL': 1.4
-                    };
-                    const multiplier = sizeMultipliers[size?.toUpperCase()] || 1.0;
-                    
-                    originalPrice = basePrice * multiplier;
-                    finalPrice = discount > 0 ? originalPrice * (1 - discount/100) : originalPrice;
-                }
+            // Try to get original price from various sources
+            if (item?.originalPrice) {
+                originalPrice = item.originalPrice;
+            } else if (product?.originalPrice) {
+                originalPrice = product.originalPrice;
+            } else if (product?.price) {
+                originalPrice = product.price;
+            } else if (product?.bundlePrice) {
+                originalPrice = product.bundlePrice;
+            } else if (item?.sizeAdjustedPrice) {
+                // If we have sizeAdjustedPrice, assume it's the final price
+                originalPrice = item.sizeAdjustedPrice;
             }
 
-            // Calculate discount details
+            // Get final/discounted price
+            const finalPrice = getSizeBasedUnitPrice(item, productInfo);
+            
+            // Calculate discount
             const discountAmount = Math.max(0, originalPrice - finalPrice);
-            const discountPercentage = originalPrice > 0 ? Math.round((discountAmount / originalPrice) * 100) : 0;
-
-            console.log('💰 Final Invoice Pricing:', {
-                originalPrice,
-                finalPrice,
-                discountAmount,
-                discountPercentage,
-                hasDiscount: discountAmount > 0.01
-            });
+            const discountPercentage = originalPrice > 0 ? ((discountAmount / originalPrice) * 100) : 0;
 
             return {
                 originalPrice,
                 finalPrice,
                 discountAmount,
-                discountPercentage,
-                hasDiscount: discountAmount > 0.01
+                discountPercentage: Math.round(discountPercentage),
+                hasDiscount: discountAmount > 0
             };
         } catch (error) {
             console.error('Error calculating pricing details:', error);
@@ -1191,25 +1083,6 @@ function InvoiceModal({ payment: originalPayment, onClose }) {
                                             // Get pricing details
                                             const pricingDetails = getPricingDetails(item, productInfo);
 
-                                            // Debug log for pricing details
-                                            console.log('📋 Invoice Pricing Debug:', {
-                                                itemName: getProductName(),
-                                                originalItemData: {
-                                                    sizeAdjustedPrice: item?.sizeAdjustedPrice,
-                                                    calculatedPrice: item?.calculatedPrice,
-                                                    unitPrice: item?.unitPrice,
-                                                    itemTotal: item?.itemTotal,
-                                                    size: item?.size,
-                                                    quantity: item?.quantity
-                                                },
-                                                productData: {
-                                                    price: productInfo?.price,
-                                                    discount: productInfo?.discount,
-                                                    originalPrice: productInfo?.originalPrice
-                                                },
-                                                calculatedPricing: pricingDetails
-                                            });
-
                                             return (
                                                 <tr key={index} className={`border-b border-gray-200 ${
                                                     isCancelled ? 'bg-red-50 opacity-75' : 
@@ -1717,39 +1590,14 @@ function InvoiceModal({ payment: originalPayment, onClose }) {
                                                         {pricingDetails.hasDiscount ? (
                                                             <div className="space-y-1">
                                                                 <div className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                                                                    -{pricingDetails.discountPercentage}% OFF
+                                                                    -{pricingDetails.discountPercentage}%
                                                                 </div>
                                                                 <div className="text-xs text-green-600 font-medium">
-                                                                    Save: {formatCurrency(pricingDetails.discountAmount)}
-                                                                </div>
-                                                                {/* Show discount source */}
-                                                                <div className="text-xs text-gray-500">
-                                                                    {(() => {
-                                                                        const productInfo = getProductInfo();
-                                                                        const hasProductDiscount = productInfo?.discount && productInfo.discount > 0;
-                                                                        const hasSize = item?.size;
-                                                                        
-                                                                        if (hasProductDiscount && hasSize) {
-                                                                            return `Size ${item.size} + ${productInfo.discount}% Off`;
-                                                                        } else if (hasProductDiscount) {
-                                                                            return `${productInfo.discount}% Product Discount`;
-                                                                        } else if (hasSize) {
-                                                                            return `Size ${item.size} Pricing`;
-                                                                        } else {
-                                                                            return 'Discount Applied';
-                                                                        }
-                                                                    })()}
+                                                                    -{formatCurrency(pricingDetails.discountAmount)}
                                                                 </div>
                                                             </div>
                                                         ) : (
-                                                            <div className="space-y-1">
-                                                                <span className="text-gray-400 text-xs">No Discount</span>
-                                                                {item?.size && (
-                                                                    <div className="text-xs text-purple-600">
-                                                                        Size: {item.size}
-                                                                    </div>
-                                                                )}
-                                                            </div>
+                                                            <span className="text-gray-400 text-xs">No Discount</span>
                                                         )}
                                                     </td>
                                                     {/* Final Price Column */}
@@ -1861,18 +1709,9 @@ function InvoiceModal({ payment: originalPayment, onClose }) {
                                                 quantity: payment.orderQuantity || payment.totalQuantity || 1,
                                                 itemTotal: payment.subTotalAmt,
                                                 sizeAdjustedPrice: payment.sizeAdjustedPrice,
-                                                originalPrice: payment.productDetails?.originalPrice || payment.productDetails?.price,
-                                                calculatedPrice: payment.calculatedPrice, // Add calculated price if available
-                                                itemType: 'product' // Legacy orders are typically products
+                                                originalPrice: payment.productDetails?.originalPrice || payment.productDetails?.price
                                             };
                                             const legacyPricingDetails = getPricingDetails(legacyItem, payment.productDetails);
-                                            
-                                            // Debug log for legacy pricing
-                                            console.log('📋 Legacy Invoice Pricing Debug:', {
-                                                legacyItem,
-                                                paymentProductDetails: payment.productDetails,
-                                                calculatedPricing: legacyPricingDetails
-                                            });
                                             
                                             return (
                                                 <tr className={`border-b border-gray-200 ${
