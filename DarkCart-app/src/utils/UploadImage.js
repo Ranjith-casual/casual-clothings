@@ -8,30 +8,12 @@ const UploadImage = async(image)=>{
 
         const response = await Axios({
             ...SummaryApi.uploadImage,
-            data: formData,
-            headers: {
-                'Content-Type': 'multipart/form-data',
-            },
-            // Add timeout to prevent long-hanging requests
-            timeout: 30000
+            data : formData
         })
 
         return response
     } catch (error) {
-        console.error('Image upload error:', error);
-        
-        // Create a structured error object with useful information
-        const errorResponse = {
-            data: {
-                success: false,
-                message: error.message || 'Upload failed',
-                error: true
-            },
-            originalError: error
-        };
-        
-        // Throw the error instead of returning it to trigger proper error handling
-        throw errorResponse;
+        return error
     }
 }
 
