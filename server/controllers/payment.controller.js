@@ -68,8 +68,8 @@ export const getAllPayments = async (req, res) => {
         const payments = await orderModel.find(query)
             .populate('userId', 'name email')
             .populate('deliveryAddress')
-            .populate("items.productId", "name image price stock") // Add product population
-            .populate("items.bundleId", "title image images bundlePrice stock") // Include both image and images for bundles
+            .populate("items.productId", "name image price stock discount discountedPrice") // Add discount fields for products
+            .populate("items.bundleId", "title image images bundlePrice originalPrice stock") // Include originalPrice for bundles
             .sort({ orderDate: -1 })
             .skip(skip)
             .limit(parseInt(limit));

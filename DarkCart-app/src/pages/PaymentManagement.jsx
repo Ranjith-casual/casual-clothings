@@ -17,7 +17,9 @@ import {
     FaFileInvoice,
     FaCalendarAlt,
     FaRupeeSign,
-    FaFilter
+    FaFilter,
+    FaPercentage,
+    FaTag
 } from 'react-icons/fa'
 import InvoiceModal from '../components/InvoiceModal'
 import PaymentGatewaySettings from '../components/PaymentGatewaySettings'
@@ -232,6 +234,93 @@ function PaymentManagement() {
         }
     }
 
+    // Calculate pricing details with discount information for payment management
+    const calculateItemPricingDetails = (item, productInfo = null) => {
+        try {
+            const product = productInfo || item?.productId || item?.bundleId || item?.productDetails || item?.bundleDetails;
+            
+            // Get original price before any discounts
+            let originalPrice = 0;
+            let finalPrice = 0;
+            let discountPercentage = 0;
+            
+            if (item.itemType === 'product' || !item.itemType) {
+                // For products, check for stored discounted price first
+                if (product?.discountedPrice && product.discountedPrice > 0) {
+                    finalPrice = product.discountedPrice;
+                    originalPrice = product?.price || finalPrice;
+                } else if (product?.price) {
+                    originalPrice = product.price;
+                    // Apply discount if available
+                    discountPercentage = product?.discount || 0;
+                    finalPrice = discountPercentage > 0 ? originalPrice * (1 - discountPercentage / 100) : originalPrice;
+                } else {
+                    // Fallback to calculated size-based price
+                    finalPrice = getSizeBasedUnitPrice(item, productInfo);
+                    originalPrice = finalPrice;
+                }
+            } else if (item.itemType === 'bundle') {
+                // For bundles
+                finalPrice = product?.bundlePrice || 0;
+                originalPrice = product?.originalPrice || finalPrice;
+            }
+            
+            // Recalculate discount if we have both prices
+            if (originalPrice > finalPrice && originalPrice > 0) {
+                discountPercentage = ((originalPrice - finalPrice) / originalPrice) * 100;
+            }
+            
+            const discountAmount = Math.max(0, originalPrice - finalPrice);
+            
+            return {
+                originalPrice,
+                finalPrice,
+                discountAmount,
+                discountPercentage: Math.round(discountPercentage),
+                hasDiscount: discountAmount > 0,
+                isBundle: item.itemType === 'bundle'
+            };
+        } catch (error) {
+            console.error('Error calculating pricing details:', error);
+            const fallbackPrice = getSizeBasedUnitPrice(item, productInfo);
+            return {
+                originalPrice: fallbackPrice,
+                finalPrice: fallbackPrice,
+                discountAmount: 0,
+                discountPercentage: 0,
+                hasDiscount: false,
+                isBundle: false
+            };
+        }
+    };
+
+    // Calculate total discount savings for an order
+    const calculateOrderDiscountSavings = (payment) => {
+        let totalSavings = 0;
+        let totalOriginalAmount = 0;
+        let totalFinalAmount = 0;
+
+        if (payment.items && payment.items.length > 0) {
+            payment.items.forEach(item => {
+                const productInfo = item?.productId || item?.bundleId;
+                const pricingDetails = calculateItemPricingDetails(item, productInfo);
+                const quantity = item.quantity || 1;
+                
+                totalOriginalAmount += pricingDetails.originalPrice * quantity;
+                totalFinalAmount += pricingDetails.finalPrice * quantity;
+                totalSavings += pricingDetails.discountAmount * quantity;
+            });
+        }
+
+        return {
+            totalSavings,
+            totalOriginalAmount,
+            totalFinalAmount,
+            hasSavings: totalSavings > 0,
+            savingsPercentage: totalOriginalAmount > 0 ? Math.round((totalSavings / totalOriginalAmount) * 100) : 0
+        };
+    };
+
     const formatCurrency = (amount) => {
         return new Intl.NumberFormat('en-IN', {
             style: 'currency',
@@ -343,7 +432,10 @@ function PaymentManagement() {
                                         Payment Info
                                     </th>
                                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                        Amount
+                                        <div className="flex items-center">
+                                            <FaRupeeSign className="mr-1" />
+                                            Amount & Discounts
+                                        </div>
                                     </th>
                                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                         Delivery Status
@@ -388,7 +480,7 @@ function PaymentManagement() {
                                                     <div className="text-sm text-gray-500">
                                                         Items: {payment.totalQuantity}
                                                     </div>
-                                                    {/* Display product sizes */}
+                                                    {/* Display product sizes and discount info */}
                                                     {payment.items && payment.items.length > 0 && (
                                                         <div className="text-xs text-gray-600 mt-1">
                                                             <span className="text-gray-500">Sizes: </span>
@@ -413,6 +505,51 @@ function PaymentManagement() {
                                                             )}
                                                         </div>
                                                     )}
+                                                    
+                                                    {/* Display individual item discount information */}
+                                                    {payment.items && payment.items.length > 0 && (() => {
+                                                        const itemsWithDiscount = payment.items
+                                                            .map(item => {
+                                                                const productInfo = item?.productId || item?.bundleId;
+                                                                const pricingDetails = calculateItemPricingDetails(item, productInfo);
+                                                                return { item, pricingDetails };
+                                                            })
+                                                            .filter(({ pricingDetails }) => pricingDetails.hasDiscount);
+                                                        
+                                                        if (itemsWithDiscount.length > 0) {
+                                                            return (
+                                                                <div className="text-xs text-green-600 mt-1 space-y-0.5">
+                                                                    {itemsWithDiscount.slice(0, 2).map(({ item, pricingDetails }, index) => {
+                                                                        const productName = item.productId?.name || item.bundleId?.title || 'Item';
+                                                                        const displayName = productName.length > 15 ? productName.substring(0, 15) + '...' : productName;
+                                                                        
+                                                                        return (
+                                                                            <div key={index} className="flex items-center justify-between">
+                                                                                <span className="text-gray-600">{displayName}:</span>
+                                                                                <div className="flex items-center space-x-1">
+                                                                                    <span className="line-through text-gray-400 text-xs">
+                                                                                        ₹{pricingDetails.originalPrice}
+                                                                                    </span>
+                                                                                    <span className="text-green-600 font-medium">
+                                                                                        ₹{pricingDetails.finalPrice}
+                                                                                    </span>
+                                                                                    <span className="bg-green-100 text-green-800 px-1 py-0.5 rounded text-xs">
+                                                                                        {pricingDetails.discountPercentage}%
+                                                                                    </span>
+                                                                                </div>
+                                                                            </div>
+                                                                        );
+                                                                    })}
+                                                                    {itemsWithDiscount.length > 2 && (
+                                                                        <div className="text-xs text-gray-500">
+                                                                            +{itemsWithDiscount.length - 2} more items with discounts
+                                                                        </div>
+                                                                    )}
+                                                                </div>
+                                                            );
+                                                        }
+                                                        return null;
+                                                    })()}
                                                     {payment.estimatedDeliveryDate && (
                                                         <div className="text-xs text-blue-600 mt-1">
                                                             Est. Delivery: {new Date(payment.estimatedDeliveryDate).toLocaleDateString('en-IN')}
@@ -442,6 +579,27 @@ function PaymentManagement() {
                                                 <div className="text-sm text-gray-500">
                                                     Subtotal: {formatCurrency(payment.subTotalAmt)}
                                                 </div>
+                                                {(() => {
+                                                    // Calculate and display discount information
+                                                    const discountSavings = calculateOrderDiscountSavings(payment);
+                                                    
+                                                    if (discountSavings.hasSavings) {
+                                                        return (
+                                                            <div className="mt-1">
+                                                                <div className="text-xs text-green-600 font-medium">
+                                                                    💰 You saved: {formatCurrency(discountSavings.totalSavings)}
+                                                                </div>
+                                                                <div className="text-xs text-gray-400">
+                                                                    Original: {formatCurrency(discountSavings.totalOriginalAmount)}
+                                                                </div>
+                                                                <div className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 mt-1">
+                                                                    {discountSavings.savingsPercentage}% OFF
+                                                                </div>
+                                                            </div>
+                                                        );
+                                                    }
+                                                    return null;
+                                                })()}
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap">
                                                 {(() => {

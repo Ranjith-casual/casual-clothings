@@ -80,15 +80,42 @@ function InvoiceModal({ payment: originalPayment, onClose }) {
         }
     };
 
-    // Get size-based unit price
+    // Get size-based unit price with discount applied
     const getSizeBasedUnitPrice = (item, productInfo = null) => {
         // First check if we already have sizeAdjustedPrice (most reliable)
         if (item?.sizeAdjustedPrice && item?.sizeAdjustedPrice > 0) {
             return item.sizeAdjustedPrice;
         }
         
+        // Check for itemTotal first (this might already include discounts)
+        if (item?.itemTotal && item?.quantity) {
+            const unitPriceFromTotal = item.itemTotal / item.quantity;
+            if (unitPriceFromTotal > 0) {
+                return unitPriceFromTotal;
+            }
+        }
+        
+        // Calculate with discount consideration
+        const product = productInfo || item?.productId || item?.bundleId || item?.productDetails || item?.bundleDetails;
+        
+        // Check for stored discounted price first
+        if (product?.discountedPrice && product.discountedPrice > 0) {
+            console.log('✅ InvoiceModal getSizeBasedUnitPrice: Using stored discountedPrice:', product.discountedPrice);
+            return product.discountedPrice;
+        }
+        
+        // Calculate from size-based pricing with discount
         const totalPrice = calculateSizeBasedPrice(item, productInfo);
-        return totalPrice / (item?.quantity || 1);
+        let unitPrice = totalPrice / (item?.quantity || 1);
+        
+        // Apply discount if available
+        const discount = product?.discount || 0;
+        if (discount > 0) {
+            unitPrice = unitPrice * (1 - discount / 100);
+            console.log('✅ InvoiceModal getSizeBasedUnitPrice: Applied discount:', discount, '% to get:', unitPrice);
+        }
+        
+        return unitPrice;
     };
 
     // Calculate pricing details with discount information
@@ -98,27 +125,67 @@ function InvoiceModal({ payment: originalPayment, onClose }) {
             
             // Get original price before any discounts
             let originalPrice = 0;
+            let finalPrice = 0;
+            let discountPercentage = 0;
             
-            // Try to get original price from various sources
-            if (item?.originalPrice) {
-                originalPrice = item.originalPrice;
-            } else if (product?.originalPrice) {
-                originalPrice = product.originalPrice;
-            } else if (product?.price) {
-                originalPrice = product.price;
-            } else if (product?.bundlePrice) {
-                originalPrice = product.bundlePrice;
-            } else if (item?.sizeAdjustedPrice) {
-                // If we have sizeAdjustedPrice, assume it's the final price
-                originalPrice = item.sizeAdjustedPrice;
+            if (item?.itemType === 'product' || !item?.itemType) {
+                // For products, check for stored discounted price first (priority implementation)
+                if (product?.discountedPrice && product.discountedPrice > 0) {
+                    finalPrice = product.discountedPrice;
+                    originalPrice = product?.price || finalPrice;
+                    console.log('✅ InvoiceModal: Using stored discountedPrice:', finalPrice);
+                } else if (product?.price) {
+                    originalPrice = product.price;
+                    // Apply discount if available
+                    discountPercentage = product?.discount || 0;
+                    finalPrice = discountPercentage > 0 ? originalPrice * (1 - discountPercentage / 100) : originalPrice;
+                    console.log('✅ InvoiceModal: Calculated discount price:', finalPrice, 'from original:', originalPrice, 'discount:', discountPercentage);
+                } else if (item?.originalPrice) {
+                    originalPrice = item.originalPrice;
+                    finalPrice = getSizeBasedUnitPrice(item, productInfo);
+                } else {
+                    // Fallback to calculated size-based price
+                    finalPrice = getSizeBasedUnitPrice(item, productInfo);
+                    originalPrice = finalPrice;
+                }
+            } else if (item?.itemType === 'bundle') {
+                // For bundles
+                finalPrice = product?.bundlePrice || 0;
+                originalPrice = product?.originalPrice || finalPrice;
+            } else {
+                // Legacy fallback logic for backward compatibility
+                if (item?.originalPrice) {
+                    originalPrice = item.originalPrice;
+                } else if (product?.originalPrice) {
+                    originalPrice = product.originalPrice;
+                } else if (product?.price) {
+                    originalPrice = product.price;
+                } else if (product?.bundlePrice) {
+                    originalPrice = product.bundlePrice;
+                } else if (item?.sizeAdjustedPrice) {
+                    originalPrice = item.sizeAdjustedPrice;
+                }
+                
+                finalPrice = getSizeBasedUnitPrice(item, productInfo);
             }
-
-            // Get final/discounted price
-            const finalPrice = getSizeBasedUnitPrice(item, productInfo);
             
-            // Calculate discount
+            // Recalculate discount if we have both prices
+            if (originalPrice > finalPrice && originalPrice > 0) {
+                discountPercentage = ((originalPrice - finalPrice) / originalPrice) * 100;
+            }
+            
             const discountAmount = Math.max(0, originalPrice - finalPrice);
-            const discountPercentage = originalPrice > 0 ? ((discountAmount / originalPrice) * 100) : 0;
+
+            console.log('🏷️ InvoiceModal Pricing Debug:', {
+                itemName: product?.name || product?.title || 'Unknown',
+                originalPrice,
+                finalPrice,
+                discountAmount,
+                discountPercentage: Math.round(discountPercentage),
+                hasDiscount: discountAmount > 0,
+                productDiscount: product?.discount,
+                storedDiscountedPrice: product?.discountedPrice
+            });
 
             return {
                 originalPrice,
@@ -160,6 +227,15 @@ function InvoiceModal({ payment: originalPayment, onClose }) {
                     totalOriginalAmount += pricingDetails.originalPrice * quantity;
                     totalFinalAmount += pricingDetails.finalPrice * quantity;
                     totalSavings += pricingDetails.discountAmount * quantity;
+                    
+                    console.log('🔍 InvoiceModal Discount Calculation Debug:', {
+                        itemName: productInfo?.name || productInfo?.title || 'Unknown',
+                        originalPrice: pricingDetails.originalPrice,
+                        finalPrice: pricingDetails.finalPrice,
+                        discountAmount: pricingDetails.discountAmount,
+                        quantity,
+                        itemSavings: pricingDetails.discountAmount * quantity
+                    });
                 });
             } else {
                 // Calculate for legacy order structure
@@ -178,6 +254,29 @@ function InvoiceModal({ payment: originalPayment, onClose }) {
                 totalFinalAmount = pricingDetails.finalPrice * quantity;
                 totalSavings = pricingDetails.discountAmount * quantity;
             }
+
+            // Additional check: if we have a subtotal that's different from calculated final amount
+            // This could indicate a discount that wasn't captured in item-level calculations
+            if (payment.subTotalAmt && Math.abs(payment.subTotalAmt - totalFinalAmount) > 0.01) {
+                console.log('🔍 Subtotal mismatch detected - might indicate additional discounts');
+                console.log('Calculated final amount:', totalFinalAmount, 'vs Subtotal:', payment.subTotalAmt);
+                
+                // If subtotal is less than calculated amount, use it as the final amount
+                if (payment.subTotalAmt < totalFinalAmount) {
+                    const additionalSavings = totalFinalAmount - payment.subTotalAmt;
+                    totalSavings += additionalSavings;
+                    totalFinalAmount = payment.subTotalAmt;
+                    console.log('Added additional savings:', additionalSavings);
+                }
+            }
+
+            console.log('📊 InvoiceModal Total Discount Summary:', {
+                totalOriginalAmount,
+                totalFinalAmount,
+                totalSavings,
+                hasSavings: totalSavings > 0,
+                savingsPercentage: totalOriginalAmount > 0 ? Math.round((totalSavings / totalOriginalAmount) * 100) : 0
+            });
 
             return {
                 totalSavings,
@@ -1587,18 +1686,90 @@ function InvoiceModal({ payment: originalPayment, onClose }) {
                                                     </td>
                                                     {/* Discount Column */}
                                                     <td className="px-4 py-3 text-center">
-                                                        {pricingDetails.hasDiscount ? (
-                                                            <div className="space-y-1">
-                                                                <div className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                                                                    -{pricingDetails.discountPercentage}%
-                                                                </div>
-                                                                <div className="text-xs text-green-600 font-medium">
-                                                                    -{formatCurrency(pricingDetails.discountAmount)}
-                                                                </div>
-                                                            </div>
-                                                        ) : (
-                                                            <span className="text-gray-400 text-xs">No Discount</span>
-                                                        )}
+                                                        {(() => {
+                                                            // Enhanced discount detection logic
+                                                            console.log('🔍 Discount Column Debug:', {
+                                                                itemName: getProductName(),
+                                                                pricingDetails,
+                                                                hasDiscount: pricingDetails.hasDiscount,
+                                                                discountAmount: pricingDetails.discountAmount,
+                                                                discountPercentage: pricingDetails.discountPercentage,
+                                                                originalPrice: pricingDetails.originalPrice,
+                                                                finalPrice: pricingDetails.finalPrice,
+                                                                itemTotal: item.itemTotal,
+                                                                subTotalAmt: payment.subTotalAmt,
+                                                                calculatedTotal: pricingDetails.finalPrice * (item.quantity || 1)
+                                                            });
+                                                            
+                                                            // Check multiple discount indicators
+                                                            const hasProductDiscount = pricingDetails.hasDiscount;
+                                                            const hasAmountDiscount = pricingDetails.discountAmount > 0;
+                                                            const hasPercentageDiscount = pricingDetails.discountPercentage > 0;
+                                                            const hasPriceDifference = pricingDetails.originalPrice > pricingDetails.finalPrice;
+                                                            
+                                                            // Additional check: Compare calculated vs actual totals
+                                                            const calculatedItemTotal = pricingDetails.originalPrice * (item.quantity || 1);
+                                                            const actualItemTotal = item.itemTotal || (pricingDetails.finalPrice * (item.quantity || 1));
+                                                            const hasItemTotalDiscount = Math.abs(calculatedItemTotal - actualItemTotal) > 0.01;
+                                                            
+                                                            // Check if subtotal indicates discount
+                                                            const expectedSubtotal = pricingDetails.originalPrice * (item.quantity || 1);
+                                                            const actualSubtotal = payment.subTotalAmt || 0;
+                                                            const hasSubtotalDiscount = Math.abs(expectedSubtotal - actualSubtotal) > 0.01 && actualSubtotal < expectedSubtotal;
+                                                            
+                                                            const hasAnyDiscount = hasProductDiscount || hasAmountDiscount || hasPercentageDiscount || 
+                                                                                 hasPriceDifference || hasItemTotalDiscount || hasSubtotalDiscount;
+                                                            
+                                                            console.log('🔍 Discount Detection Summary:', {
+                                                                hasProductDiscount,
+                                                                hasAmountDiscount,
+                                                                hasPercentageDiscount,
+                                                                hasPriceDifference,
+                                                                hasItemTotalDiscount,
+                                                                hasSubtotalDiscount,
+                                                                hasAnyDiscount,
+                                                                calculatedItemTotal,
+                                                                actualItemTotal,
+                                                                expectedSubtotal,
+                                                                actualSubtotal
+                                                            });
+                                                            
+                                                            if (hasAnyDiscount) {
+                                                                // Calculate effective discount
+                                                                let effectiveDiscountAmount = pricingDetails.discountAmount;
+                                                                let effectiveDiscountPercentage = pricingDetails.discountPercentage;
+                                                                
+                                                                // If pricing details don't show discount but we detected one, calculate it
+                                                                if (!hasProductDiscount && (hasItemTotalDiscount || hasSubtotalDiscount)) {
+                                                                    effectiveDiscountAmount = Math.max(
+                                                                        calculatedItemTotal - actualItemTotal,
+                                                                        expectedSubtotal - actualSubtotal
+                                                                    );
+                                                                    effectiveDiscountPercentage = pricingDetails.originalPrice > 0 ? 
+                                                                        Math.round((effectiveDiscountAmount / (pricingDetails.originalPrice * (item.quantity || 1))) * 100) : 0;
+                                                                }
+                                                                
+                                                                return (
+                                                                    <div className="space-y-1">
+                                                                        <div className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                                                            -{effectiveDiscountPercentage}%
+                                                                        </div>
+                                                                        <div className="text-xs text-green-600 font-medium">
+                                                                            -{formatCurrency(effectiveDiscountAmount)}
+                                                                        </div>
+                                                                        {hasSubtotalDiscount && !hasProductDiscount && (
+                                                                            <div className="text-xs text-blue-600 italic">
+                                                                                Applied
+                                                                            </div>
+                                                                        )}
+                                                                    </div>
+                                                                );
+                                                            } else {
+                                                                return (
+                                                                    <span className="text-gray-400 text-xs">No Discount</span>
+                                                                );
+                                                            }
+                                                        })()}
                                                     </td>
                                                     {/* Final Price Column */}
                                                     <td className={`px-4 py-3 text-right ${
@@ -1606,16 +1777,66 @@ function InvoiceModal({ payment: originalPayment, onClose }) {
                                                         isReturned ? 'text-purple-600 line-through' :
                                                         'text-gray-900'
                                                     }`}>
-                                                        <div className="space-y-1">
-                                                            <div className="font-medium">
-                                                                {formatCurrency(pricingDetails.finalPrice)}
-                                                            </div>
-                                                            {pricingDetails.hasDiscount && (
-                                                                <div className="text-xs text-green-600 font-medium">
-                                                                    After Discount
+                                                        {(() => {
+                                                            // Calculate the actual final price considering detected discounts
+                                                            const hasProductDiscount = pricingDetails.hasDiscount;
+                                                            const hasAmountDiscount = pricingDetails.discountAmount > 0;
+                                                            const hasPercentageDiscount = pricingDetails.discountPercentage > 0;
+                                                            const hasPriceDifference = pricingDetails.originalPrice > pricingDetails.finalPrice;
+                                                            
+                                                            // Additional check: Compare calculated vs actual totals
+                                                            const calculatedItemTotal = pricingDetails.originalPrice * (item.quantity || 1);
+                                                            const actualItemTotal = item.itemTotal || (pricingDetails.finalPrice * (item.quantity || 1));
+                                                            const hasItemTotalDiscount = Math.abs(calculatedItemTotal - actualItemTotal) > 0.01;
+                                                            
+                                                            // Check if subtotal indicates discount
+                                                            const expectedSubtotal = pricingDetails.originalPrice * (item.quantity || 1);
+                                                            const actualSubtotal = payment.subTotalAmt || 0;
+                                                            const hasSubtotalDiscount = Math.abs(expectedSubtotal - actualSubtotal) > 0.01 && actualSubtotal < expectedSubtotal;
+                                                            
+                                                            const hasAnyDiscount = hasProductDiscount || hasAmountDiscount || hasPercentageDiscount || 
+                                                                                 hasPriceDifference || hasItemTotalDiscount || hasSubtotalDiscount;
+                                                            
+                                                            let displayFinalPrice = pricingDetails.finalPrice;
+                                                            let effectiveDiscountAmount = pricingDetails.discountAmount;
+                                                            
+                                                            // If we detected discount but pricing details don't show it, calculate the actual final price
+                                                            if (hasAnyDiscount && (!hasProductDiscount || pricingDetails.finalPrice >= pricingDetails.originalPrice)) {
+                                                                if (hasSubtotalDiscount) {
+                                                                    // Use subtotal to determine actual unit price
+                                                                    displayFinalPrice = actualSubtotal / (item.quantity || 1);
+                                                                    effectiveDiscountAmount = pricingDetails.originalPrice - displayFinalPrice;
+                                                                } else if (hasItemTotalDiscount) {
+                                                                    // Use item total to determine actual unit price
+                                                                    displayFinalPrice = actualItemTotal / (item.quantity || 1);
+                                                                    effectiveDiscountAmount = pricingDetails.originalPrice - displayFinalPrice;
+                                                                }
+                                                            }
+                                                            
+                                                            console.log('🔍 Final Price Calculation:', {
+                                                                itemName: getProductName(),
+                                                                originalFinalPrice: pricingDetails.finalPrice,
+                                                                calculatedFinalPrice: displayFinalPrice,
+                                                                hasAnyDiscount,
+                                                                effectiveDiscountAmount,
+                                                                actualSubtotal,
+                                                                expectedSubtotal,
+                                                                quantity: item.quantity || 1
+                                                            });
+                                                            
+                                                            return (
+                                                                <div className="space-y-1">
+                                                                    <div className="font-medium">
+                                                                        {formatCurrency(displayFinalPrice)}
+                                                                    </div>
+                                                                    {hasAnyDiscount && (
+                                                                        <div className="text-xs text-green-600 font-medium">
+                                                                            After Discount
+                                                                        </div>
+                                                                    )}
                                                                 </div>
-                                                            )}
-                                                        </div>
+                                                            );
+                                                        })()}
                                                     </td>
                                                     {/* Total Column */}
                                                     {/* Total Column */}
@@ -1624,23 +1845,73 @@ function InvoiceModal({ payment: originalPayment, onClose }) {
                                                         isReturned ? 'text-purple-600 line-through' :
                                                         'text-gray-900'
                                                     }`}>
-                                                        <div className="space-y-1">
-                                                            <div className="font-bold">
-                                                                {formatCurrency(pricingDetails.finalPrice * (item.quantity || 1))}
-                                                            </div>
-                                                            {pricingDetails.hasDiscount && (
-                                                                <div className="text-xs text-gray-500">
-                                                                    <span className="line-through">
-                                                                        {formatCurrency(pricingDetails.originalPrice * (item.quantity || 1))}
-                                                                    </span>
+                                                        {(() => {
+                                                            // Calculate the actual total considering detected discounts
+                                                            const hasProductDiscount = pricingDetails.hasDiscount;
+                                                            const hasAmountDiscount = pricingDetails.discountAmount > 0;
+                                                            const hasPercentageDiscount = pricingDetails.discountPercentage > 0;
+                                                            const hasPriceDifference = pricingDetails.originalPrice > pricingDetails.finalPrice;
+                                                            
+                                                            // Additional check: Compare calculated vs actual totals
+                                                            const calculatedItemTotal = pricingDetails.originalPrice * (item.quantity || 1);
+                                                            const actualItemTotal = item.itemTotal || (pricingDetails.finalPrice * (item.quantity || 1));
+                                                            const hasItemTotalDiscount = Math.abs(calculatedItemTotal - actualItemTotal) > 0.01;
+                                                            
+                                                            // Check if subtotal indicates discount
+                                                            const expectedSubtotal = pricingDetails.originalPrice * (item.quantity || 1);
+                                                            const actualSubtotal = payment.subTotalAmt || 0;
+                                                            const hasSubtotalDiscount = Math.abs(expectedSubtotal - actualSubtotal) > 0.01 && actualSubtotal < expectedSubtotal;
+                                                            
+                                                            const hasAnyDiscount = hasProductDiscount || hasAmountDiscount || hasPercentageDiscount || 
+                                                                                 hasPriceDifference || hasItemTotalDiscount || hasSubtotalDiscount;
+                                                            
+                                                            let displayFinalPrice = pricingDetails.finalPrice;
+                                                            let displayTotal = pricingDetails.finalPrice * (item.quantity || 1);
+                                                            
+                                                            // If we detected discount but pricing details don't show it, calculate the actual totals
+                                                            if (hasAnyDiscount && (!hasProductDiscount || pricingDetails.finalPrice >= pricingDetails.originalPrice)) {
+                                                                if (hasSubtotalDiscount) {
+                                                                    // Use subtotal as the actual total
+                                                                    displayTotal = actualSubtotal;
+                                                                    displayFinalPrice = actualSubtotal / (item.quantity || 1);
+                                                                } else if (hasItemTotalDiscount) {
+                                                                    // Use item total as the actual total
+                                                                    displayTotal = actualItemTotal;
+                                                                    displayFinalPrice = actualItemTotal / (item.quantity || 1);
+                                                                }
+                                                            }
+                                                            
+                                                            const originalTotal = pricingDetails.originalPrice * (item.quantity || 1);
+                                                            
+                                                            console.log('🔍 Total Column Calculation:', {
+                                                                itemName: getProductName(),
+                                                                originalTotal,
+                                                                displayTotal,
+                                                                hasAnyDiscount,
+                                                                actualSubtotal,
+                                                                expectedSubtotal
+                                                            });
+                                                            
+                                                            return (
+                                                                <div className="space-y-1">
+                                                                    <div className="font-bold">
+                                                                        {formatCurrency(displayTotal)}
+                                                                    </div>
+                                                                    {hasAnyDiscount && originalTotal > displayTotal && (
+                                                                        <div className="text-xs text-gray-500">
+                                                                            <span className="line-through">
+                                                                                {formatCurrency(originalTotal)}
+                                                                            </span>
+                                                                        </div>
+                                                                    )}
+                                                                    {hasAnyDiscount && (
+                                                                        <div className="text-xs text-green-600 font-medium">
+                                                                            Saved: {formatCurrency(originalTotal - displayTotal)}
+                                                                        </div>
+                                                                    )}
                                                                 </div>
-                                                            )}
-                                                            {pricingDetails.hasDiscount && (
-                                                                <div className="text-xs text-green-600 font-medium">
-                                                                    Saved: {formatCurrency(pricingDetails.discountAmount * (item.quantity || 1))}
-                                                                </div>
-                                                            )}
-                                                        </div>
+                                                            );
+                                                        })()}
                                                     </td>
                                                     <td className="px-4 py-3 text-center">
                                                         <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${itemStatusInfo.colorClass}`}>
@@ -1773,18 +2044,79 @@ function InvoiceModal({ payment: originalPayment, onClose }) {
                                                     </td>
                                                     {/* Legacy Discount Column */}
                                                     <td className="px-4 py-3 text-center">
-                                                        {legacyPricingDetails.hasDiscount ? (
-                                                            <div className="space-y-1">
-                                                                <div className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                                                                    -{legacyPricingDetails.discountPercentage}%
-                                                                </div>
-                                                                <div className="text-xs text-green-600 font-medium">
-                                                                    -{formatCurrency(legacyPricingDetails.discountAmount)}
-                                                                </div>
-                                                            </div>
-                                                        ) : (
-                                                            <span className="text-gray-400 text-xs">No Discount</span>
-                                                        )}
+                                                        {(() => {
+                                                            // Enhanced legacy discount detection
+                                                            console.log('🔍 Legacy Discount Column Debug:', {
+                                                                legacyPricingDetails,
+                                                                hasDiscount: legacyPricingDetails.hasDiscount,
+                                                                discountAmount: legacyPricingDetails.discountAmount,
+                                                                discountPercentage: legacyPricingDetails.discountPercentage,
+                                                                originalPrice: legacyPricingDetails.originalPrice,
+                                                                finalPrice: legacyPricingDetails.finalPrice,
+                                                                subTotalAmt: payment.subTotalAmt,
+                                                                orderQuantity: payment.orderQuantity || payment.totalQuantity || 1
+                                                            });
+                                                            
+                                                            // Check multiple discount indicators for legacy orders
+                                                            const hasProductDiscount = legacyPricingDetails.hasDiscount;
+                                                            const hasAmountDiscount = legacyPricingDetails.discountAmount > 0;
+                                                            const hasPercentageDiscount = legacyPricingDetails.discountPercentage > 0;
+                                                            const hasPriceDifference = legacyPricingDetails.originalPrice > legacyPricingDetails.finalPrice;
+                                                            
+                                                            // Legacy-specific checks
+                                                            const quantity = payment.orderQuantity || payment.totalQuantity || 1;
+                                                            const expectedTotal = legacyPricingDetails.originalPrice * quantity;
+                                                            const actualSubtotal = payment.subTotalAmt || 0;
+                                                            const hasSubtotalDiscount = Math.abs(expectedTotal - actualSubtotal) > 0.01 && actualSubtotal < expectedTotal;
+                                                            
+                                                            const hasAnyDiscount = hasProductDiscount || hasAmountDiscount || hasPercentageDiscount || 
+                                                                                 hasPriceDifference || hasSubtotalDiscount;
+                                                            
+                                                            console.log('🔍 Legacy Discount Detection Summary:', {
+                                                                hasProductDiscount,
+                                                                hasAmountDiscount,
+                                                                hasPercentageDiscount,
+                                                                hasPriceDifference,
+                                                                hasSubtotalDiscount,
+                                                                hasAnyDiscount,
+                                                                expectedTotal,
+                                                                actualSubtotal,
+                                                                quantity
+                                                            });
+                                                            
+                                                            if (hasAnyDiscount) {
+                                                                // Calculate effective discount for legacy orders
+                                                                let effectiveDiscountAmount = legacyPricingDetails.discountAmount;
+                                                                let effectiveDiscountPercentage = legacyPricingDetails.discountPercentage;
+                                                                
+                                                                // If pricing details don't show discount but we detected one, calculate it
+                                                                if (!hasProductDiscount && hasSubtotalDiscount) {
+                                                                    effectiveDiscountAmount = expectedTotal - actualSubtotal;
+                                                                    effectiveDiscountPercentage = expectedTotal > 0 ? 
+                                                                        Math.round((effectiveDiscountAmount / expectedTotal) * 100) : 0;
+                                                                }
+                                                                
+                                                                return (
+                                                                    <div className="space-y-1">
+                                                                        <div className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                                                            -{effectiveDiscountPercentage}%
+                                                                        </div>
+                                                                        <div className="text-xs text-green-600 font-medium">
+                                                                            -{formatCurrency(effectiveDiscountAmount)}
+                                                                        </div>
+                                                                        {hasSubtotalDiscount && !hasProductDiscount && (
+                                                                            <div className="text-xs text-blue-600 italic">
+                                                                                Applied
+                                                                            </div>
+                                                                        )}
+                                                                    </div>
+                                                                );
+                                                            } else {
+                                                                return (
+                                                                    <span className="text-gray-400 text-xs">No Discount</span>
+                                                                );
+                                                            }
+                                                        })()}
                                                     </td>
                                                     {/* Legacy Final Price Column */}
                                                     <td className={`px-4 py-3 text-right ${
@@ -1792,16 +2124,54 @@ function InvoiceModal({ payment: originalPayment, onClose }) {
                                                         isReturned ? 'text-purple-600 line-through' :
                                                         'text-gray-900'
                                                     }`}>
-                                                        <div className="space-y-1">
-                                                            <div className="font-medium">
-                                                                {formatCurrency(legacyPricingDetails.finalPrice)}
-                                                            </div>
-                                                            {legacyPricingDetails.hasDiscount && (
-                                                                <div className="text-xs text-green-600 font-medium">
-                                                                    After Discount
+                                                        {(() => {
+                                                            // Calculate legacy final price considering detected discounts
+                                                            const hasProductDiscount = legacyPricingDetails.hasDiscount;
+                                                            const hasAmountDiscount = legacyPricingDetails.discountAmount > 0;
+                                                            const hasPercentageDiscount = legacyPricingDetails.discountPercentage > 0;
+                                                            const hasPriceDifference = legacyPricingDetails.originalPrice > legacyPricingDetails.finalPrice;
+                                                            
+                                                            // Legacy-specific checks
+                                                            const quantity = payment.orderQuantity || payment.totalQuantity || 1;
+                                                            const expectedTotal = legacyPricingDetails.originalPrice * quantity;
+                                                            const actualSubtotal = payment.subTotalAmt || 0;
+                                                            const hasSubtotalDiscount = Math.abs(expectedTotal - actualSubtotal) > 0.01 && actualSubtotal < expectedTotal;
+                                                            
+                                                            const hasAnyDiscount = hasProductDiscount || hasAmountDiscount || hasPercentageDiscount || 
+                                                                                 hasPriceDifference || hasSubtotalDiscount;
+                                                            
+                                                            let displayFinalPrice = legacyPricingDetails.finalPrice;
+                                                            
+                                                            // If we detected discount but pricing details don't show it, calculate the actual final price
+                                                            if (hasAnyDiscount && (!hasProductDiscount || legacyPricingDetails.finalPrice >= legacyPricingDetails.originalPrice)) {
+                                                                if (hasSubtotalDiscount) {
+                                                                    // Use subtotal to determine actual unit price
+                                                                    displayFinalPrice = actualSubtotal / quantity;
+                                                                }
+                                                            }
+                                                            
+                                                            console.log('🔍 Legacy Final Price Calculation:', {
+                                                                originalFinalPrice: legacyPricingDetails.finalPrice,
+                                                                calculatedFinalPrice: displayFinalPrice,
+                                                                hasAnyDiscount,
+                                                                actualSubtotal,
+                                                                expectedTotal,
+                                                                quantity
+                                                            });
+                                                            
+                                                            return (
+                                                                <div className="space-y-1">
+                                                                    <div className="font-medium">
+                                                                        {formatCurrency(displayFinalPrice)}
+                                                                    </div>
+                                                                    {hasAnyDiscount && (
+                                                                        <div className="text-xs text-green-600 font-medium">
+                                                                            After Discount
+                                                                        </div>
+                                                                    )}
                                                                 </div>
-                                                            )}
-                                                        </div>
+                                                            );
+                                                        })()}
                                                     </td>
                                                     {/* Legacy Total Column */}
                                                             

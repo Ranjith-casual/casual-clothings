@@ -95,6 +95,71 @@ const AdminOrderDetails = ({ order, onClose }) => {
     return totalPrice / (item?.quantity || 1);
   };
 
+  // Calculate item pricing details including original and discounted prices
+  const calculateItemPricingDetails = (item, productInfo = null) => {
+    try {
+      const size = item?.size;
+      const product = productInfo || item?.productId || item?.bundleId || item?.productDetails || item?.bundleDetails;
+      const isBundle = item?.itemType === 'bundle';
+      
+      if (isBundle) {
+        const bundlePrice = product?.bundlePrice || product?.price || 0;
+        const originalPrice = product?.originalPrice || bundlePrice;
+        const discount = product?.discount || 0;
+        const finalPrice = discount > 0 ? bundlePrice * (1 - discount/100) : bundlePrice;
+        
+        return {
+          originalPrice,
+          finalPrice,
+          discount,
+          hasDiscount: discount > 0 && originalPrice > finalPrice,
+          isBundle: true
+        };
+      }
+      
+      // For regular products
+      const sizeMultipliers = {
+        'XS': 0.9, 'S': 1.0, 'M': 1.1, 'L': 1.2, 'XL': 1.3, 'XXL': 1.4,
+        '28': 0.9, '30': 1.0, '32': 1.1, '34': 1.2, '36': 1.3, '38': 1.4, '40': 1.5, '42': 1.6
+      };
+      
+      const basePrice = product?.price || 0;
+      const multiplier = size ? (sizeMultipliers[size] || sizeMultipliers[size?.toUpperCase()] || 1.0) : 1.0;
+      const discount = product?.discount || 0;
+      
+      // Check for size-adjusted price first
+      let originalPrice = 0;
+      let finalPrice = 0;
+      
+      if (item.sizeAdjustedPrice) {
+        originalPrice = item.sizeAdjustedPrice;
+        finalPrice = discount > 0 ? originalPrice * (1 - discount/100) : originalPrice;
+      } else {
+        // Calculate original price with size adjustments
+        originalPrice = basePrice * multiplier;
+        finalPrice = discount > 0 ? originalPrice * (1 - discount/100) : originalPrice;
+      }
+      
+      return {
+        originalPrice,
+        finalPrice,
+        discount,
+        hasDiscount: discount > 0 && originalPrice > finalPrice,
+        isBundle: false
+      };
+      
+    } catch (error) {
+      console.error('Error calculating item pricing details:', error);
+      return {
+        originalPrice: 0,
+        finalPrice: 0,
+        discount: 0,
+        hasDiscount: false,
+        isBundle: false
+      };
+    }
+  };
+
   // Function to fetch user's cancellation requests
   const fetchUserCancellationRequests = async () => {
     try {
@@ -1237,9 +1302,54 @@ const AdminOrderDetails = ({ order, onClose }) => {
                             </td>
                           </tr>
                           
+                          {(() => {
+                            // Calculate total item discounts
+                            const activeOrderInfo = getActiveOrderInfo(order);
+                            let totalItemDiscount = 0;
+                            let totalOriginalPrice = 0;
+                            
+                            activeOrderInfo.activeItems?.forEach(item => {
+                              const product = item?.productId || item?.bundleId || item?.productDetails || item?.bundleDetails;
+                              const pricingDetails = calculateItemPricingDetails(item, product);
+                              
+                              if (pricingDetails.hasDiscount) {
+                                const itemDiscount = (pricingDetails.originalPrice - pricingDetails.finalPrice) * item.quantity;
+                                totalItemDiscount += itemDiscount;
+                                totalOriginalPrice += pricingDetails.originalPrice * item.quantity;
+                              }
+                            });
+                            
+                            if (totalItemDiscount > 0) {
+                              return (
+                                <tr className="border-b border-gray-100">
+                                  <td className="py-2 text-gray-600">
+                                    <div className="flex items-center">
+                                      <FaTag className="mr-1 text-green-500 w-3 h-3" />
+                                      Item Discounts
+                                    </div>
+                                  </td>
+                                  <td className="py-2 text-right font-medium text-green-600">
+                                    <div className="flex flex-col items-end">
+                                      <span>-₹{totalItemDiscount?.toFixed(2)}</span>
+                                      <span className="text-xs text-gray-500">
+                                        Total savings on items
+                                      </span>
+                                    </div>
+                                  </td>
+                                </tr>
+                              );
+                            }
+                            return null;
+                          })()}
+                          
                           {order.discount > 0 && (
                             <tr className="border-b border-gray-100">
-                              <td className="py-2 text-gray-600">Discount</td>
+                              <td className="py-2 text-gray-600">
+                                <div className="flex items-center">
+                                  <FaPercentage className="mr-1 text-blue-500 w-3 h-3" />
+                                  Order Discount
+                                </div>
+                              </td>
                               <td className="py-2 text-right font-medium text-green-600">-₹{order.discount?.toFixed(2)}</td>
                             </tr>
                           )}
@@ -1415,6 +1525,7 @@ const AdminOrderDetails = ({ order, onClose }) => {
                   // Calculate item total and unit price with size-based pricing
                   const sizeBasedTotalPrice = calculateSizeBasedPrice(item, productInfo);
                   const sizeBasedUnitPrice = getSizeBasedUnitPrice(item, productInfo);
+                  const pricingDetails = calculateItemPricingDetails(item, productInfo);
                   
                   // Use size-based pricing for accurate calculations
                   const itemTotal = sizeBasedTotalPrice;
@@ -1632,15 +1743,53 @@ const AdminOrderDetails = ({ order, onClose }) => {
                                   : 'bg-gray-50 border-gray-100'
                             }`}>
                               <span className="text-gray-500 font-medium block mb-1">Unit Price</span>
-                              <p className={`font-semibold ${
-                                isCancelled 
-                                  ? 'text-gray-500 line-through' 
-                                  : hasPendingRequest 
-                                    ? 'text-orange-800' 
-                                    : 'text-gray-800'
-                              }`}>
-                                ₹{unitPrice?.toFixed(2)}
-                              </p>
+                              <div className="space-y-1">
+                                {pricingDetails.hasDiscount ? (
+                                  <>
+                                    {/* Original Price (strikethrough) */}
+                                    <p className={`text-xs line-through ${
+                                      isCancelled 
+                                        ? 'text-gray-400' 
+                                        : hasPendingRequest 
+                                          ? 'text-orange-500' 
+                                          : 'text-gray-500'
+                                    }`}>
+                                      ₹{pricingDetails.originalPrice?.toFixed(2)}
+                                    </p>
+                                    {/* Discounted Price */}
+                                    <p className={`font-semibold ${
+                                      isCancelled 
+                                        ? 'text-gray-500 line-through' 
+                                        : hasPendingRequest 
+                                          ? 'text-orange-800' 
+                                          : 'text-green-600'
+                                    }`}>
+                                      ₹{pricingDetails.finalPrice?.toFixed(2)}
+                                    </p>
+                                    {/* Discount Badge */}
+                                    <span className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium ${
+                                      isCancelled 
+                                        ? 'bg-gray-100 text-gray-600' 
+                                        : hasPendingRequest 
+                                          ? 'bg-orange-100 text-orange-800' 
+                                          : 'bg-green-100 text-green-800'
+                                    }`}>
+                                      <FaPercentage className="w-2 h-2 mr-1" />
+                                      {pricingDetails.discount}% OFF
+                                    </span>
+                                  </>
+                                ) : (
+                                  <p className={`font-semibold ${
+                                    isCancelled 
+                                      ? 'text-gray-500 line-through' 
+                                      : hasPendingRequest 
+                                        ? 'text-orange-800' 
+                                        : 'text-gray-800'
+                                  }`}>
+                                    ₹{unitPrice?.toFixed(2)}
+                                  </p>
+                                )}
+                              </div>
                             </div>
                             <div className={`p-2.5 rounded-md border ${
                               isCancelled 
@@ -1650,15 +1799,52 @@ const AdminOrderDetails = ({ order, onClose }) => {
                                   : 'bg-gray-50 border-gray-100'
                             }`}>
                               <span className="text-gray-500 font-medium block mb-1">Total Price</span>
-                              <p className={`font-semibold ${
-                                isCancelled 
-                                  ? 'text-gray-500 line-through' 
-                                  : hasPendingRequest 
-                                    ? 'text-orange-800' 
-                                    : 'text-gray-800'
-                              }`}>
-                                ₹{itemTotal?.toFixed(2)}
-                              </p>
+                              <div className="space-y-1">
+                                {pricingDetails.hasDiscount ? (
+                                  <>
+                                    {/* Original Total (strikethrough) */}
+                                    <p className={`text-xs line-through ${
+                                      isCancelled 
+                                        ? 'text-gray-400' 
+                                        : hasPendingRequest 
+                                          ? 'text-orange-500' 
+                                          : 'text-gray-500'
+                                    }`}>
+                                      {/* ₹{(pricingDetails.originalPrice * item.quantity)?.toFixed(2)} */}
+                                    </p>
+                                    {/* Discounted Total */}
+                                    {/* <p className={`font-semibold ${
+                                      isCancelled 
+                                        ? 'text-gray-500 line-through' 
+                                        : hasPendingRequest 
+                                          ? 'text-orange-800' 
+                                          : 'text-green-600'
+                                    }`}>
+                                      ₹{itemTotal?.toFixed(2)}
+                                    </p> */}
+                                    {/* Savings Amount */}
+                                    <span className={`text-xs ${
+                                      isCancelled 
+                                        ? 'text-gray-500' 
+                                        : hasPendingRequest 
+                                          ? 'text-orange-600' 
+                                          : 'text-green-600'
+                                    }`}>
+                                      You save ₹{((pricingDetails.originalPrice - pricingDetails.finalPrice) * item.quantity)?.toFixed(2)}
+                                    </span>
+                                  </>
+                                ) : (
+                                  <p className={`font-semibold ${
+                                    isCancelled 
+                                      ? 'text-gray-500 line-through' 
+                                      : hasPendingRequest 
+                                        ? 'text-orange-800' 
+                                        : 'text-gray-800'
+                                  }`}>
+                                    ₹{itemTotal?.toFixed(2)}
+                                  </p>
+                                )}
+                              </div>
                             </div>
                             <div className={`p-2.5 rounded-md border ${
                               isCancelled 
