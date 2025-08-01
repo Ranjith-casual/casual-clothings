@@ -94,31 +94,28 @@ const AddAddress = ({ close }) => {
   const fetchCountries = async () => {
     setIsLoadingCountries(true);
     try {
-      const response = await fetch("https://countriesnow.space/api/v0.1/countries/positions");
-      const data = await response.json();
-      if (data.data && Array.isArray(data.data)) {
-        // Extract countries and place India at the top
-        const allCountries = data.data.map((c) => ({ name: c.name, code: c.iso2 || "" }));
-        const indiaCountry = allCountries.find(country => country.name === "India");
-        const otherCountries = allCountries.filter(country => country.name !== "India");
-        
-        // Set India at the top followed by other countries
-        if (indiaCountry) {
-          setCountries([indiaCountry, ...otherCountries]);
-        } else {
-          setCountries(allCountries);
-        }
-      }
+      console.log("🇮🇳 Loading India as default country...");
+      
+      // Set only India as the country
+      const indiaCountry = [{ name: "India", code: "IN" }];
+      setCountries(indiaCountry);
+      
+      console.log("✅ India loaded as default country");
+      toast.success("Country set to India");
     } catch (error) {
-      console.error("Error fetching countries:", error);
+      console.error("💥 Error setting country:", error);
     } finally {
       setIsLoadingCountries(false);
     }
   };
 
   const fetchStates = async (country) => {
-    if (!country) return;
+    if (!country || country !== "India") {
+      console.log("⚠️ Only India is supported for states");
+      return;
+    }
 
+    console.log("🏛️ Loading Indian states...");
     setIsLoadingStates(true);
     setStates([]);
     setCities([]);
@@ -126,45 +123,77 @@ const AddAddress = ({ close }) => {
     setValue('city', '');
 
     try {
-      const response = await fetch("https://countriesnow.space/api/v0.1/countries/states", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ country }),
+      const response = await Axios({
+        ...SummaryApi.getIndianStates
       });
 
-      const data = await response.json();
-      if (data.data && data.data.states) {
-        setStates(data.data.states);
+      if (response.data.success) {
+        setStates(response.data.data);
+        console.log("✅ Indian states loaded:", response.data.data.length);
+        toast.success(`Loaded ${response.data.data.length} Indian states`);
+      } else {
+        throw new Error(response.data.message || "Failed to load states");
       }
     } catch (error) {
-      console.error("Error fetching states:", error);
+      console.error("💥 Error loading states:", error);
+      toast.error("Failed to load states");
+      
+      // Fallback to static data if API fails
+      const fallbackStates = [
+        { name: "Andhra Pradesh" }, { name: "Arunachal Pradesh" }, { name: "Assam" }, 
+        { name: "Bihar" }, { name: "Chhattisgarh" }, { name: "Goa" }, { name: "Gujarat" },
+        { name: "Haryana" }, { name: "Himachal Pradesh" }, { name: "Jharkhand" },
+        { name: "Karnataka" }, { name: "Kerala" }, { name: "Madhya Pradesh" },
+        { name: "Maharashtra" }, { name: "Manipur" }, { name: "Meghalaya" },
+        { name: "Mizoram" }, { name: "Nagaland" }, { name: "Odisha" }, { name: "Punjab" },
+        { name: "Rajasthan" }, { name: "Sikkim" }, { name: "Tamil Nadu" }, { name: "Telangana" },
+        { name: "Tripura" }, { name: "Uttar Pradesh" }, { name: "Uttarakhand" }, { name: "West Bengal" },
+        { name: "Andaman and Nicobar Islands" }, { name: "Chandigarh" },
+        { name: "Dadra and Nagar Haveli and Daman and Diu" }, { name: "Delhi" },
+        { name: "Jammu and Kashmir" }, { name: "Ladakh" }, { name: "Lakshadweep" }, { name: "Puducherry" }
+      ];
+      setStates(fallbackStates);
+      console.log("🔄 Using fallback state data");
     } finally {
       setIsLoadingStates(false);
+      console.log("🏁 Finished loading states");
     }
   };
 
   const fetchCities = async (country, state) => {
-    if (!country || !state) return;
+    if (!country || !state || country !== "India") {
+      console.log("⚠️ Only Indian states are supported for districts");
+      return;
+    }
 
+    console.log("🏙️ Loading districts for state:", state);
     setIsLoadingCities(true);
     setCities([]);
     setValue('city', '');
 
     try {
-      const response = await fetch("https://countriesnow.space/api/v0.1/countries/state/cities", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ country, state }),
+      const response = await Axios({
+        url: `${SummaryApi.getDistrictsByState.url}/${encodeURIComponent(state)}/districts`,
+        method: SummaryApi.getDistrictsByState.method
       });
 
-      const data = await response.json();
-      if (data.data) {
-        setCities(data.data);
+      if (response.data.success) {
+        const districts = response.data.data.districts.map(district => ({ name: district.name }));
+        setCities(districts);
+        console.log("✅ Districts loaded for", state, ":", districts.length);
+        toast.success(`Loaded ${districts.length} districts for ${state}`);
+      } else {
+        throw new Error(response.data.message || "Failed to load districts");
       }
     } catch (error) {
-      console.error("Error fetching cities:", error);
+      console.error("💥 Error loading districts:", error);
+      toast.error("Failed to load districts");
+      
+      // Fallback message
+      setCities([{ name: "Please select a major city or district name manually" }]);
     } finally {
       setIsLoadingCities(false);
+      console.log("🏁 Finished loading districts");
     }
   };
 
@@ -285,9 +314,9 @@ const AddAddress = ({ close }) => {
                 {isLoadingCities ? (
                   <option value="" disabled>Loading cities...</option>
                 ) : (
-                  cities.map((city) => (
-                    <option key={city} value={city}>
-                      {city}
+                  cities.map((city, index) => (
+                    <option key={city.name || city || index} value={city.name || city}>
+                      {city.name || city}
                     </option>
                   ))
                 )}

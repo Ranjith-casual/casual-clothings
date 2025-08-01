@@ -23,6 +23,7 @@ import emailRouter from './route/email.route.js' // Import email routes
 import configRouter from './route/config.route.js' // Import config routes for sizes management
 import customTshirtRequestRouter from './route/customTshirtRequest.route.js' // Import custom t-shirt request routes
 import returnProductRouter from './route/returnProduct.route.js' // Import return product routes
+import indianLocationRouter from './route/indianLocation.route.js' // Import Indian location routes
 
 
 
@@ -109,6 +110,7 @@ app.use('/api/email', emailRouter) // Use email routes
 app.use('/api/config', configRouter) // Use config routes for sizes management
 app.use('/api/custom-tshirt', customTshirtRequestRouter) // Use custom t-shirt request routes
 app.use('/api/return-product', returnProductRouter) // Use return product routes
+app.use('/api/location', indianLocationRouter) // Use Indian location routes
 
 
 connectDB().then(

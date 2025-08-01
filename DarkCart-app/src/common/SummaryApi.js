@@ -163,6 +163,24 @@ const SummaryApi = {
         url : '/api/address/delete',
         method : 'delete'
     },
+    
+    // Indian Location APIs
+    getIndianStates: {
+        url: '/api/location/states',
+        method: 'get'
+    },
+    getDistrictsByState: {
+        url: '/api/location/states', // Will be appended with /:stateName/districts
+        method: 'get'
+    },
+    getAllStatesWithDistricts: {
+        url: '/api/location/all',
+        method: 'get'
+    },
+    searchDistricts: {
+        url: '/api/location/search',
+        method: 'get'
+    },
     onlinePaymentOrder:{
         url: '/api/order/online-payment',
         method: 'post'
