@@ -13,7 +13,8 @@ function OrderCancellationModal({ order, onClose, onCancellationRequested }) {
     const [additionalReason, setAdditionalReason] = useState('')
     const [loading, setLoading] = useState(false)
     const [policy, setPolicy] = useState(null)
-    const [estimatedRefund, setEstimatedRefund] = useState(0)
+    // Start with null instead of 0 to prevent display until calculated
+    const [estimatedRefund, setEstimatedRefund] = useState(null)
     const [refundCalculation, setRefundCalculation] = useState(null)
     const [cancelMode, setCancelMode] = useState(() => {
         // Auto-determine initial cancel mode based on active items
@@ -223,9 +224,39 @@ function OrderCancellationModal({ order, onClose, onCancellationRequested }) {
         }
     }, [policy, order])
 
+    const getTimeBasedRefund = () => {
+        if (!policy || !order) {
+            console.log("Using default refund percentage: 75%");
+            return 75;
+        }
+
+        // Use the refundCalculation if it exists (set by the useEffect)
+        if (refundCalculation && refundCalculation.refundPercentage) {
+            return refundCalculation.refundPercentage;
+        }
+
+        try {
+            // Fall back to legacy calculation if refundCalculation is not yet available
+            const orderDate = new Date(order.orderDate)
+            const now = new Date()
+            const hoursSinceOrder = (now - orderDate) / (1000 * 60 * 60)
+            
+            const timeRule = policy.timeBasedRules?.find(rule => 
+                hoursSinceOrder <= rule.timeFrameHours
+            )
+
+            const percentage = timeRule?.refundPercentage || policy.refundPercentage || 75;
+            console.log(`Using fallback calculation: ${percentage}%`);
+            return percentage;
+        } catch (error) {
+            console.error("Error in fallback refund calculation:", error);
+            return 75; // Default fallback
+        }
+    }
+
     useEffect(() => {
         if (policy && order) {
-            const refundPercentage = getTimeBasedRefund()
+            const refundPercentage = refundCalculation?.refundPercentage || getTimeBasedRefund()
             
             if (cancelMode === 'full') {
                 // For full cancellation, calculate total based on discounted prices of all items
@@ -246,13 +277,21 @@ function OrderCancellationModal({ order, onClose, onCancellationRequested }) {
                 const totalWithDelivery = activeItemsTotal + deliveryCharge;
                 
                 console.log(`Full cancellation - Calculated total with delivery: ${totalWithDelivery} (items: ${activeItemsTotal} + delivery: ${deliveryCharge}), Refund %: ${refundPercentage}`);
-                setEstimatedRefund((totalWithDelivery * refundPercentage) / 100);
+                
+                // Make sure we calculate the refund based on the actual amount instead of any cached value
+                const refundAmount = (totalWithDelivery * refundPercentage) / 100;
+                console.log(`Setting full refund amount to: ${refundAmount} (${refundPercentage}% of ${totalWithDelivery})`);
+                
+                // Use a timeout to ensure this happens after initial render
+                setTimeout(() => {
+                    setEstimatedRefund(refundAmount);
+                }, 0);
             } else {
                 // For partial mode, calculation is handled by another useEffect
                 // that watches the selectedItems state
             }
         }
-    }, [policy, order, cancelMode])
+    }, [policy, order, cancelMode, calculateItemPrice, refundCalculation])
 
     const fetchCancellationPolicy = async () => {
         try {
@@ -390,7 +429,7 @@ function OrderCancellationModal({ order, onClose, onCancellationRequested }) {
                         };
                     });
                 
-                const refundPercentage = getTimeBasedRefund();
+                const refundPercentage = refundCalculation?.refundPercentage || getTimeBasedRefund();
                 const deliveryCharge = order.deliveryCharge || 0;
                 const totalWithDelivery = totalDiscountedAmount + deliveryCharge;
                 const refundWithDelivery = (totalWithDelivery * refundPercentage) / 100;
@@ -448,7 +487,7 @@ function OrderCancellationModal({ order, onClose, onCancellationRequested }) {
                 const itemsToCancel = selectedItemIds.map(itemId => {
                     const item = order.items.find(i => i._id === itemId);
                     const priceData = calculateItemPrice(item);
-                    const refundPercentage = getTimeBasedRefund();
+                    const refundPercentage = refundCalculation?.refundPercentage || getTimeBasedRefund();
                     
                     return {
                         itemId,
@@ -479,7 +518,7 @@ function OrderCancellationModal({ order, onClose, onCancellationRequested }) {
                     selectedItemsCount: selectedItemIds.length,
                     totalRefundAmount: itemsToCancel.reduce((sum, item) => sum + item.refundAmount, 0),
                     totalItemValue: itemsToCancel.reduce((sum, item) => sum + item.totalPrice, 0),
-                    refundPercentage: getTimeBasedRefund(),
+                    refundPercentage: refundCalculation?.refundPercentage || getTimeBasedRefund(),
                     itemDetails: itemsToCancel.map(item => ({
                         name: item.productName,
                         customerPaid: item.totalPrice,
@@ -501,7 +540,7 @@ function OrderCancellationModal({ order, onClose, onCancellationRequested }) {
                 let deliveryChargeRefund = 0;
                 if (isEffectivelyFullCancellation) {
                     const deliveryCharge = order.deliveryCharge || 0;
-                    deliveryChargeRefund = (deliveryCharge * getTimeBasedRefund()) / 100;
+                    deliveryChargeRefund = (deliveryCharge * (refundCalculation?.refundPercentage || getTimeBasedRefund())) / 100;
                     totalRefundAmount += deliveryChargeRefund;
                     
                     console.log('🚚 Including delivery charge in partial cancellation (all items selected):', {
@@ -594,48 +633,18 @@ function OrderCancellationModal({ order, onClose, onCancellationRequested }) {
                 return {}; // Clear item selection since we're switching to full mode
             }
             
-            // Update estimated refund based on selected items
+            // Update estimated refund based on selected items - now handled by useEffect
             if (order && policy) {
-                const refundPercentage = getTimeBasedRefund()
-                
+                // Let the useEffect handle the calculation instead of doing it here
                 if (selectedIds.length === 0) {
                     setEstimatedRefund(0)
-                } else {
-                    let totalRefund = 0
-                    selectedIds.forEach(id => {
-                        const item = order.items.find(i => i._id === id)
-                        if (item && item.status !== 'Cancelled' && !item.cancelApproved) {
-                            // Use discounted price calculation
-                            const priceData = calculateItemPrice(item);
-                            const itemTotal = priceData.totalPrice;
-                            
-                            console.log(`Item: ${item._id}, Discounted Price: ${priceData.unitPrice}, Original Price: ${priceData.originalPrice}, Quantity: ${item.quantity}, Total: ${itemTotal}, Discount: ${priceData.discount}%`);
-                            
-                            // Calculate refund amount with percentage
-                            const itemRefund = (itemTotal * refundPercentage) / 100;
-                            console.log(`Refund percentage: ${refundPercentage}%, Item refund: ${itemRefund}`);
-                            
-                            totalRefund += itemRefund
-                        }
-                    })
-                    
-                    // If ALL available items are selected, include delivery charge in refund
-                    if (isEffectivelyFullCancellation) {
-                        const deliveryCharge = order.deliveryCharge || 0;
-                        const deliveryRefund = (deliveryCharge * refundPercentage) / 100;
-                        totalRefund += deliveryRefund;
-                        
-                        console.log(`[toggleItemSelection] Adding delivery charge to partial cancellation: ${deliveryCharge} -> Refund: ${deliveryRefund}`);
-                        console.log(`[toggleItemSelection] Total refund with delivery: ${totalRefund}`);
-                    }
-                    
-                    console.log(`Total refund amount: ${totalRefund}`);
-                    setEstimatedRefund(totalRefund)
                 }
+                // The rest of the calculation is now handled by the useEffect that watches selectedItems
+                console.log('Item selection changed, refund calculation will be handled by useEffect')
             }
             
-            return newSelection
-        })
+            return newSelection;
+        });
     }
     
     // Calculate estimated refund based on selected items
@@ -672,7 +681,7 @@ function OrderCancellationModal({ order, onClose, onCancellationRequested }) {
                     
                     console.log(`[useEffect] Item: ${item._id}, Discounted Price: ${priceData.unitPrice}, Original Price: ${priceData.originalPrice}, Discount: ${priceData.discount}%, Quantity: ${item.quantity}, Discounted Total: ${itemTotal}`);
                     
-                    const refundPercentage = getTimeBasedRefund()
+                    const refundPercentage = refundCalculation?.refundPercentage || getTimeBasedRefund()
                     const itemRefund = (itemTotal * refundPercentage) / 100;
                     console.log(`[useEffect] Refund percentage: ${refundPercentage}%, Item discounted refund: ${itemRefund}`);
                     
@@ -683,7 +692,7 @@ function OrderCancellationModal({ order, onClose, onCancellationRequested }) {
             // If ALL available items are selected, include delivery charge in refund
             if (isEffectivelyFullCancellation) {
                 const deliveryCharge = order.deliveryCharge || 0;
-                const deliveryRefund = (deliveryCharge * getTimeBasedRefund()) / 100;
+                const deliveryRefund = (deliveryCharge * (refundCalculation?.refundPercentage || getTimeBasedRefund())) / 100;
                 totalRefund += deliveryRefund;
                 
                 console.log(`[useEffect Debug] Adding delivery charge to partial cancellation: ${deliveryCharge} -> Refund: ${deliveryRefund}`);
@@ -693,7 +702,7 @@ function OrderCancellationModal({ order, onClose, onCancellationRequested }) {
             console.log(`[useEffect] Setting total refund amount: ${totalRefund}`);
             setEstimatedRefund(totalRefund)
         }
-    }, [selectedItems, policy, order, cancelMode])
+    }, [selectedItems, policy, order, cancelMode, calculateItemPrice, refundCalculation])
 
     // Auto-switch to full cancellation mode when only one active item remains
     useEffect(() => {
@@ -725,36 +734,6 @@ function OrderCancellationModal({ order, onClose, onCancellationRequested }) {
             onClose();
         }
     }, [order?.items, cancelMode, onClose]);
-
-    const getTimeBasedRefund = () => {
-        if (!policy || !order) {
-            console.log("Using default refund percentage: 75%");
-            return 75;
-        }
-
-        // Use the refundCalculation if it exists (set by the useEffect)
-        if (refundCalculation && refundCalculation.refundPercentage) {
-            return refundCalculation.refundPercentage;
-        }
-
-        try {
-            // Fall back to legacy calculation if refundCalculation is not yet available
-            const orderDate = new Date(order.orderDate)
-            const now = new Date()
-            const hoursSinceOrder = (now - orderDate) / (1000 * 60 * 60)
-            
-            const timeRule = policy.timeBasedRules?.find(rule => 
-                hoursSinceOrder <= rule.timeFrameHours
-            )
-
-            const percentage = timeRule?.refundPercentage || policy.refundPercentage || 75;
-            console.log(`Using fallback calculation: ${percentage}%`);
-            return percentage;
-        } catch (error) {
-            console.error("Error in fallback refund calculation:", error);
-            return 75; // Default fallback
-        }
-    }
 
     const canCancelOrder = () => {
         // Orders cannot be cancelled if they are delivered, already cancelled, or out for delivery
@@ -1297,13 +1276,13 @@ function OrderCancellationModal({ order, onClose, onCancellationRequested }) {
                         <div className="flex items-center justify-between mb-2">
                             <span className="text-gray-700">Estimated Refund Amount:</span>
                             <span className="font-bold text-green-600 text-lg">
-                                ₹ {estimatedRefund > 0 ? estimatedRefund.toFixed(2) : '0.00'}
+                                ₹ {estimatedRefund !== null ? parseFloat(estimatedRefund).toFixed(2) : 'Calculating...'}
                             </span>
                         </div>
                         <div className="flex items-center justify-between text-sm text-gray-600">
                             <span>Refund Percentage:</span>
                             <span className="text-green-600">
-                                ✓ {getTimeBasedRefund()}% of discounted order value
+                                ✓ {refundCalculation?.refundPercentage || getTimeBasedRefund()}% of discounted order value
                             </span>
                         </div>
                         
@@ -1335,7 +1314,7 @@ function OrderCancellationModal({ order, onClose, onCancellationRequested }) {
                                                         const { unitPrice, originalPrice, discount, totalPrice } = priceData;
                                                         
                                                         // Calculate refund amount using discounted price
-                                                        const refundPercentage = getTimeBasedRefund();
+                                                        const refundPercentage = refundCalculation?.refundPercentage || getTimeBasedRefund();
                                                         const refundAmount = ((totalPrice * refundPercentage) / 100).toFixed(2);
                                                         console.log(`Item: ${itemName}, Discounted Price: ${unitPrice}, Original Price: ${originalPrice}, Discount: ${discount}%, Total: ${totalPrice}, Refund %: ${refundPercentage}, Refund amount: ${refundAmount}`);
                                                         
@@ -1380,7 +1359,7 @@ function OrderCancellationModal({ order, onClose, onCancellationRequested }) {
                                                 <span className="font-medium">Total Refund:</span>
                                                 <span className="font-bold text-green-600 flex items-center text-lg">
                                                     <FaRupeeSign size={14} className="mr-1" />
-                                                    {estimatedRefund > 0 ? estimatedRefund.toFixed(2) : '0.00'}
+                                                    {estimatedRefund !== null ? parseFloat(estimatedRefund).toFixed(2) : 'Calculating...'}
                                                 </span>
                                             </div>
                                         </>
@@ -1473,7 +1452,7 @@ function OrderCancellationModal({ order, onClose, onCancellationRequested }) {
                         <h4 className="font-medium text-gray-800 mb-2">Cancellation Terms:</h4>
                         <ul className="text-sm text-gray-600 space-y-1">
                             <li>• Admin will review your request within {policy?.responseTimeHours || 48} hours</li>
-                            <li>• Refund amount is <span className="font-semibold text-green-700">{getTimeBasedRefund()}%</span> of the <span className="font-medium text-green-700">discounted order value</span> (amount you actually paid)</li>
+                            <li>• Refund amount is <span className="font-semibold text-green-700">{refundCalculation?.refundPercentage || getTimeBasedRefund()}%</span> of the <span className="font-medium text-green-700">discounted order value</span> (amount you actually paid)</li>
                             <li>• Approved refunds will be processed within 5-7 business days</li>
                             <li>• Refund will be credited to your original payment method</li>
                             <li>• This action cannot be undone once submitted</li>
@@ -1524,7 +1503,7 @@ function OrderCancellationModal({ order, onClose, onCancellationRequested }) {
                                                     <span className="ml-1 text-gray-500 italic">({refundCalculation.daysSinceOrder} days since order)</span>
                                                 </div>
                                                 <span className={`font-medium ${refundCalculation.cancellationTiming === 'EARLY' ? 'text-green-600' : refundCalculation.cancellationTiming === 'LATE' ? 'text-red-600' : 'text-gray-600'}`}>
-                                                    {refundCalculation.cancellationTiming === 'EARLY' ? '+20%' : refundCalculation.cancellationTiming === 'LATE' ? '-25%' : '0%'}
+                                                    {refundCalculation.cancellationTiming === 'EARLY' ? '+15%' : refundCalculation.cancellationTiming === 'LATE' ? '-25%' : '0%'}
                                                 </span>
                                             </div>
                                             
@@ -1567,7 +1546,7 @@ function OrderCancellationModal({ order, onClose, onCancellationRequested }) {
                                         <span className="font-semibold text-gray-800">Final Refund:</span>
                                         <div className="text-right">
                                             <div className="font-bold text-green-700">
-                                                ₹{(estimatedRefund || refundCalculation.refundAmount || 0).toFixed(2)}
+                                                ₹{estimatedRefund !== null ? parseFloat(estimatedRefund).toFixed(2) : (refundCalculation?.refundAmount ? parseFloat(refundCalculation.refundAmount).toFixed(2) : 'Calculating...')}
                                             </div>
                                             <div className="text-xs text-gray-600">
                                                 ({refundCalculation.refundPercentage || getTimeBasedRefund()}% of order value)

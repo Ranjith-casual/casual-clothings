@@ -16,7 +16,7 @@ export class RefundPolicyService {
             // Base refund policy configuration
             const refundPolicy = {
                 // Base percentages for different timing scenarios
-                earlyRefundPercentage: 90,  // 1-2 days
+                earlyRefundPercentage: 90,  // 1-2 days (75% + 15% bonus)
                 standardRefundPercentage: 75, // 3-7 days
                 lateRefundPercentage: 50,   // 7+ days
                 
