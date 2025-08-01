@@ -795,7 +795,7 @@ function MyOrders() {
               )}
 
               {/* Partial Cancellation Badge for orders with some cancelled items or pending requests */}
-              {!isCancelled && (() => {
+              {/* {!isCancelled && (() => {
                 const hasPartialCancellations = order?.items?.some(item => 
                   item?.status === 'Cancelled' || item?.cancelApproved === true
                 );
@@ -843,7 +843,7 @@ function MyOrders() {
                   );
                 }
                 return null;
-              })()}
+              })()} */}
 
               {/* Cancelled Order Diagonal Stripe */}
               {isCancelled && (
@@ -992,12 +992,12 @@ function MyOrders() {
                           {/* Enhanced Item cancellation and request indicators */}
                           {isItemCancelled && !isCancelled && (
                             <>
-                              <div className="absolute top-0 right-0 transform -translate-y-1/3 translate-x-1/3 z-10">
+                              {/* <div className="absolute top-0 right-0 transform -translate-y-1/3 translate-x-1/3 z-10">
                                 <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-red-500 text-white border-2 border-white shadow-lg">
                                   <FaBan className="w-3 h-3 mr-1" />
                                   CANCELLED
                                 </span>
-                              </div>
+                              </div> */}
                               {/* Red stripe overlay */}
                               <div className="absolute inset-0 bg-gradient-to-r from-red-200/30 via-transparent to-red-200/30 rounded-lg pointer-events-none"></div>
                               {/* Diagonal cancelled pattern */}
@@ -1010,12 +1010,12 @@ function MyOrders() {
                           {/* Pending cancellation request indicator */}
                           {isItemCancellationRequested && !isItemCancelled && !isCancelled && (
                             <>
-                              <div className="absolute top-0 right-0 transform -translate-y-1/3 translate-x-1/3 z-10">
+                              {/* <div className="absolute top-0 right-0 transform -translate-y-1/3 translate-x-1/3 z-10">
                                 <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-orange-500 text-white border-2 border-white shadow-lg animate-pulse">
                                   <FaClock className="w-3 h-3 mr-1" />
                                   CANCELLATION REQUESTED
                                 </span>
-                              </div>
+                              </div> */}
                               {/* Orange stripe overlay */}
                               <div className="absolute inset-0 bg-gradient-to-r from-orange-200/30 via-transparent to-orange-200/30 rounded-lg pointer-events-none"></div>
                               {/* Diagonal pending pattern */}
@@ -1028,12 +1028,12 @@ function MyOrders() {
                           {/* Return status indicators */}
                           {isItemReturnApproved && !isItemCancelled && !isCancelled && (
                             <>
-                              <div className="absolute top-0 right-0 transform -translate-y-1/3 translate-x-1/3 z-10">
+                              {/* <div className="absolute top-0 right-0 transform -translate-y-1/3 translate-x-1/3 z-10">
                                 <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-red-600 text-white border-2 border-white shadow-lg">
                                   <FaUndo className="w-3 h-3 mr-1" />
                                   RETURN APPROVED
                                 </span>
-                              </div>
+                              </div> */}
                               {/* Red stripe overlay for approved returns */}
                               <div className="absolute inset-0 bg-gradient-to-r from-red-200/30 via-transparent to-red-200/30 rounded-lg pointer-events-none"></div>
                               {/* Diagonal return pattern */}
@@ -1045,12 +1045,12 @@ function MyOrders() {
 
                           {isItemReturnRequested && !isItemReturnApproved && !isItemCancelled && !isCancelled && (
                             <>
-                              <div className="absolute top-0 right-0 transform -translate-y-1/3 translate-x-1/3 z-10">
+                              {/* <div className="absolute top-0 right-0 transform -translate-y-1/3 translate-x-1/3 z-10">
                                 <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-blue-500 text-white border-2 border-white shadow-lg animate-pulse">
                                   <FaUndo className="w-3 h-3 mr-1" />
                                   RETURN REQUESTED
                                 </span>
-                              </div>
+                              </div> */}
                               {/* Blue stripe overlay */}
                               <div className="absolute inset-0 bg-gradient-to-r from-blue-200/30 via-transparent to-blue-200/30 rounded-lg pointer-events-none"></div>
                               {/* Diagonal return pattern */}
@@ -1062,12 +1062,12 @@ function MyOrders() {
 
                           {isItemReturnRejected && !isItemReturnApproved && !isItemCancelled && !isCancelled && (
                             <>
-                              <div className="absolute top-0 right-0 transform -translate-y-1/3 translate-x-1/3 z-10">
+                              {/* <div className="absolute top-0 right-0 transform -translate-y-1/3 translate-x-1/3 z-10">
                                 <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-gray-500 text-white border-2 border-white shadow-lg">
                                   <FaTimes className="w-3 h-3 mr-1" />
                                   RETURN REJECTED
                                 </span>
-                              </div>
+                              </div> */}
                               {/* Gray stripe overlay */}
                               <div className="absolute inset-0 bg-gradient-to-r from-gray-200/30 via-transparent to-gray-200/30 rounded-lg pointer-events-none"></div>
                             </>
