@@ -343,12 +343,18 @@ export const requestOrderCancellation = async (req, res) => {
             });
         }
         
-        // Check if payment is online and paid
-        if (order.paymentMethod !== 'Online Payment' || order.paymentStatus !== 'PAID') {
+        // Check if payment is online and paid, or if it's a partial refund processing order
+        // Allow cancellation for:
+        // 1. Paid online orders (original case)
+        // 2. Orders with partial refund processing (when some items were already cancelled)
+        // 3. Orders with successful refund (when previous partial refunds were completed)
+        const allowedPaymentStatuses = ['PAID', 'PARTIAL_REFUND_PROCESSING', 'REFUND_SUCCESSFUL'];
+        
+        if (order.paymentMethod !== 'Online Payment' || !allowedPaymentStatuses.includes(order.paymentStatus)) {
             return res.status(400).json({
                 success: false,
                 error: true,
-                message: `Only paid online orders can be cancelled`
+                message: `Only paid online orders can be cancelled. Current status: ${order.paymentStatus}`
             });
         }
 

@@ -22,11 +22,36 @@ function OrderCancellationModal({ order, onClose, onCancellationRequested }) {
             const activeItems = order.items.filter(item => 
                 item.status !== 'Cancelled' && !item.cancelApproved
             );
-            return activeItems.length <= 1 ? 'full' : 'full'; // Default to 'full' always
+            const cancelledItems = order.items.filter(item => 
+                item.status === 'Cancelled' || item.cancelApproved
+            );
+            
+            // If there are already cancelled items, default to partial mode
+            // so only remaining items are processed for cancellation
+            if (cancelledItems.length > 0) {
+                console.log('🔄 Order has cancelled items - defaulting to partial mode for remaining items');
+                return 'partial';
+            }
+            
+            // For orders with no cancelled items, default to full
+            return activeItems.length <= 1 ? 'full' : 'full';
         }
         return 'full';
     }) // 'full' or 'partial'
-    const [selectedItems, setSelectedItems] = useState({})
+    const [selectedItems, setSelectedItems] = useState(() => {
+        // Auto-select only non-cancelled items when modal opens
+        if (order?.items) {
+            const initialSelection = {};
+            order.items.forEach(item => {
+                // Only pre-select items that are not already cancelled
+                if (item.status !== 'Cancelled' && !item.cancelApproved) {
+                    initialSelection[item._id] = true;
+                }
+            });
+            return initialSelection;
+        }
+        return {};
+    })
 
     // Calculate discounted price for an item
     const calculateItemPrice = (item) => {
@@ -381,28 +406,67 @@ function OrderCancellationModal({ order, onClose, onCancellationRequested }) {
                 
                 if (activeItems.length === 1 && selectedItemIds.length === 1) {
                     console.log('🔄 Last remaining item being cancelled - using special handling');
-                    toast.info('Processing final item cancellation from this order', {
+                    toast('Processing final item cancellation from this order', {
                         duration: 3000,
-                        position: 'top-center'
+                        position: 'top-center',
+                        icon: 'ℹ️',
+                        style: {
+                            background: '#3b82f6',
+                            color: '#fff',
+                        },
                     });
                     // Continue with partial cancellation but with special handling for last item
                     // This avoids issues with user verification in multi-stage cancellations
                 } else if (selectedItemIds.length === activeItems.length) {
-                    console.log('🔄 Converting partial cancellation to full cancellation - all active items selected');
-                    toast.info('Converting to full order cancellation since all remaining items are selected', {
-                        duration: 3000,
-                        position: 'top-center'
-                    });
-                    // Switch to full mode and continue with full cancellation logic
-                    setCancelMode('full');
-                    // Don't return here - let it continue as full cancellation
+                    // Check if there are already some cancelled items in the order
+                    const cancelledItems = order.items.filter(item => item.status === 'Cancelled' || item.cancelApproved).length;
+                    
+                    if (cancelledItems > 0) {
+                        console.log('🔄 Cancelling all remaining items from partially cancelled order - continuing with partial cancellation');
+                        toast('Processing cancellation of all remaining items from this order', {
+                            duration: 3000,
+                            position: 'top-center',
+                            icon: 'ℹ️',
+                            style: {
+                                background: '#3b82f6',
+                                color: '#fff',
+                            },
+                        });
+                        // FORCE partial mode - never switch to full when there are already cancelled items
+                        // This ensures the admin only sees the remaining items being cancelled
+                    } else {
+                        console.log('🔄 Converting partial cancellation to full cancellation - all items selected from fresh order');
+                        toast('Converting to full order cancellation since all items are selected', {
+                            duration: 3000,
+                            position: 'top-center',
+                            icon: 'ℹ️',
+                            style: {
+                                background: '#3b82f6',
+                                color: '#fff',
+                            },
+                        });
+                        // Switch to full mode only if no items were previously cancelled
+                        setCancelMode('full');
+                    }
                 }
             }        setLoading(true)
 
         try {
             const token = localStorage.getItem('accessToken')
             
-            if (cancelMode === 'full') {
+            // IMPORTANT: Always use partial cancellation when there are already cancelled items
+            // This ensures admin only sees the items actually being requested for cancellation
+            const hasAlreadyCancelledItems = order.items.some(item => item.status === 'Cancelled' || item.cancelApproved);
+            const effectiveCancelMode = hasAlreadyCancelledItems ? 'partial' : cancelMode;
+            
+            console.log('Effective cancel mode:', {
+                originalMode: cancelMode,
+                effectiveMode: effectiveCancelMode,
+                hasAlreadyCancelledItems,
+                reason: hasAlreadyCancelledItems ? 'Forced to partial due to existing cancelled items' : 'Using original mode'
+            });
+            
+            if (effectiveCancelMode === 'full') {
                 // Full order cancellation - calculate comprehensive pricing info for admin review
                 let totalDiscountedAmount = 0;
                 let totalOriginalAmount = 0;
@@ -474,7 +538,14 @@ function OrderCancellationModal({ order, onClose, onCancellationRequested }) {
                     onClose()
                 }
             } else {
-                // Partial item cancellation
+                // Partial item cancellation (or forced partial for orders with existing cancellations)
+                console.log('🔧 Processing as partial cancellation:', {
+                    originalMode: cancelMode,
+                    effectiveMode: effectiveCancelMode,
+                    hasExistingCancellations: hasAlreadyCancelledItems,
+                    reason: hasAlreadyCancelledItems ? 'Forced partial mode due to existing cancelled items' : 'Normal partial cancellation'
+                });
+                
                 const selectedItemIds = Object.keys(selectedItems).filter(id => selectedItems[id])
                 
                 if (selectedItemIds.length === 0) {
@@ -626,9 +697,14 @@ function OrderCancellationModal({ order, onClose, onCancellationRequested }) {
             if (isEffectivelyFullCancellation && cancelMode === 'partial') {
                 console.log(`[toggleItemSelection] Switching to full cancellation mode since all items are selected`);
                 setCancelMode('full');
-                toast.success('Switched to full order cancellation since all items are selected', {
+                toast('Switched to full order cancellation since all items are selected', {
                     duration: 3000,
-                    position: 'top-center'
+                    position: 'top-center',
+                    icon: 'ℹ️',
+                    style: {
+                        background: '#3b82f6',
+                        color: '#fff',
+                    },
                 });
                 return {}; // Clear item selection since we're switching to full mode
             }
@@ -718,9 +794,14 @@ function OrderCancellationModal({ order, onClose, onCancellationRequested }) {
             setCancelMode('full');
             setSelectedItems({}); // Clear selections
             
-            toast.info('Switched to full order cancellation since only one active item remains', {
+            toast('Switched to full order cancellation since only one active item remains', {
                 duration: 4000,
-                position: 'top-center'
+                position: 'top-center',
+                icon: 'ℹ️',
+                style: {
+                    background: '#3b82f6',
+                    color: '#fff',
+                },
             });
         }
         
@@ -872,7 +953,33 @@ function OrderCancellationModal({ order, onClose, onCancellationRequested }) {
             <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
                 {/* Header */}
                 <div className="flex justify-between items-center p-6 border-b">
-                    <h2 className="text-xl font-bold">Cancel Order</h2>
+                    <div>
+                        <h2 className="text-xl font-bold">
+                            {(() => {
+                                const cancelledItemsCount = order.items.filter(item => item.status === 'Cancelled' || item.cancelApproved).length;
+                                const activeItemsCount = order.items.filter(item => item.status !== 'Cancelled' && !item.cancelApproved).length;
+                                
+                                if (cancelledItemsCount > 0) {
+                                    return "Cancel Remaining Items";
+                                } else {
+                                    return "Cancel Order";
+                                }
+                            })()}
+                        </h2>
+                        {(() => {
+                            const cancelledItemsCount = order.items.filter(item => item.status === 'Cancelled' || item.cancelApproved).length;
+                            const activeItemsCount = order.items.filter(item => item.status !== 'Cancelled' && !item.cancelApproved).length;
+                            
+                            if (cancelledItemsCount > 0) {
+                                return (
+                                    <p className="text-sm text-gray-600 mt-1">
+                                        Only the {activeItemsCount} remaining item{activeItemsCount !== 1 ? 's' : ''} will be submitted for cancellation approval
+                                    </p>
+                                );
+                            }
+                            return null;
+                        })()}
+                    </div>
                     <button
                         onClick={onClose}
                         className="text-gray-500 hover:text-gray-700"
@@ -1047,68 +1154,84 @@ function OrderCancellationModal({ order, onClose, onCancellationRequested }) {
                 <div className="p-6 border-b">
                     <h3 className="font-semibold mb-3">Cancellation Options</h3>
                     <div className="space-y-3">
-                        <div className="flex items-center space-x-2">
-                            <input
-                                type="radio"
-                                id="fullCancel"
-                                name="cancelType"
-                                value="full"
-                                checked={cancelMode === 'full'}
-                                onChange={() => setCancelMode('full')}
-                                className="h-4 w-4 text-blue-600"
-                            />
-                            <label htmlFor="fullCancel" className="text-sm font-medium text-gray-700">
-                                Cancel entire order
-                            </label>
-                        </div>
-                        
-                        {/* Only show partial cancellation option if there are multiple ACTIVE items */}
                         {(() => {
                             const activeItems = order?.items?.filter(item => 
                                 item.status !== 'Cancelled' && !item.cancelApproved
                             ) || [];
+                            const cancelledItems = order?.items?.filter(item => 
+                                item.status === 'Cancelled' || item.cancelApproved
+                            ) || [];
                             
-                            console.log('Active items count for cancellation options:', activeItems.length);
-                            
-                            // Only show partial cancellation if there are 2 or more active items
-                            if (activeItems.length > 1) {
+                            // If there are already cancelled items, only show partial cancellation mode
+                            if (cancelledItems.length > 0) {
                                 return (
-                                    <div className="flex items-center space-x-2">
-                                        <input
-                                            type="radio"
-                                            id="partialCancel"
-                                            name="cancelType"
-                                            value="partial"
-                                            checked={cancelMode === 'partial'}
-                                            onChange={() => setCancelMode('partial')}
-                                            className="h-4 w-4 text-blue-600"
-                                        />
-                                        <label htmlFor="partialCancel" className="text-sm font-medium text-gray-700">
-                                            Cancel specific items
-                                        </label>
+                                    <div className="space-y-3">
+                                        <div className="bg-blue-50 border border-blue-200 rounded-md p-3">
+                                            <div className="flex items-center">
+                                                <FaInfoCircle className="text-blue-600 mr-2" />
+                                                <span className="text-sm font-medium text-blue-800">
+                                                    Continuing Previous Cancellation
+                                                </span>
+                                            </div>
+                                            <p className="text-sm text-blue-700 mt-1 ml-6">
+                                                Since some items in this order are already cancelled, only the remaining {activeItems.length} item{activeItems.length !== 1 ? 's' : ''} can be submitted for cancellation.
+                                            </p>
+                                        </div>
+                                        <div className="flex items-center space-x-2">
+                                            <input
+                                                type="radio"
+                                                id="partialCancel"
+                                                name="cancelType"
+                                                value="partial"
+                                                checked={true}
+                                                readOnly
+                                                className="h-4 w-4 text-blue-600"
+                                            />
+                                            <label htmlFor="partialCancel" className="text-sm font-medium text-gray-700">
+                                                Cancel remaining {activeItems.length} item{activeItems.length !== 1 ? 's' : ''}
+                                            </label>
+                                        </div>
                                     </div>
                                 );
                             }
                             
-                            return null; // Don't show partial cancellation option if 1 or 0 active items
-                        })()}
-                        
-                        {/* Show info when only one active item exists */}
-                        {(() => {
-                            const activeItems = order?.items?.filter(item => 
-                                item.status !== 'Cancelled' && !item.cancelApproved
-                            ) || [];
-                            
-                            return activeItems.length === 1 ? (
-                                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mt-3">
-                                    <div className="flex items-center">
-                                        <FaInfoCircle className="text-yellow-600 mr-2" />
-                                        <span className="text-sm text-yellow-800 font-medium">
-                                            Since this order contains only one remaining active item, cancelling it will cancel the entire order.
-                                        </span>
+                            // For fresh orders (no cancelled items), show both options
+                            return (
+                                <div className="space-y-3">
+                                    <div className="flex items-center space-x-2">
+                                        <input
+                                            type="radio"
+                                            id="fullCancel"
+                                            name="cancelType"
+                                            value="full"
+                                            checked={cancelMode === 'full'}
+                                            onChange={() => setCancelMode('full')}
+                                            className="h-4 w-4 text-blue-600"
+                                        />
+                                        <label htmlFor="fullCancel" className="text-sm font-medium text-gray-700">
+                                            Cancel entire order
+                                        </label>
                                     </div>
+                                    
+                                    {/* Only show partial cancellation option if there are multiple active items */}
+                                    {activeItems.length > 1 && (
+                                        <div className="flex items-center space-x-2">
+                                            <input
+                                                type="radio"
+                                                id="partialCancel"
+                                                name="cancelType"
+                                                value="partial"
+                                                checked={cancelMode === 'partial'}
+                                                onChange={() => setCancelMode('partial')}
+                                                className="h-4 w-4 text-blue-600"
+                                            />
+                                            <label htmlFor="partialCancel" className="text-sm font-medium text-gray-700">
+                                                Cancel specific items
+                                            </label>
+                                        </div>
+                                    )}
                                 </div>
-                            ) : null;
+                            );
                         })()}
                     </div>
                 </div>
@@ -1572,7 +1695,16 @@ function OrderCancellationModal({ order, onClose, onCancellationRequested }) {
                             disabled={loading || !reason}
                             className="flex-1 px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
                         >
-                            {loading ? 'Submitting...' : 'Submit Cancellation Request'}
+                            {loading ? 'Submitting...' : (() => {
+                                const cancelledItemsCount = order.items.filter(item => item.status === 'Cancelled' || item.cancelApproved).length;
+                                const activeItemsCount = order.items.filter(item => item.status !== 'Cancelled' && !item.cancelApproved).length;
+                                
+                                if (cancelledItemsCount > 0) {
+                                    return `Submit Request for ${activeItemsCount} Remaining Item${activeItemsCount !== 1 ? 's' : ''}`;
+                                } else {
+                                    return 'Submit Cancellation Request';
+                                }
+                            })()}
                         </button>
                     </div>
                 </form>
