@@ -115,8 +115,16 @@ export const getAllPayments = async (req, res) => {
                         let retainedAmount = paymentObj.refundDetails?.retainedAmount;
                         
                         if (!refundPercentage || !refundAmount || !retainedAmount) {
-                            // Fallback to admin response or default
-                            refundPercentage = cancellationRequest.adminResponse?.refundPercentage || 75;
+                            // Fallback to admin response or calculate based on order timing
+                            const orderDate = cancellationRequest.orderId?.orderDate || 
+                                             cancellationRequest.orderId?.createdAt || 
+                                             payment.createdAt;
+                            if (orderDate) {
+                                const hoursSinceOrder = (new Date() - new Date(orderDate)) / (1000 * 60 * 60);
+                                refundPercentage = hoursSinceOrder <= 24 ? 90 : 75;
+                            } else {
+                                refundPercentage = cancellationRequest.adminResponse?.refundPercentage || 75;
+                            }
                             refundAmount = (payment.totalAmt || 0) * (refundPercentage / 100);
                             retainedAmount = (payment.totalAmt || 0) - refundAmount;
                         }

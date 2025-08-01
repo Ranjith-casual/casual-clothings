@@ -6,6 +6,7 @@ import morgan from 'morgan'
 import helmet from 'helmet'
 import connectDB from './config/connectdb.js'
 import logCorsConfiguration from './utils/corsDebug.js'
+import { logServerInfo } from './utils/checkEnv.js'
 import userRouter from './route/user.route.js'
 import categoryRouter from './route/category.route.js'
 import uploadRouter from './route/upload.router.js'
@@ -117,6 +118,7 @@ connectDB().then(
     ()=>{
         app.listen(PORT,()=>{
             console.log("Server is running");
+            logServerInfo(); // Check environment variables on startup
         })
     }
 );

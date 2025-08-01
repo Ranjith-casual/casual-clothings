@@ -16,9 +16,9 @@ export class RefundPolicyService {
             // Base refund policy configuration
             const refundPolicy = {
                 // Base percentages for different timing scenarios
-                earlyRefundPercentage: 90,  // 1-2 days (75% + 15% bonus)
-                standardRefundPercentage: 75, // 3-7 days
-                lateRefundPercentage: 50,   // 7+ days
+                earlyRefundPercentage: 90,  // Within 24 hours
+                standardRefundPercentage: 75, // After 24 hours, up to 7 days
+                lateRefundPercentage: 50,   // After 7 days
                 
                 // Penalties
                 deliveredOrderPenalty: 25,
@@ -38,13 +38,14 @@ export class RefundPolicyService {
             let basePercentage;
             const orderDate = new Date(order.orderDate || order.createdAt);
             const requestDate = new Date(); // Use current date for frontend calculations
-            const daysSinceOrder = Math.floor((requestDate - orderDate) / (1000 * 60 * 60 * 24));
+            const hoursSinceOrder = (requestDate - orderDate) / (1000 * 60 * 60);
+            const daysSinceOrder = Math.floor(hoursSinceOrder / 24);
             
-            if (daysSinceOrder <= 2) {
-                // Early cancellation (1-2 days)
+            if (hoursSinceOrder <= 24) {
+                // Early cancellation (within 24 hours)
                 basePercentage = refundPolicy.earlyRefundPercentage;
             } else if (daysSinceOrder <= 7) {
-                // Standard cancellation (3-7 days)
+                // Standard cancellation (after 24 hours, up to 7 days)
                 basePercentage = refundPolicy.standardRefundPercentage;
             } else {
                 // Late cancellation (7+ days)
@@ -81,7 +82,7 @@ export class RefundPolicyService {
                 daysSinceOrder,
                 penalties: penalties,
                 bonuses: bonuses,
-                cancellationTiming: daysSinceOrder <= 2 ? 'EARLY' : (daysSinceOrder <= 7 ? 'STANDARD' : 'LATE'),
+                cancellationTiming: hoursSinceOrder <= 24 ? 'EARLY' : (daysSinceOrder <= 7 ? 'STANDARD' : 'LATE'),
                 appliedPolicy: refundPolicy
             };
         } catch (error) {
@@ -143,7 +144,9 @@ export class RefundPolicyService {
         }
         
         // Check order status penalties
-        if (order.orderStatus === 'DELIVERED') {
+        // Don't apply this penalty if we've already applied a delivery-based penalty
+        // to avoid double-counting the delivered status penalty
+        if (order.orderStatus === 'DELIVERED' && !actualDeliveryDate) {
             penalties.statusPenalty += refundPolicy.deliveredOrderPenalty;
             penalties.reasons.push(`Order already delivered (${refundPolicy.deliveredOrderPenalty}% penalty)`);
         }
@@ -203,9 +206,9 @@ export class RefundPolicyService {
     static getRefundTimingLabel(timing) {
         switch(timing) {
             case 'EARLY':
-                return 'Early cancellation (1-2 days) - 90% base refund';
+                return 'Early cancellation (within 24 hours) - 90% base refund';
             case 'STANDARD':
-                return 'Standard cancellation (3-7 days) - 75% base refund';
+                return 'Standard cancellation (after 24 hours, up to 7 days) - 75% base refund';
             case 'LATE':
                 return 'Late cancellation (7+ days) - 50% base refund';
             default:

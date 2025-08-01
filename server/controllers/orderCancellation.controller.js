@@ -10,7 +10,17 @@ import fs from 'fs';
 import mongoose from "mongoose";
 
 // Helper function to calculate proportional delivery charge refund for partial cancellations
-const calculateProportionalDeliveryRefund = (order, itemsToCancel, refundPercentage = 75) => {
+const calculateProportionalDeliveryRefund = (order, itemsToCancel, refundPercentage) => {
+    // If refundPercentage is not provided, calculate it based on order timing
+    if (refundPercentage === undefined) {
+        const orderDate = order.orderDate || order.createdAt;
+        if (orderDate) {
+            const hoursSinceOrder = (new Date() - new Date(orderDate)) / (1000 * 60 * 60);
+            refundPercentage = hoursSinceOrder <= 24 ? 90 : 75;
+        } else {
+            refundPercentage = 75; // Default fallback
+        }
+    }
     if (!order.deliveryCharge || order.deliveryCharge <= 0) {
         return 0; // No delivery charge to refund
     }
@@ -1376,13 +1386,13 @@ export const getCancellationPolicy = async (req, res) => {
                     { reason: 'Other' }
                 ],
                 timeBasedRules: [
-                    { description: 'Within 1 hour of order', timeFrameHours: 1, refundPercentage: 65 },
-                    { description: 'Within 24 hours of order', timeFrameHours: 24, refundPercentage: 65 },
-                    { description: 'After 24 hours', timeFrameHours: 999999, refundPercentage: 65 }
+                    { description: 'Within 1 hour of order', timeFrameHours: 1, refundPercentage: 90 },
+                    { description: 'Within 24 hours of order', timeFrameHours: 24, refundPercentage: 90 },
+                    { description: 'After 24 hours', timeFrameHours: 999999, refundPercentage: 75 }
                 ],
                 orderStatusRules: [
-                    { orderStatus: 'ORDER PLACED', canCancel: true, refundPercentage: 65 },
-                    { orderStatus: 'PROCESSING', canCancel: true, refundPercentage: 65 },
+                    { orderStatus: 'ORDER PLACED', canCancel: true, refundPercentage: 90 },
+                    { orderStatus: 'PROCESSING', canCancel: true, refundPercentage: 75 },
                     { orderStatus: 'OUT FOR DELIVERY', canCancel: false, refundPercentage: 0 },
                     { orderStatus: 'DELIVERED', canCancel: false, refundPercentage: 0 }
                 ],

@@ -155,7 +155,9 @@ export class RefundPolicyService {
         }
         
         // Check order status penalties
-        if (order.orderStatus === 'DELIVERED') {
+        // Don't apply this penalty if we've already applied a delivery-based penalty
+        // to avoid double-counting the delivered status penalty
+        if (order.orderStatus === 'DELIVERED' && !actualDeliveryDate) {
             penalties.statusPenalty += refundPolicy.deliveredOrderPenalty;
             penalties.reasons.push(`Order already delivered (${refundPolicy.deliveredOrderPenalty}% penalty)`);
         }

@@ -5,6 +5,10 @@ import SummaryApi, { baseURL } from '../common/SummaryApi'
 import toast from 'react-hot-toast'
 import AxiosTostError from '../utils/AxiosTostError'
 import PricingService from '../utils/PricingService'
+import { RefundPolicyService } from '../utils/RefundPolicyService'
+
+// Make RefundPolicyService available globally for the JSX calculations
+window.RefundPolicyService = RefundPolicyService;
 
 function CancellationManagement() {
     const [cancellationRequests, setCancellationRequests] = useState([])
@@ -32,6 +36,82 @@ function CancellationManagement() {
         }
     };
 
+    // Helper function to calculate the correct refund percentage based on order timing
+    const getTimeBasedRefundPercentage = (requestOrOrder) => {
+        try {
+            // Get the order date from any object structure
+            const orderDate = requestOrOrder?.orderId?.orderDate || 
+                              requestOrOrder?.orderId?.createdAt || 
+                              requestOrOrder?.orderDate || 
+                              requestOrOrder?.createdAt;
+                              
+            // If no order date, default to 75%
+            if (!orderDate) return 75;
+            
+            // Calculate hours and days since order
+            const hoursSinceOrder = (new Date() - new Date(orderDate)) / (1000 * 60 * 60);
+            const daysSinceOrder = Math.floor(hoursSinceOrder / 24);
+            
+            // Use the same logic as RefundPolicyService for consistency
+            let basePercentage;
+            if (hoursSinceOrder <= 24) {
+                // Early cancellation (within 24 hours)
+                basePercentage = 90;
+            } else if (daysSinceOrder <= 7) {
+                // Standard cancellation (after 24 hours, up to 7 days)
+                basePercentage = 75;
+            } else {
+                // Late cancellation (7+ days)
+                basePercentage = 50;
+            }
+            
+            // Apply penalties if order is delivered
+            const orderStatus = requestOrOrder?.orderId?.orderStatus || requestOrOrder?.orderStatus;
+            const actualDeliveryDate = requestOrOrder?.orderId?.actualDeliveryDate || requestOrOrder?.actualDeliveryDate;
+            
+            let penalties = 0;
+            
+            // Apply delivery penalty if order is delivered
+            if (orderStatus === 'DELIVERED' || actualDeliveryDate) {
+                if (actualDeliveryDate) {
+                    const daysSinceDelivery = Math.floor((new Date() - new Date(actualDeliveryDate)) / (1000 * 60 * 60 * 24));
+                    if (daysSinceDelivery <= 7) {
+                        penalties += 20; // weekAfterDeliveryPenalty
+                    } else if (daysSinceDelivery <= 30) {
+                        penalties += 30; // monthAfterDeliveryPenalty
+                    } else {
+                        penalties += 25; // deliveredOrderPenalty
+                    }
+                } else {
+                    penalties += 25; // deliveredOrderPenalty for status only
+                }
+            }
+            
+            // Apply late request penalty
+            if (daysSinceOrder > 7) {
+                penalties += 15; // lateRequestPenalty
+            }
+            
+            // Calculate final percentage with bounds
+            const finalPercentage = Math.max(25, Math.min(100, basePercentage - penalties));
+            
+            console.log('🔄 Refund percentage calculation:', {
+                hoursSinceOrder,
+                daysSinceOrder,
+                basePercentage,
+                penalties,
+                finalPercentage,
+                orderStatus,
+                actualDeliveryDate
+            });
+            
+            return Math.round(finalPercentage);
+        } catch (error) {
+            console.error('Error calculating refund percentage:', error);
+            return 75; // Fallback
+        }
+    };
+    
     // Helper function to get delivery charge consistently from any request or order object
     const getDeliveryCharge = (requestOrOrder) => {
         const deliveryCharge = requestOrOrder?.deliveryInfo?.deliveryCharge || 
@@ -331,9 +411,12 @@ function CancellationManagement() {
             
             if (hasIndividualRefunds) {
                 // Add proportional delivery charge refund
+                const orderDate = cancellationRequest?.orderId?.orderDate || cancellationRequest?.orderId?.createdAt;
+                const hoursSinceOrder = orderDate ? (new Date() - new Date(orderDate)) / (1000 * 60 * 60) : 25; // Default to 25 hours if no date available
+                
                 const refundPercentage = cancellationRequest?.refundPercentage || 
                                         cancellationRequest?.adminResponse?.refundPercentage || 
-                                        75;
+                                        (hoursSinceOrder <= 24 ? 90 : 75); // Within 24 hours: 90%, otherwise 75%
                 const deliveryRefund = calculateProportionalDeliveryRefund(
                     cancellationRequest.orderId, 
                     cancellationRequest.itemsToCancel, 
@@ -715,7 +798,15 @@ function CancellationManagement() {
                                     subject: `Refund Processed for Order #${orderNumber}`,
                                     orderNumber: orderNumber,
                                     refundAmount: refundAmount,
-                                    refundPercentage: 75,
+                                    // Calculate refund percentage based on order timing
+                                    refundPercentage: (() => {
+                                        const orderDate = cancellationRequest?.orderId?.orderDate || cancellationRequest?.orderId?.createdAt;
+                                        if (orderDate) {
+                                            const hoursSinceOrder = (new Date() - new Date(orderDate)) / (1000 * 60 * 60);
+                                            return hoursSinceOrder <= 24 ? 90 : 75;
+                                        }
+                                        return 75; // Default fallback
+                                    })(),
                                     orderAmount: selectedRequest.orderId.totalAmt.toFixed(2),
                                     userName: selectedRequest.userId.name || 'Customer',
                                     products: selectedRequest.orderId.products || [],
@@ -1084,9 +1175,61 @@ function CancellationManagement() {
                                                                         {/* Refund Amount */}
                                                                         <div className="text-right">
                                                                             <div className="text-sm text-gray-600 mb-1">
-                                                                                Refund Amount ({selectedRequest?.pricingInformation?.refundPercentage || 
-                                                                                selectedRequest?.adminResponse?.refundPercentage || 
-                                                                                selectedRequest?.refundPercentage || '75'}%)
+                                                                                Refund Amount ({(() => {
+                                                                                    // Debug logging to track percentage calculation
+                                                                                    console.log('🔍 Debug refund percentage for item:', {
+                                                                                        pricingInformationRefund: selectedRequest?.pricingInformation?.refundPercentage,
+                                                                                        adminResponseRefund: selectedRequest?.adminResponse?.refundPercentage,
+                                                                                        directRefund: selectedRequest?.refundPercentage,
+                                                                                        selectedRequestId: selectedRequest?._id
+                                                                                    });
+                                                                                    
+                                                                                    // Priority 1: Use stored refund percentage from pricingInformation
+                                                                                    if (selectedRequest?.pricingInformation?.refundPercentage && 
+                                                                                        typeof selectedRequest.pricingInformation.refundPercentage === 'number') {
+                                                                                        const percentage = Math.round(selectedRequest.pricingInformation.refundPercentage);
+                                                                                        console.log('✅ Using pricingInformation.refundPercentage:', percentage);
+                                                                                        return percentage;
+                                                                                    }
+                                                                                    
+                                                                                    // Priority 2: Use admin response refund percentage
+                                                                                    if (selectedRequest?.adminResponse?.refundPercentage && 
+                                                                                        typeof selectedRequest.adminResponse.refundPercentage === 'number') {
+                                                                                        const percentage = Math.round(selectedRequest.adminResponse.refundPercentage);
+                                                                                        console.log('✅ Using adminResponse.refundPercentage:', percentage);
+                                                                                        return percentage;
+                                                                                    }
+                                                                                    
+                                                                                    // Priority 3: Use direct refund percentage
+                                                                                    if (selectedRequest?.refundPercentage && 
+                                                                                        typeof selectedRequest.refundPercentage === 'number') {
+                                                                                        const percentage = Math.round(selectedRequest.refundPercentage);
+                                                                                        console.log('✅ Using direct refundPercentage:', percentage);
+                                                                                        return percentage;
+                                                                                    }
+                                                                                    
+                                                                                    // Priority 4: Calculate using RefundPolicyService if available
+                                                                                    if (selectedRequest?.orderId && window.RefundPolicyService) {
+                                                                                        try {
+                                                                                            const calculation = window.RefundPolicyService.calculateRefundAmount(
+                                                                                                selectedRequest.orderId, 
+                                                                                                selectedRequest
+                                                                                            );
+                                                                                            if (calculation?.refundPercentage) {
+                                                                                                const percentage = Math.round(calculation.refundPercentage);
+                                                                                                console.log('✅ Using RefundPolicyService calculation:', percentage);
+                                                                                                return percentage;
+                                                                                            }
+                                                                                        } catch (err) {
+                                                                                            console.error("Error calculating refund percentage:", err);
+                                                                                        }
+                                                                                    }
+                                                                                    
+                                                                                    // Fallback to our helper function
+                                                                                    const fallbackPercentage = getTimeBasedRefundPercentage(selectedRequest);
+                                                                                    console.log('⚠️ Using fallback percentage:', fallbackPercentage);
+                                                                                    return fallbackPercentage;
+                                                                                })()}%)
                                                                             </div>
                                                                             <div className="font-bold text-orange-600 text-lg">
                                                                                 ₹{(() => {
@@ -1098,12 +1241,30 @@ function CancellationManagement() {
                                                                                     if (cancelItem.pricingBreakdown?.refundAmount !== undefined) {
                                                                                         return cancelItem.pricingBreakdown.refundAmount.toFixed(2);
                                                                                     }
-                                                                                    // Priority 3: Calculate from customer paid amount
+                                                                                    // Priority 3: Calculate from customer paid amount using dynamic refund percentage
                                                                                     if (cancelItem.pricingBreakdown?.totalCustomerPaid !== undefined) {
-                                                                                        return (cancelItem.pricingBreakdown.totalCustomerPaid * 0.75).toFixed(2);
+                                                                                        // Calculate refund percentage based on order timing
+                                                                                        const orderDate = selectedRequest?.orderId?.orderDate || selectedRequest?.orderId?.createdAt;
+                                                                                        let refundMultiplier = 0.75; // Default
+                                                                                        
+                                                                                        if (orderDate) {
+                                                                                            const hoursSinceOrder = (new Date() - new Date(orderDate)) / (1000 * 60 * 60);
+                                                                                            refundMultiplier = hoursSinceOrder <= 24 ? 0.9 : 0.75;
+                                                                                        }
+                                                                                        
+                                                                                        return (cancelItem.pricingBreakdown.totalCustomerPaid * refundMultiplier).toFixed(2);
                                                                                     }
                                                                                     // Fallback: Use calculated pricing
-                                                                                    return (pricingData.totalPrice * 0.75).toFixed(2);
+                                                                                    // Use dynamic refund percentage
+                                                                                    const orderDate = selectedRequest?.orderId?.orderDate || selectedRequest?.orderId?.createdAt;
+                                                                                    let refundMultiplier = 0.75; // Default
+                                                                                    
+                                                                                    if (orderDate) {
+                                                                                        const hoursSinceOrder = (new Date() - new Date(orderDate)) / (1000 * 60 * 60);
+                                                                                        refundMultiplier = hoursSinceOrder <= 24 ? 0.9 : 0.75;
+                                                                                    }
+                                                                                    
+                                                                                    return (pricingData.totalPrice * refundMultiplier).toFixed(2);
                                                                                 })()}
                                                                             </div>
                                                                             {hasDiscount && (
@@ -1121,9 +1282,43 @@ function CancellationManagement() {
                                                 <div className="mt-4 pt-3 border-t border-orange-200">
                                                     <div className="flex justify-between items-center">
                                                         <span className="font-semibold text-gray-800 text-lg">
-                                                            Total Expected Refund ({selectedRequest?.pricingInformation?.refundPercentage || 
-                                                             selectedRequest?.adminResponse?.refundPercentage || 
-                                                             selectedRequest?.refundPercentage || '75'}%):
+                                                            Total Expected Refund ({(() => {
+                                                                // Priority 1: Use stored refund percentage from pricingInformation
+                                                                if (selectedRequest?.pricingInformation?.refundPercentage && 
+                                                                    typeof selectedRequest.pricingInformation.refundPercentage === 'number') {
+                                                                    return Math.round(selectedRequest.pricingInformation.refundPercentage);
+                                                                }
+                                                                
+                                                                // Priority 2: Use admin response refund percentage
+                                                                if (selectedRequest?.adminResponse?.refundPercentage && 
+                                                                    typeof selectedRequest.adminResponse.refundPercentage === 'number') {
+                                                                    return Math.round(selectedRequest.adminResponse.refundPercentage);
+                                                                }
+                                                                
+                                                                // Priority 3: Use direct refund percentage
+                                                                if (selectedRequest?.refundPercentage && 
+                                                                    typeof selectedRequest.refundPercentage === 'number') {
+                                                                    return Math.round(selectedRequest.refundPercentage);
+                                                                }
+                                                                
+                                                                // Priority 4: Calculate using RefundPolicyService if available
+                                                                if (selectedRequest?.orderId && window.RefundPolicyService) {
+                                                                    try {
+                                                                        const calculation = window.RefundPolicyService.calculateRefundAmount(
+                                                                            selectedRequest.orderId, 
+                                                                            selectedRequest
+                                                                        );
+                                                                        if (calculation?.refundPercentage) {
+                                                                            return Math.round(calculation.refundPercentage);
+                                                                        }
+                                                                    } catch (err) {
+                                                                        console.error("Error calculating total refund percentage:", err);
+                                                                    }
+                                                                }
+                                                                
+                                                                // Fallback to our helper function
+                                                                return getTimeBasedRefundPercentage(selectedRequest);
+                                                            })()}%):
                                                         </span>
                                                         <span className="font-bold text-orange-600 text-xl">
                                                             ₹{getPartialCancellationRefundAmount(selectedRequest)?.toFixed(2)}
@@ -1853,9 +2048,23 @@ function CancellationManagement() {
                                     <div className="bg-white p-4 sm:p-5 rounded-lg text-center shadow-sm border border-blue-100 hover:shadow transition-all duration-300 transform hover:-translate-y-0.5">
                                         <div className="text-sm font-medium text-gray-600 mb-2">Refund Percentage</div>
                                         <div className="text-lg sm:text-2xl font-bold text-blue-600 tracking-tight flex items-center justify-center">
-                                            {selectedRequest?.pricingInformation?.refundPercentage || 
-                                              selectedRequest?.adminResponse?.refundPercentage || 
-                                              selectedRequest?.refundPercentage || '75'}%
+                                            {(() => {
+                                                // Early cancellations (within 24 hours) get 90% refund
+                                                if (selectedRequest?.itemsToCancel) {
+                                                    // For partial cancellation
+                                                    return selectedRequest?.pricingInformation?.refundPercentage || 
+                                                        selectedRequest?.adminResponse?.refundPercentage || 
+                                                        selectedRequest?.refundPercentage || 
+                                                        (selectedRequest?.orderId?.orderDate && 
+                                                        (new Date() - new Date(selectedRequest.orderId.orderDate)) / (1000 * 60 * 60) <= 24 ? '90' : '75');
+                                                } else {
+                                                    // For full cancellation
+                                                    return selectedRequest?.pricingInformation?.refundPercentage || 
+                                                        selectedRequest?.adminResponse?.refundPercentage || 
+                                                        (selectedRequest?.orderId?.orderDate && 
+                                                        (new Date() - new Date(selectedRequest.orderId.orderDate)) / (1000 * 60 * 60) <= 24 ? '90' : '75');
+                                                }
+                                            })()}%
                                             <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 8l3 5m0 0l3-5m-3 5v4" />
                                             </svg>
@@ -1924,9 +2133,23 @@ function CancellationManagement() {
                                             <div className="flex justify-between items-center py-1 border-t border-gray-200 pt-2">
                                                 <span className="text-gray-600">Refund Percentage:</span>
                                                 <span className="font-medium text-blue-600">
-                                                    {selectedRequest?.pricingInformation?.refundPercentage || 
-                                                      selectedRequest?.adminResponse?.refundPercentage || 
-                                                      selectedRequest?.refundPercentage || '75'}%
+                                                    {(() => {
+                                                        // Early cancellations (within 24 hours) get 90% refund
+                                                        const storedPercentage = selectedRequest?.pricingInformation?.refundPercentage || 
+                                                            selectedRequest?.adminResponse?.refundPercentage || 
+                                                            selectedRequest?.refundPercentage;
+                                                            
+                                                        if (storedPercentage) return storedPercentage;
+                                                        
+                                                        // Calculate based on time since order
+                                                        const orderDate = selectedRequest?.orderId?.orderDate || selectedRequest?.orderId?.createdAt;
+                                                        if (orderDate) {
+                                                            const hoursSinceOrder = (new Date() - new Date(orderDate)) / (1000 * 60 * 60);
+                                                            return hoursSinceOrder <= 24 ? '90' : '75';
+                                                        }
+                                                        
+                                                        return '75'; // Default fallback
+                                                    })()}%
                                                 </span>
                                             </div>
                                             <div className="flex justify-between items-center py-2 bg-green-50 px-3 rounded border-t-2 border-green-300">
@@ -1943,7 +2166,7 @@ function CancellationManagement() {
                                                     
                                                     const refundPct = selectedRequest?.pricingInformation?.refundPercentage || 
                                                       selectedRequest?.adminResponse?.refundPercentage || 
-                                                      selectedRequest?.refundPercentage || 75;
+                                                      selectedRequest?.refundPercentage || getTimeBasedRefundPercentage(selectedRequest);
                                                       
                                                     if (isEffectivelyFullCancellation && deliveryCharge > 0) {
                                                         const itemRefund = (itemsTotal * refundPct / 100).toFixed(2);
@@ -1996,7 +2219,7 @@ function CancellationManagement() {
                                                 <span className="font-medium text-blue-600">
                                                     {selectedRequest.pricingInformation?.refundPercentage || 
                                                       selectedRequest.adminResponse?.refundPercentage || 
-                                                      selectedRequest.refundPercentage || '75'}%
+                                                      selectedRequest.refundPercentage || getTimeBasedRefundPercentage(selectedRequest)}%
                                                 </span>
                                             </div>
                                             <div className="flex justify-between items-center py-2 bg-green-50 px-3 rounded border-t-2 border-green-300">
@@ -2021,7 +2244,7 @@ function CancellationManagement() {
                                                 {(() => {
                                                     const refundPct = selectedRequest?.pricingInformation?.refundPercentage || 
                                                         selectedRequest?.adminResponse?.refundPercentage || 
-                                                        selectedRequest?.refundPercentage || 75;
+                                                        selectedRequest?.refundPercentage || getTimeBasedRefundPercentage(selectedRequest);
                                                     const itemsTotal = calculateOrderDiscountedTotal(selectedRequest.orderId, selectedRequest);
                                                     // Use our helper function to get delivery charge consistently
                                                     const deliveryCharge = getDeliveryCharge(selectedRequest);
@@ -2098,7 +2321,7 @@ function CancellationManagement() {
                                             <span className="font-semibold text-lg tracking-tight">
                                                 Refund Policy: {selectedRequest?.pricingInformation?.refundPercentage || 
                                                   selectedRequest?.adminResponse?.refundPercentage || 
-                                                  selectedRequest?.refundPercentage || '75'}% of order amount will be refunded
+                                                  selectedRequest?.refundPercentage || getTimeBasedRefundPercentage(selectedRequest)}% of order amount will be refunded
                                             </span>
                                         </div>
                                         <p className="text-sm text-blue-600 mt-3 sm:ml-7 bg-white p-3 rounded-lg border border-blue-100 shadow-sm">
@@ -2202,7 +2425,7 @@ function CancellationManagement() {
                                         <span className="text-blue-600 font-semibold">
                                             {selectedRequest?.pricingInformation?.refundPercentage || 
                                               selectedRequest?.adminResponse?.refundPercentage || 
-                                              selectedRequest?.refundPercentage || '75'}%
+                                              selectedRequest?.refundPercentage || getTimeBasedRefundPercentage(selectedRequest)}%
                                         </span>
                                     </div>
                                     {selectedRequest.status === 'APPROVED' && (
@@ -2487,9 +2710,17 @@ function CancellationManagement() {
                                                 <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01" />
                                                 </svg>
-                                                {request?.pricingInformation?.refundPercentage || 
-                                                  request?.adminResponse?.refundPercentage || 
-                                                  request?.refundPercentage || '75'}% refund
+                                                {(() => {
+                                                    // Use stored percentage if available
+                                                    const storedPercentage = request?.pricingInformation?.refundPercentage || 
+                                                        request?.adminResponse?.refundPercentage || 
+                                                        request?.refundPercentage;
+                                                        
+                                                    if (storedPercentage) return storedPercentage;
+                                                    
+                                                    // Use our helper function for consistent calculation
+                                                    return getTimeBasedRefundPercentage(request);
+                                                })()}% refund
                                             </div>
                                         </td>
                                         <td className="px-4 sm:px-6 py-4 sm:py-5">

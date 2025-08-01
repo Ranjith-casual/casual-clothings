@@ -94,14 +94,32 @@ function UploadCategoryModel ({close,fetchData})  {
             return
         }
        
-        const response = await uploadImage(file) 
-        const { data : ImageResponse}  = response 
-        setData((preve)=>{
-            return{
-                ...preve,
-                image:ImageResponse.data.url
+        try {
+            const response = await uploadImage(file) 
+            console.log('Upload response:', response); // Debug log
+            
+            // Check if the response indicates success
+            if (response && response.data && response.data.success && response.data.data && response.data.data.url) {
+                setData((preve) => {
+                    return {
+                        ...preve,
+                        image: response.data.data.url
+                    }
+                })
+                toast.success('Image uploaded successfully');
+            } else if (response && response.data && response.data.error) {
+                // Handle error response from our improved UploadImage utility
+                console.error('Upload failed:', response.data.message);
+                toast.error(response.data.message || 'Image upload failed');
+            } else {
+                // Handle unexpected response structure
+                console.error('Unexpected response structure:', response);
+                toast.error('Image upload failed: Unexpected server response');
             }
-        })
+        } catch (error) {
+            console.error('Image upload error:', error);
+            toast.error('Image upload failed: ' + (error.message || 'Unknown error'));
+        }
  
     }
   

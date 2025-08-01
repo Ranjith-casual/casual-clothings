@@ -399,8 +399,14 @@ const RefundManagement = () => {
                                                 if (item.refundAmount && parseFloat(item.refundAmount) > 0) {
                                                     calculatedTotal += parseFloat(item.refundAmount);
                                                 } else {
-                                                    // Always use 90% as refund percentage, regardless of partial or full cancellation
-                                                    const refundPercentage = 90;
+                                                    // Calculate refund percentage based on order timing
+                                                    const orderDate = order.orderDate || order.createdAt;
+                                                    let refundPercentage = 75; // Default fallback
+                                                    
+                                                    if (orderDate) {
+                                                        const hoursSinceOrder = (new Date() - new Date(orderDate)) / (1000 * 60 * 60);
+                                                        refundPercentage = hoursSinceOrder <= 24 ? 90 : 75;
+                                                    }
                                                     const itemPrice = 
                                                         item.productId?.price || 
                                                         item.productDetails?.price || 
@@ -453,7 +459,15 @@ const RefundManagement = () => {
                                             order.items.length > 0 && 
                                             order.items.every(item => item?.status === 'Cancelled' || item?.cancelApproved === true);
                                             
-                                        const refundPercentage = 90; // Using consistent 90% refund rate
+                                        // Calculate refund percentage based on order timing
+                                        const orderDate = order?.orderDate || order?.createdAt;
+                                        let refundPercentage = 75; // Default fallback
+                                        
+                                        if (orderDate) {
+                                            const hoursSinceOrder = (new Date() - new Date(orderDate)) / (1000 * 60 * 60);
+                                            refundPercentage = hoursSinceOrder <= 24 ? 90 : 75;
+                                        }
+                                        
                                         let estimatedDeliveryRefund = 0;
                                         
                                         if (order.deliveryCharge > 0) {
@@ -628,7 +642,14 @@ const RefundManagement = () => {
                                             }
                                             
                                             // Calculate refund amount for this item if it's cancelled
-                                            const refundPercentage = 90; // Using consistent 90% refund rate
+                                            // Calculate refund percentage based on order timing
+                                            const orderDate = order?.orderDate || order?.createdAt;
+                                            let refundPercentage = 75; // Default fallback
+                                            
+                                            if (orderDate) {
+                                                const hoursSinceOrder = (new Date() - new Date(orderDate)) / (1000 * 60 * 60);
+                                                refundPercentage = hoursSinceOrder <= 24 ? 90 : 75;
+                                            }
                                             
                                             // Use item's saved refundAmount if available, otherwise calculate it
                                             let itemRefundAmount = 0;
@@ -1041,7 +1062,14 @@ const RefundManagement = () => {
                                                             if (item.refundAmount && parseFloat(item.refundAmount) > 0) {
                                                                 calculatedTotal += parseFloat(item.refundAmount);
                                                             } else {
-                                                                const refundPercentage = 90; // Using consistent 90% refund rate
+                                                                // Calculate refund percentage based on order timing
+                                                                const orderDate = order?.orderDate || order?.createdAt;
+                                                                let refundPercentage = 75; // Default fallback
+                                                                
+                                                                if (orderDate) {
+                                                                    const hoursSinceOrder = (new Date() - new Date(orderDate)) / (1000 * 60 * 60);
+                                                                    refundPercentage = hoursSinceOrder <= 24 ? 90 : 75;
+                                                                }
                                                                 const itemPrice = 
                                                                     item.productId?.price || 
                                                                     item.productDetails?.price || 

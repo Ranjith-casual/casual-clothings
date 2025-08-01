@@ -11,6 +11,7 @@ const PartialCancellationModal = ({ isOpen, onClose, order, onCancellationSucces
   const [additionalReason, setAdditionalReason] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [totalRefundAmount, setTotalRefundAmount] = useState(0);
+  const [refundPercentage, setRefundPercentage] = useState(75); // Add state for refund percentage
 
   const cancellationReasons = [
     'Changed mind',
@@ -94,6 +95,68 @@ const PartialCancellationModal = ({ isOpen, onClose, order, onCancellationSucces
     }, 0);
     setTotalRefundAmount(total);
   }, [selectedItems, order.items]);
+
+  // Calculate refund percentage when order changes
+  useEffect(() => {
+    const calculateRefundPercentage = async () => {
+      let percentage = 75; // Default fallback
+      
+      try {
+        // Import and use RefundPolicyService for proper calculation
+        const { RefundPolicyService } = await import('../utils/RefundPolicyService');
+        
+        const cancellationContext = {
+          requestDate: new Date(),
+          orderDate: new Date(order.orderDate || order.createdAt),
+          deliveryInfo: {
+            actualDeliveryDate: order.actualDeliveryDate,
+            estimatedDeliveryDate: order.estimatedDeliveryDate
+          },
+          orderStatus: order.orderStatus
+        };
+        
+        const calculation = RefundPolicyService.calculateRefundAmount(
+          order, 
+          cancellationContext
+        );
+        
+        if (calculation?.refundPercentage) {
+          percentage = Math.round(calculation.refundPercentage);
+          console.log('✅ Using RefundPolicyService calculation for display:', percentage);
+        }
+      } catch (error) {
+        console.error('Error calculating refund percentage, using fallback:', error);
+        // Fallback to improved time-based calculation
+        const orderDate = order?.orderDate || order?.createdAt;
+        if (orderDate) {
+          const hoursSinceOrder = (new Date() - new Date(orderDate)) / (1000 * 60 * 60);
+          const daysSinceOrder = Math.floor(hoursSinceOrder / 24);
+          
+          if (hoursSinceOrder <= 24) {
+            percentage = 90; // Early cancellation
+          } else if (daysSinceOrder <= 7) {
+            percentage = 75; // Standard cancellation
+          } else {
+            percentage = 50; // Late cancellation
+          }
+          
+          // Apply penalties for delivered orders
+          if (order.orderStatus === 'DELIVERED') {
+            percentage -= 25; // Delivered penalty
+          }
+          
+          // Ensure minimum refund
+          percentage = Math.max(25, percentage);
+        }
+      }
+      
+      setRefundPercentage(percentage);
+    };
+    
+    if (order && isOpen) {
+      calculateRefundPercentage();
+    }
+  }, [order, isOpen]);
 
   // Reset form when modal opens/closes
   useEffect(() => {
@@ -209,7 +272,9 @@ const PartialCancellationModal = ({ isOpen, onClose, order, onCancellationSucces
       console.log('Order ID:', order._id);
       console.log('Selected Items:', selectedItems);
       console.log('Total Item Value:', totalRefundAmount);
-      console.log('Total Refund Amount (75%):', totalRefundAmount * 0.75);
+      
+      // Use the refund percentage from state (already calculated in useEffect)
+      console.log(`Total Refund Amount (${refundPercentage}%):`, (totalRefundAmount * refundPercentage / 100));
       console.log('Request Data:', requestData);
       console.log('API Config:', SummaryApi.requestPartialItemCancellation);
 
@@ -416,10 +481,10 @@ const PartialCancellationModal = ({ isOpen, onClose, order, onCancellationSucces
                   Total item value: ₹{totalRefundAmount.toFixed(2)}
                 </p>
                 <p className="text-lg font-semibold text-blue-900 mt-1">
-                  Expected refund (75%): ₹{(totalRefundAmount * 0.75).toFixed(2)}
+                  Expected refund ({refundPercentage}%): ₹{(totalRefundAmount * refundPercentage / 100).toFixed(2)}
                 </p>
                 <p className="text-xs text-blue-600 mt-2">
-                  * Refund amount is 75% of item value as per cancellation policy
+                  * Refund amount is {refundPercentage}% of item value as per cancellation policy
                 </p>
               </div>
             )}

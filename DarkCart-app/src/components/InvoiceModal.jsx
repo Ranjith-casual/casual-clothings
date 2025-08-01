@@ -340,11 +340,20 @@ function InvoiceModal({ payment: originalPayment, onClose }) {
                     payment.refundDetails.retainedAmount = (payment.totalAmt || 0) - (payment.refundDetails.refundAmount || 0);
                 }
                 
-                // Default to 75% refund if no percentage is set
+                // Calculate refund based on order timing
                 if (typeof payment.refundDetails.refundPercentage === 'undefined' || payment.refundDetails.refundPercentage === null) {
-                    payment.refundDetails.refundPercentage = 75;
-                    payment.refundDetails.refundAmount = (payment.totalAmt || 0) * 0.75;
-                    payment.refundDetails.retainedAmount = (payment.totalAmt || 0) * 0.25;
+                    // Check if we have order date information to determine refund percentage
+                    const orderDate = payment.orderDate || payment.createdAt;
+                    let refundPercentage = 75; // Default fallback
+                    
+                    if (orderDate) {
+                        const hoursSinceOrder = (new Date() - new Date(orderDate)) / (1000 * 60 * 60);
+                        refundPercentage = hoursSinceOrder <= 24 ? 90 : 75;
+                    }
+                    
+                    payment.refundDetails.refundPercentage = refundPercentage;
+                    payment.refundDetails.refundAmount = (payment.totalAmt || 0) * (refundPercentage / 100);
+                    payment.refundDetails.retainedAmount = (payment.totalAmt || 0) - payment.refundDetails.refundAmount;
                 }
                 
                 console.log('After calculation - refundDetails:', payment.refundDetails);
