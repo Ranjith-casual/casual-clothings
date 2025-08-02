@@ -1185,12 +1185,38 @@ function MyOrders() {
                                     {item?.itemType === 'bundle' ? item?.bundleDetails?.title : item?.productDetails?.name}
                                   </h4>
                                 <div className="flex items-center gap-2 mt-1 flex-wrap">
-                                    {/* Enhanced cancelled status badge */}
+                                    {/* Enhanced cancelled status badge with refund info */}
                                     {isItemCancelled && !isCancelled && (
-                                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-red-500 text-white border border-red-600 animate-pulse">
-                                        <FaBan className="w-3 h-3 mr-1" />
-                                        ITEM CANCELLED
-                                      </span>
+                                      <>
+                                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-red-500 text-white border border-red-600">
+                                          <FaBan className="w-3 h-3 mr-1" />
+                                          ITEM CANCELLED
+                                        </span>
+                                        {(() => {
+                                          // Find the cancellation requests for this order to get refund percentages
+                                          const orderCancelRequest = orderCancellationRequests.find(
+                                            req => req.orderId === order._id || req.orderId?._id === order._id
+                                          );
+                                          
+                                          const defaultRefundPercentage = 90;
+                                          let refundPercentage = defaultRefundPercentage;
+                                          
+                                          // Try to find the refund percentage
+                                          if (orderCancelRequest?.adminResponse?.refundPercentage) {
+                                            refundPercentage = orderCancelRequest.adminResponse.refundPercentage;
+                                          } else if (orderCancelRequest?.adminResponse?.calculatedRefundPercentage) {
+                                            refundPercentage = orderCancelRequest.adminResponse.calculatedRefundPercentage;
+                                          } else if (item.refundPercentage) {
+                                            refundPercentage = item.refundPercentage;
+                                          }
+                                          
+                                          return (
+                                            <span className="inline-flex items-center ml-1 px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 border border-blue-200">
+                                              {refundPercentage}% Refunded
+                                            </span>
+                                          );
+                                        })()}
+                                      </>
                                     )}
                                     
                                     {/* Pending cancellation request badge */}
@@ -1448,6 +1474,52 @@ function MyOrders() {
                                               </span>
                                             )}
                                           </div>
+                                          
+                                          {/* Add refund breakdown for cancelled items */}
+                                          {(isItemCancelled && !isCancelled) && (() => {
+                                            // Get item price and calculate refund details
+                                            const itemPrice = finalPrice * (item?.quantity || 1);
+                                            
+                                            // Find refund percentage
+                                            const orderCancelRequest = orderCancellationRequests.find(
+                                              req => req.orderId === order._id || req.orderId?._id === order._id
+                                            );
+                                            
+                                            const defaultRefundPercentage = 90;
+                                            let refundPercentage = defaultRefundPercentage;
+                                            
+                                            if (orderCancelRequest?.adminResponse?.refundPercentage) {
+                                              refundPercentage = orderCancelRequest.adminResponse.refundPercentage;
+                                            } else if (orderCancelRequest?.adminResponse?.calculatedRefundPercentage) {
+                                              refundPercentage = orderCancelRequest.adminResponse.calculatedRefundPercentage;
+                                            } else if (item.refundPercentage) {
+                                              refundPercentage = item.refundPercentage;
+                                            }
+                                            
+                                            const refundAmount = (itemPrice * refundPercentage) / 100;
+                                            const retainedAmount = itemPrice - refundAmount;
+                                            
+                                            return (
+                                              <div className="mt-2 bg-blue-50 border border-blue-100 rounded-md p-1.5">
+                                                <div className="text-xs text-blue-700">
+                                                  <div className="font-medium mb-0.5">Refund Details:</div>
+                                                  <div className="grid grid-cols-2 gap-x-2 text-[11px]">
+                                                    <div>Item Price:</div>
+                                                    <div className="text-right">₹{itemPrice.toFixed(2)}</div>
+                                                    
+                                                    <div>Refund Rate:</div>
+                                                    <div className="text-right">{refundPercentage}%</div>
+                                                    
+                                                    <div>Refund Amount:</div>
+                                                    <div className="text-right text-green-600 font-medium">₹{refundAmount.toFixed(2)}</div>
+                                                    
+                                                    <div>Retained Fee:</div>
+                                                    <div className="text-right text-red-600">₹{retainedAmount.toFixed(2)}</div>
+                                                  </div>
+                                                </div>
+                                              </div>
+                                            );
+                                          })()}
                                         </>
                                       );
                                     })()}
@@ -1520,9 +1592,8 @@ function MyOrders() {
                                   );
                                   
                                   if (hasCancelledItems) {
-                                    // FIXED: Calculate current total excluding cancelled items using proper pricing logic
-                                    // This now uses the same price calculation logic as the individual items display
-                                    // to ensure consistency between item prices and total amount
+                                    // Calculate current total properly accounting for cancelled items with refund percentages
+                                    // This ensures the display matches the actual refund calculation
                                     let currentTotal = 0;
                                     const debugData = {
                                       orderId: order?._id,
@@ -1530,12 +1601,18 @@ function MyOrders() {
                                       items: []
                                     };
                                     
+                                    // Find the cancellation requests for this order to get refund percentages
+                                    const orderCancelRequest = orderCancellationRequests.find(
+                                      req => req.orderId === order._id || req.orderId?._id === order._id
+                                    );
+                                    
+                                    const defaultRefundPercentage = 90; // Default fallback if we can't find specific percentage
+                                    
                                     order?.items?.forEach((item, index) => {
                                       const isItemCancelled = item?.status === 'Cancelled' || item?.cancelApproved === true;
                                       
                                       if (!isItemCancelled) {
-                                        // Use the same calculation logic as used in item display
-                                        // First try to use stored itemTotal, then calculate if needed
+                                        // Normal item - add full price
                                         const itemTotal = item?.itemTotal || calculateSizeBasedPrice(item);
                                         currentTotal += itemTotal;
                                         
@@ -1554,13 +1631,37 @@ function MyOrders() {
                                           isCancelled: isItemCancelled
                                         });
                                       } else {
+                                        // Cancelled item - add the retained amount (non-refunded portion)
+                                        const itemTotal = item?.itemTotal || calculateSizeBasedPrice(item);
+                                        
+                                        // Try to find the refund percentage from the cancellation request
+                                        let refundPercentage = defaultRefundPercentage; // Default 90%
+                                        
+                                        // If we have refund information, use it
+                                        if (orderCancelRequest?.adminResponse?.refundPercentage) {
+                                          refundPercentage = orderCancelRequest.adminResponse.refundPercentage;
+                                        } else if (item.refundPercentage) {
+                                          refundPercentage = item.refundPercentage;
+                                        }
+                                        
+                                        // Calculate the retained amount (what's not refunded)
+                                        const retainedPercentage = 100 - refundPercentage;
+                                        const retainedAmount = (itemTotal * retainedPercentage) / 100;
+                                        
+                                        // Add the retained amount to the current total
+                                        currentTotal += retainedAmount;
+                                        
                                         debugData.items.push({
                                           index,
                                           name: item?.itemType === 'bundle' ? item?.bundleDetails?.title : item?.productDetails?.name,
                                           itemType: item?.itemType,
                                           quantity: item?.quantity,
                                           isCancelled: isItemCancelled,
-                                          status: 'EXCLUDED_FROM_TOTAL'
+                                          itemTotal: itemTotal,
+                                          refundPercentage: refundPercentage,
+                                          retainedPercentage: retainedPercentage,
+                                          retainedAmount: retainedAmount,
+                                          status: 'PARTIALLY_REFUNDED'
                                         });
                                       }
                                     });
@@ -1591,16 +1692,24 @@ function MyOrders() {
                                     
                                     console.log('💰 Price Calculation Debug:', debugData);
                                     
+                                    // Calculate total refunded amount
+                                    const totalRefunded = originalOrderTotal - currentTotal;
+                                    
                                     return (
                                       <>
-                                        <span className="line-through text-gray-500 text-sm mr-2">
-                                          ₹{originalOrderTotal.toFixed(2)}
-                                        </span>
-                                        <span className="text-green-700 font-bold">
-                                          ₹{currentTotal.toFixed(2)}
-                                        </span>
-                                        <div className="text-xs text-green-600 mt-1">
-                                          Updated due to cancelled items
+                                        <div className="flex items-center">
+                                          <span className="line-through text-gray-500 text-sm mr-2">
+                                            ₹{originalOrderTotal.toFixed(2)}
+                                          </span>
+                                          <span className="text-green-700 font-bold">
+                                            ₹{currentTotal.toFixed(2)}
+                                          </span>
+                                        </div>
+                                        <div className="flex flex-col mt-1">
+                                          <div className="text-xs text-green-600">
+                                            Order amount has been partially refunded
+                                          </div>
+                                        
                                         </div>
                                       </>
                                     );
@@ -1648,10 +1757,23 @@ function MyOrders() {
                                       {/* Cancelled items info */}
                                       {hasCancelledItems && (
                                         <div className="text-xs text-red-600 flex flex-wrap items-center gap-2">
+                                          {(() => {
+                                            // Find the cancellation request to display refund percentage info
+                                            const orderCancelRequest = orderCancellationRequests.find(
+                                              req => req.orderId === order._id || req.orderId?._id === order._id
+                                            );
+                                            const refundPercentage = orderCancelRequest?.adminResponse?.refundPercentage || 90;
+                                            
+                                            return (
+                                              <span className="font-medium">
+                                                Refund at {refundPercentage}% of item value applied
+                                              </span>
+                                            );
+                                          })()}
                                           <span className="bg-red-100 px-2 py-1 rounded-full font-medium">
                                             {cancelledItems.length} of {order?.items?.length} item(s) cancelled
                                           </span>
-                                          <span className="text-red-500">• Order amount has been reduced accordingly</span>
+                                          <span className="text-red-500">• Order amount has been partially refunded</span>
                                         </div>
                                       )}
                                       
@@ -1675,6 +1797,50 @@ function MyOrders() {
                                         </div>
                                       )}
                                     </div>
+                                    
+                                    {/* Show refund percentage info for cancelled items */}
+                                    {hasCancelledItems && (
+                                      <div className="mt-2 bg-blue-50 border border-blue-100 rounded-lg p-2">
+                                        <div className="text-xs text-blue-700 font-medium mb-1 flex items-center">
+                                          <FaInfoCircle className="mr-1.5 text-blue-500" />
+                                          Refund Information
+                                        </div>
+                                        <div className="text-xs text-blue-600">
+                                          {(() => {
+                                            // Find the cancellation requests for this order to get refund percentages
+                                            const orderCancelRequest = orderCancellationRequests.find(
+                                              req => req.orderId === order._id || req.orderId?._id === order._id
+                                            );
+                                            
+                                            // Default refund percentage if we can't find the specific one
+                                            const defaultRefundPercentage = 90;
+                                            
+                                            // Get the actual refund percentage
+                                            let refundPercentage = defaultRefundPercentage;
+                                            if (orderCancelRequest?.adminResponse?.refundPercentage) {
+                                              refundPercentage = orderCancelRequest.adminResponse.refundPercentage;
+                                            } else if (orderCancelRequest?.adminResponse?.calculatedRefundPercentage) {
+                                              refundPercentage = orderCancelRequest.adminResponse.calculatedRefundPercentage;
+                                            }
+                                            
+                                            return (
+                                              <>
+                                                <p>
+                                                  For cancelled items, a {refundPercentage}% refund has been approved.
+                                                  The remaining {100 - refundPercentage}% is retained as cancellation fee.
+                                                </p>
+                                                <p className="mt-1">
+                                                  Original price of cancelled items: ₹{cancelledItems.reduce((total, item) => {
+                                                    const itemPrice = item?.itemTotal || calculateSizeBasedPrice(item);
+                                                    return total + itemPrice;
+                                                  }, 0).toFixed(2)}
+                                                </p>
+                                              </>
+                                            );
+                                          })()}
+                                        </div>
+                                      </div>
+                                    )}
                                     
                                     <div className="mt-2 text-xs text-gray-600">
                                       {hasCancelledItems && "Cancelled items are highlighted above with red borders and crossed-out styling. "}

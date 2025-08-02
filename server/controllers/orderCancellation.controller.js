@@ -9,8 +9,9 @@ import { sendRefundInvoiceEmail } from "./payment.controller.js";
 import fs from 'fs';
 import mongoose from "mongoose";
 
-// Helper function to calculate proportional delivery charge refund for partial cancellations
-const calculateProportionalDeliveryRefund = (order, itemsToCancel, refundPercentage) => {
+// Helper function to determine if delivery charge should be refunded
+// Now only returns the full delivery charge for total cancellations
+const calculateDeliveryChargeRefund = (order, itemsToCancel, refundPercentage) => {
     // If refundPercentage is not provided, calculate it based on order timing
     if (refundPercentage === undefined) {
         const orderDate = order.orderDate || order.createdAt;
@@ -21,6 +22,7 @@ const calculateProportionalDeliveryRefund = (order, itemsToCancel, refundPercent
             refundPercentage = 75; // Default fallback
         }
     }
+    
     if (!order.deliveryCharge || order.deliveryCharge <= 0) {
         return 0; // No delivery charge to refund
     }
@@ -29,43 +31,29 @@ const calculateProportionalDeliveryRefund = (order, itemsToCancel, refundPercent
         return 0; // No items in order
     }
 
-    // Calculate total order value (excluding delivery)
-    const totalOrderValue = order.subTotalAmt || order.totalAmt - (order.deliveryCharge || 0);
+    // Check if this is a full cancellation or the last remaining item
+    const isFullCancellation = itemsToCancel.length === order.items.length;
+    const isLastItemCancellation = order.items.length === 1 && itemsToCancel.length === 1;
     
-    // Calculate value of cancelled items
-    let cancelledItemsValue = 0;
-    
-    itemsToCancel.forEach(cancelItem => {
-        const orderItem = order.items.find(item => 
-            item._id && item._id.toString() === cancelItem.itemId.toString()
-        );
+    // Only refund delivery charge for full cancellations or last item cancellation
+    if (isFullCancellation || isLastItemCancellation) {
+        // Apply refund percentage to full delivery charge
+        const deliveryRefund = (order.deliveryCharge * refundPercentage) / 100;
         
-        if (orderItem) {
-            // Use the item total or calculate from unit price and quantity
-            const itemValue = orderItem.itemTotal || 
-                             (orderItem.sizeAdjustedPrice || orderItem.productDetails?.price || 0) * orderItem.quantity;
-            cancelledItemsValue += itemValue;
-        }
-    });
-
-    // Calculate proportional delivery charge
-    const deliveryProportion = totalOrderValue > 0 ? (cancelledItemsValue / totalOrderValue) : 0;
-    const proportionalDeliveryCharge = order.deliveryCharge * deliveryProportion;
+        console.log('📦 Delivery Charge Refund Calculation:', {
+            deliveryCharge: order.deliveryCharge,
+            refundPercentage,
+            deliveryRefund,
+            isFullCancellation,
+            isLastItemCancellation
+        });
+        
+        return Math.round(deliveryRefund * 100) / 100; // Round to 2 decimal places
+    }
     
-    // Apply refund percentage to delivery charge
-    const deliveryRefund = (proportionalDeliveryCharge * refundPercentage) / 100;
-    
-    console.log('📦 Proportional Delivery Refund Calculation:', {
-        totalOrderValue,
-        cancelledItemsValue,
-        deliveryCharge: order.deliveryCharge,
-        deliveryProportion,
-        proportionalDeliveryCharge,
-        refundPercentage,
-        deliveryRefund
-    });
-    
-    return Math.round(deliveryRefund * 100) / 100; // Round to 2 decimal places
+    // For partial cancellations with items remaining, no delivery charge is refunded
+    console.log('📦 No delivery charge refund for partial cancellation with items remaining');
+    return 0;
 };
 
 // Helper function to update all items in a full order cancellation
@@ -1002,7 +990,7 @@ export const processCancellationRequest = async (req, res) => {
                         
                         <div style="background-color: #d4edda; padding: 15px; border-radius: 5px; margin: 20px 0; border-left: 4px solid #28a745;">
                             <h3>Refund Details:</h3>
-                            <p><strong>Refund Amount:</strong> ₹${refundAmount.toFixed(2)}${isPartialCancellation && order.deliveryCharge > 0 ? ' (includes proportional delivery charges)' : order.deliveryCharge > 0 ? ' (includes delivery charges)' : ''}</p>
+                            <p><strong>Refund Amount:</strong> ₹${refundAmount.toFixed(2)}${!isPartialCancellation && order.deliveryCharge > 0 ? ' (includes delivery charges)' : ''}</p>
                             <p><strong>Refund Percentage:</strong> ${finalRefundPercentage}%</p>
                             ${order.deliveryCharge && order.deliveryCharge > 0 ? `<p><strong>Original Delivery Charge:</strong> ₹${order.deliveryCharge.toFixed(2)}</p>` : ''}
                             
@@ -2058,7 +2046,7 @@ export const requestPartialItemCancellation = async (req, res) => {
                                 <p><strong>Items Total Value: ₹${finalTotalItemValue.toFixed(2)}</strong></p>
                                 ${isEffectivelyFullCancellation && deliveryChargeRefund > 0 ? 
                                     `<p><strong>Delivery Charge Refund: ₹${deliveryChargeRefund.toFixed(2)}</strong> (All items being cancelled)</p>` : 
-                                    (order.deliveryCharge && order.deliveryCharge > 0 ? `<p><strong>Note:</strong> Proportional delivery charge refund is included in the total refund amount</p>` : '')
+                                    (isEffectivelyFullCancellation && order.deliveryCharge && order.deliveryCharge > 0 ? `<p><strong>Note:</strong> Delivery charge is included in the refund only for complete order cancellations</p>` : '')
                                 }
                             </div>
                             
@@ -2171,19 +2159,23 @@ export const processPartialItemCancellation = async (req, res) => {
                 // Use the calculated amounts from frontend that incorporate discount pricing
                 totalRefundAmount = calculatedRefundAmount;
                 
-                // Calculate proportional delivery charge refund for partial cancellations
-                const proportionalDeliveryRefund = calculateProportionalDeliveryRefund(
-                    order, 
-                    cancellationRequest.itemsToCancel, 
-                    finalRefundPercentage
-                );
+                // Check if this is a full order cancellation or cancelling the last remaining item
+                const allItemsCancelled = cancellationRequest.itemsToCancel.length === order.items.length;
+                const isLastItemCancellation = cancellationRequest.itemsToCancel.length === 1 && 
+                                              order.items.length === 1;
                 
-                // Add proportional delivery charge to refund amount
-                totalRefundAmount += proportionalDeliveryRefund;
+                // Only include delivery charge in refund for full order cancellation or last item cancellation
+                let deliveryChargeRefund = 0;
+                if (allItemsCancelled || isLastItemCancellation) {
+                    deliveryChargeRefund = order.deliveryCharge || 0;
+                    totalRefundAmount += deliveryChargeRefund;
+                }
                 
-                console.log('💰 Using Frontend-Calculated Partial Refund (with delivery):', {
+                console.log('💰 Using Frontend-Calculated Partial Refund:', {
                     calculatedRefundAmount: calculatedRefundAmount,
-                    proportionalDeliveryRefund: proportionalDeliveryRefund,
+                    isFullCancellation: allItemsCancelled,
+                    isLastItemCancellation: isLastItemCancellation,
+                    deliveryChargeRefund: deliveryChargeRefund,
                     totalRefundAmount: totalRefundAmount,
                     calculatedTotalValue: calculatedTotalValue,
                     frontendRefundPercentage: finalRefundPercentage,
@@ -2210,18 +2202,24 @@ export const processPartialItemCancellation = async (req, res) => {
                     itemsRefundTotal += item.refundAmount;
                 });
                 
-                // Add proportional delivery charge refund for fallback calculation
-                const proportionalDeliveryRefund = calculateProportionalDeliveryRefund(
-                    order, 
-                    cancellationRequest.itemsToCancel, 
-                    finalRefundPercentage
-                );
+                // Check if this is a full order cancellation or cancelling the last remaining item
+                const allItemsCancelled = cancellationRequest.itemsToCancel.length === order.items.length;
+                const isLastItemCancellation = cancellationRequest.itemsToCancel.length === 1 && 
+                                              order.items.length === 1;
                 
-                totalRefundAmount = itemsRefundTotal + proportionalDeliveryRefund;
+                // Only include delivery charge in refund for full order cancellation or last item cancellation
+                let deliveryChargeRefund = 0;
+                if (allItemsCancelled || isLastItemCancellation) {
+                    deliveryChargeRefund = order.deliveryCharge || 0;
+                }
                 
-                console.log('💰 Fallback Partial Refund Calculation (with delivery):', {
+                totalRefundAmount = itemsRefundTotal + deliveryChargeRefund;
+                
+                console.log('💰 Fallback Partial Refund Calculation:', {
                     itemsRefundTotal: itemsRefundTotal,
-                    proportionalDeliveryRefund: proportionalDeliveryRefund,
+                    isFullCancellation: allItemsCancelled,
+                    isLastItemCancellation: isLastItemCancellation,
+                    deliveryChargeRefund: deliveryChargeRefund,
                     totalRefundAmount: totalRefundAmount,
                     refundPercentage: finalRefundPercentage
                 });
@@ -2295,9 +2293,28 @@ export const processPartialItemCancellation = async (req, res) => {
             
             // Only adjust totals if there are active items left
             if (activeItems > 0) {
+                // For partial cancellations, retain the full delivery charge if there are items remaining
+                // Delivery charge is only refunded for total order cancellation or when cancelling the last remaining item
+                const isLastRemainingItemCancellation = activeItems === 1 && cancelledItems >= 1;
+                const shouldRefundDeliveryCharge = false; // Always keep delivery charge for partial cancellations
+                
+                // Set the subtotal to the sum of remaining active item prices
                 orderToUpdate.subTotalAmt = newSubTotal;
-                orderToUpdate.totalAmt = newSubTotal; // Assuming no additional charges
+                
+                // Set the total to subtotal + full delivery charge (no proportional reduction)
+                // Always add full delivery charge for partial cancellations
+                orderToUpdate.totalAmt = newSubTotal + (orderToUpdate.deliveryCharge || 0);
                 orderToUpdate.totalQuantity = newTotalQuantity;
+                
+                console.log('🚚 Order Total Calculation with Full Delivery Charge:', {
+                    newSubTotal,
+                    deliveryCharge: orderToUpdate.deliveryCharge || 0,
+                    totalAmount: orderToUpdate.totalAmt,
+                    activeItemsCount: activeItems,
+                    cancelledItemsCount: cancelledItems,
+                    isLastRemainingItemCancellation,
+                    retainingFullDeliveryCharge: true
+                });
             }
             
             // If all items cancelled, mark order as cancelled

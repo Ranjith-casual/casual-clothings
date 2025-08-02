@@ -5,6 +5,7 @@ import { validURLConvert } from "../utils/validURLConvert";
 import PremiumCategoryWiseProductDisplay from "../components/PremiumCategoryWiseProductDisplay";
 import { motion } from "framer-motion";
 import { FaTshirt, FaArrowRight } from "react-icons/fa";
+import HomeBanner from "../components/HomeBanner";
 
 function Home() {
   const loadingCategory = useSelector((state) => state.product.loadingCategory);
@@ -22,32 +23,38 @@ function Home() {
   };
 
   return (
-    <section className="min-h-screen bg-[#f1f3f6]">
-      {/* Features Section - Light Theme */}
-    
+    <section className="min-h-screen ">
+      {/* Features Section - Premium Light Theme */}
 
-      {/* Collection Showcase - Flipkart-Style Layout */}
-      <div className="container mx-auto pt-8 pb-6 px-4 md:px-6 lg:px-8">
-        <div className="text-center mb-6 md:mb-8 bg-white p-4 rounded-lg shadow-sm">
-          <h2 className="text-sm uppercase tracking-[0.15em] text-gray-600 mb-2 font-sans">COLLECTIONS</h2>
-          <h1 className="text-xl md:text-2xl lg:text-3xl font-medium text-gray-900 mb-2 md:mb-3 font-serif">Shop By Category</h1>
-          <div className="w-16 h-0.5 bg-gray-300 mx-auto mb-4"></div>
-          <p className="max-w-xl mx-auto text-gray-600 text-sm font-light px-4 font-sans">
+        <HomeBanner />
+  
+
+      {/* Collection Showcase - Premium Grid Layout */}
+      <div className="container mx-auto pt-8 pb-6 px-4 md:px-8">
+        <div className="text-center mb-8">
+          <h2 className="text-xs md:text-sm uppercase tracking-[0.18em] text-gray-500 mb-2 font-sans">COLLECTIONS</h2>
+          <h1 className="text-2xl md:text-4xl lg:text-5xl font-bold text-gray-900 mb-2 md:mb-3 font-sans">Shop By Category</h1>
+          <div className="w-20 h-1 bg-gradient-to-r from-black via-gray-400 to-black mx-auto mb-4 rounded-full"></div>
+          <p className="max-w-xl mx-auto text-gray-500 text-base font-light px-4 font-sans">
             Browse our carefully selected categories for your wardrobe essentials
           </p>
         </div>
 
-        {/* Category Section - Flipkart-Style Grid */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 md:gap-4 px-3 md:px-6">
+        {/* Category Section - Premium Grid with horizontal scroll on mobile */}
+        <div className="md:grid md:grid-cols-3 lg:grid-cols-5 gap-6 sm:gap-8 md:gap-10 px-1 sm:px-2 md:px-8 flex md:block overflow-x-auto md:overflow-visible space-x-4 md:space-x-0 pb-2 md:pb-0 scrollbar-hide" style={{scrollbarWidth: 'none', msOverflowStyle: 'none'}}>
+          {/* Hide scrollbar for Webkit browsers */}
+          <style>{`
+            .scrollbar-hide::-webkit-scrollbar { display: none; }
+          `}</style>
           {loadingCategory
             ? new Array(12).fill(null).map((c, index) => {
                 return (
                   <div
                     key={index + "loadingcategory"}
-                    className="bg-white border border-[#e0e0e0] rounded-sm p-3 h-32 md:h-40 grid gap-2 shadow-[0_2px_5px_rgba(0,0,0,0.05)] transition-all duration-200"
+                    className="bg-white border border-gray-200 p-4 sm:p-5 h-32 sm:h-36 md:h-44 grid gap-2 shadow-sm animate-pulse min-w-[220px] md:min-w-0 flex-shrink-0"
                   >
-                    <div className="bg-gray-100 h-4/5 rounded-sm"></div>
-                    <div className="bg-gray-100 h-4 rounded-sm"></div>
+                    <div className="bg-gray-100 h-4/5"></div>
+                    <div className="bg-gray-100 h-4"></div>
                   </div>
                 );
               })
@@ -55,20 +62,20 @@ function Home() {
                 return (
                   <div
                     key={category._id + "displayCategory"}
-                    className="w-full bg-white border border-[#e0e0e0] rounded-sm overflow-hidden cursor-pointer shadow-[0_2px_5px_rgba(0,0,0,0.05)] hover:shadow-[0_4px_8px_rgba(0,0,0,0.1)] transition-all duration-200 hover:transform hover:scale-[1.02]"
+                    className="w-full bg-white border border-gray-200 overflow-hidden cursor-pointer shadow-sm transition-all duration-200 group min-w-[220px] md:min-w-0 flex-shrink-0"
                     onClick={() =>
                       handleRedirectProductListPage(category._id, category.name)
                     }
                   >
-                    <div className="p-3 h-24 md:h-28 lg:h-32 flex items-center justify-center bg-white">
+                    <div className="p-4 sm:p-5 h-24 sm:h-28 md:h-32 lg:h-36 flex items-center justify-center bg-white">
                       <img
                         src={category.image}
                         alt={category.name}
-                        className="w-full h-full object-contain"
+                        className="w-3/4 sm:w-full h-full object-contain group-hover:scale-105 transition-transform duration-200"
                       />
                     </div>
-                    <div className="p-2 md:p-3 border-t border-[#e0e0e0] bg-white">
-                      <h3 className="text-xs md:text-sm font-medium text-gray-800 text-center truncate font-sans">
+                    <div className="p-2 sm:p-3 border-t border-gray-200 bg-white">
+                      <h3 className="text-xs sm:text-sm md:text-base font-semibold text-gray-800 text-center truncate font-sans">
                         {category.name}
                       </h3>
                     </div>

@@ -49,6 +49,21 @@ const AdminOrderDashboard = () => {
   // Size-based price calculation utility function
   const calculateSizeBasedPrice = (item, productInfo = null) => {
     try {
+      // First priority: Use stored sizeAdjustedPrice if available (this is the actual charged price)
+      if (item?.sizeAdjustedPrice && item.sizeAdjustedPrice > 0) {
+        return item.sizeAdjustedPrice * (item?.quantity || 1);
+      }
+      
+      // Second priority: Use stored unit price if available
+      if (item?.unitPrice && item.unitPrice > 0) {
+        return item.unitPrice * (item?.quantity || 1);
+      }
+      
+      // Third priority: Use stored itemTotal directly
+      if (item?.itemTotal && item.itemTotal > 0) {
+        return item.itemTotal;
+      }
+      
       const size = item?.size;
       
       // If no size, return original price
@@ -113,6 +128,22 @@ const AdminOrderDashboard = () => {
 
   // Get size-based unit price
   const getSizeBasedUnitPrice = (item, productInfo = null) => {
+    // First priority: Use stored sizeAdjustedPrice if available (this is the actual charged price)
+    if (item?.sizeAdjustedPrice && item.sizeAdjustedPrice > 0) {
+      return item.sizeAdjustedPrice;
+    }
+    
+    // Second priority: Use stored unit price if available
+    if (item?.unitPrice && item.unitPrice > 0) {
+      return item.unitPrice;
+    }
+    
+    // Third priority: Use stored itemTotal divided by quantity
+    if (item?.itemTotal && item.itemTotal > 0 && item?.quantity && item.quantity > 0) {
+      return item.itemTotal / item.quantity;
+    }
+    
+    // Fallback: Calculate based on total price
     const totalPrice = calculateSizeBasedPrice(item, productInfo);
     return totalPrice / (item?.quantity || 1);
   };
@@ -131,35 +162,106 @@ const AdminOrderDashboard = () => {
 
       // Special case: If order status is CANCELLED, return zero amounts
       if (order.orderStatus === 'CANCELLED') {
+        // Calculate original total for reference
+        let originalTotal = 0;
+        (order.items || []).forEach(item => {
+          const itemTotal = calculateSizeBasedPrice(item);
+          originalTotal += itemTotal;
+        });
+        
+        // For cancelled orders, calculate refund amount with 10% retention fee
+        const deliveryCharge = order.deliveryCharge || 0;
+        const displayOriginalTotal = originalTotal + deliveryCharge;
+        const refundAmount = originalTotal * 0.9 + deliveryCharge; // 90% of items + delivery charge
+        const retentionFee = originalTotal * 0.1; // 10% retention fee
+        
+        // Check if we have explicit refund data
+        let explicitRefundAmount = 0;
+        if (order.cancellationData && order.cancellationData.refundDetails) {
+          if (order.cancellationData.refundDetails.actualRefundAmount) {
+            explicitRefundAmount = parseFloat(order.cancellationData.refundDetails.actualRefundAmount);
+          } else if (order.cancellationData.refundDetails.refundAmount) {
+            explicitRefundAmount = parseFloat(order.cancellationData.refundDetails.refundAmount);
+          }
+        }
+        
         return {
           activeItems: [],
           activeItemCount: 0,
           remainingTotal: 0,
           remainingSubtotal: 0,
           deliveryCharge: 0,
-          hasCancelledItems: true
+          hasCancelledItems: true,
+          isFullyCancelled: true,
+          refundAmount: explicitRefundAmount > 0 ? explicitRefundAmount : refundAmount,
+          cancelledSubtotal: originalTotal,
+          originalTotal: displayOriginalTotal,
+          retentionFee: retentionFee,
+          refundedDeliveryCharge: deliveryCharge
         };
       }
 
       // If no cancellation data from any source, return original order
       if (!hasOrderCancellation && !hasRefundSummary) {
+        // Calculate original total for reference
+        let originalTotal = 0;
+        (order.items || []).forEach(item => {
+          const itemTotal = calculateSizeBasedPrice(item);
+          originalTotal += itemTotal;
+        });
+        
+        const deliveryCharge = order.deliveryCharge || 0;
+        const displayOriginalTotal = originalTotal + deliveryCharge;
+        
+        // For orders with no cancellations, the remaining amount is the full amount
         return {
           activeItems: order.items || [],
           activeItemCount: order.totalQuantity || order.items?.length || 0,
-          remainingTotal: order.totalAmt || 0,
-          remainingSubtotal: order.subTotalAmt || 0,
-          hasCancelledItems: false
+          remainingTotal: displayOriginalTotal, // Original total + delivery charge
+          remainingSubtotal: originalTotal,     // Just the items total
+          hasCancelledItems: false,
+          isFullyCancelled: false,
+          refundAmount: 0,
+          cancelledSubtotal: 0,
+          originalTotal: displayOriginalTotal,
+          deliveryCharge: deliveryCharge,
+          retentionFee: 0,
+          refundedDeliveryCharge: 0
         };
       }
 
       // Get cancelled item IDs for quick lookup from all sources
       const cancelledItemIds = new Set();
+      let refundedAmount = 0;
       
       // Add from order cancellation data
       if (hasOrderCancellation) {
         order.cancellationData.itemsToCancel.forEach(cancelledItem => {
           const itemId = cancelledItem.itemId?.toString() || cancelledItem._id?.toString();
-          if (itemId) cancelledItemIds.add(itemId);
+          if (itemId) {
+            cancelledItemIds.add(itemId);
+            // Track refunded amount if available
+            if (cancelledItem.refundAmount) {
+              refundedAmount += parseFloat(cancelledItem.refundAmount);
+            } else if (cancelledItem.refundDetails?.actualRefundAmount) {
+              refundedAmount += parseFloat(cancelledItem.refundDetails.actualRefundAmount);
+            } else if (cancelledItem.refundDetails?.refundAmount) {
+              refundedAmount += parseFloat(cancelledItem.refundDetails.refundAmount);
+            }
+            // Look for the original item to get its price if refund amount isn't specified
+            if (!cancelledItem.refundAmount && !cancelledItem.refundDetails) {
+              const originalItem = order.items.find(item => 
+                (item._id?.toString() === itemId) || (item.id?.toString() === itemId)
+              );
+              if (originalItem) {
+                // Use 90% of the item price as the refund amount (10% retention fee)
+                const itemPrice = calculateSizeBasedPrice(originalItem);
+                const retentionRate = 0.1; // 10% retention
+                const refundRate = 1 - retentionRate; // 90% refund
+                refundedAmount += itemPrice * refundRate;
+              }
+            }
+          }
         });
       }
       
@@ -168,7 +270,15 @@ const AdminOrderDashboard = () => {
         order.refundSummary.forEach(refundItem => {
           if (refundItem.status === 'Completed') {
             const itemId = refundItem.itemId?.toString();
-            if (itemId) cancelledItemIds.add(itemId);
+            if (itemId) {
+              cancelledItemIds.add(itemId);
+              // Track actual refund amount if available
+              if (refundItem.actualRefundAmount) {
+                refundedAmount += parseFloat(refundItem.actualRefundAmount);
+              } else if (refundItem.refundAmount) {
+                refundedAmount += parseFloat(refundItem.refundAmount);
+              }
+            }
           }
         });
       }
@@ -182,21 +292,67 @@ const AdminOrderDashboard = () => {
       // Calculate remaining totals
       let remainingSubtotal = 0;
       let activeItemCount = 0;
+      let originalTotal = 0;
 
+      // Calculate original total before cancellations
+      (order.items || []).forEach(item => {
+        // Use the same price calculation for consistency
+        const itemTotal = calculateSizeBasedPrice(item);
+        originalTotal += itemTotal;
+      });
+
+      // Calculate remaining active items total
       activeItems.forEach(item => {
         const itemTotal = calculateSizeBasedPrice(item);
         remainingSubtotal += itemTotal;
         activeItemCount += item.quantity || 1;
       });
 
-      // Determine delivery charge
+      // Determine delivery charge handling
       // If no active items remain, delivery charge should be 0
-      const deliveryCharge = activeItems.length > 0 ? (order.deliveryCharge || 0) : 0;
+      // If partial cancellation, keep the delivery charge unless explicitly refunded
+      const isPartialCancellation = cancelledItemIds.size > 0 && activeItems.length > 0;
+      const isFullyCancelled = order.items?.length > 0 && activeItems.length === 0;
+      const hasSingleItem = order.items?.length === 1;
+      
+      // Special handling for delivery charge:
+      // 1. If fully cancelled - no delivery charge in remaining total (it's refunded)
+      // 2. If single item in order and it's cancelled - delivery charge is also refunded
+      // 3. If partial cancellation with multiple items - keep the delivery charge
+      const shouldRefundDeliveryCharge = isFullyCancelled || (hasSingleItem && cancelledItemIds.size > 0);
+      const deliveryCharge = shouldRefundDeliveryCharge ? 0 : (order.deliveryCharge || 0);
+      
+      // Add delivery charge to refund amount if it should be refunded
+      if (shouldRefundDeliveryCharge) {
+        refundedAmount += (order.deliveryCharge || 0);
+      }
+      
+      // Make sure the remaining subtotal calculation is accurate (double-check)
+      // Note: We already calculated this above, just ensuring consistency
+      
+      // Calculate the remaining total amount (items + delivery)
       const remainingTotal = remainingSubtotal + deliveryCharge;
-
-      // Check if all items are cancelled
-      const totalOriginalItems = order.items?.length || 0;
-      const isFullyCancelled = totalOriginalItems > 0 && activeItems.length === 0;
+      
+      // Calculate the cancelled amount (subtotal without delivery charge)
+      const cancelledSubtotal = originalTotal - remainingSubtotal;
+      
+      // If we have explicit refund amounts from the data, use them
+      // Otherwise calculate with 10% retention fee
+      let calculatedRefundAmount = 0;
+      if (refundedAmount > 0) {
+        calculatedRefundAmount = refundedAmount;
+      } else {
+        // Apply 10% retention fee to cancelled items
+        calculatedRefundAmount = cancelledSubtotal * 0.9; // 90% refund
+        
+        // Add delivery charge to refund if applicable
+        if (shouldRefundDeliveryCharge) {
+          calculatedRefundAmount += (order.deliveryCharge || 0);
+        }
+      }
+      
+      // For display purposes, keep original total including delivery
+      const displayOriginalTotal = originalTotal + (order.deliveryCharge || 0);
 
       return {
         activeItems,
@@ -205,18 +361,47 @@ const AdminOrderDashboard = () => {
         remainingSubtotal: isFullyCancelled ? 0 : remainingSubtotal,
         deliveryCharge: isFullyCancelled ? 0 : deliveryCharge,
         hasCancelledItems: cancelledItemIds.size > 0,
-        isFullyCancelled
+        isFullyCancelled,
+        refundAmount: calculatedRefundAmount,
+        cancelledSubtotal,
+        originalTotal: displayOriginalTotal,
+        retentionFee: cancelledSubtotal * 0.1, // 10% retention fee
+        refundedDeliveryCharge: shouldRefundDeliveryCharge ? (order.deliveryCharge || 0) : 0
       };
 
     } catch (error) {
       console.error('Error calculating active order info:', error);
       // Fallback to original order data
+      // Calculate original total in case of error
+      let originalTotal = 0;
+      (order.items || []).forEach(item => {
+        try {
+          const itemTotal = calculateSizeBasedPrice(item);
+          originalTotal += itemTotal;
+        } catch (e) {
+          console.error('Error calculating item price in fallback:', e);
+          originalTotal += item.itemTotal || 0;
+        }
+      });
+      
+      const deliveryCharge = order.deliveryCharge || 0;
+      const displayOriginalTotal = originalTotal + deliveryCharge;
+      
       return {
         activeItems: order.items || [],
         activeItemCount: order.totalQuantity || order.items?.length || 0,
-        remainingTotal: order.totalAmt || 0,
-        remainingSubtotal: order.subTotalAmt || 0,
-        hasCancelledItems: false
+        // Use order.totalAmt as fallback if available, otherwise calculate it
+        remainingTotal: order.totalAmt || displayOriginalTotal,
+        // Use order.subTotalAmt as fallback if available, otherwise use calculated total
+        remainingSubtotal: order.subTotalAmt || originalTotal,
+        hasCancelledItems: false,
+        isFullyCancelled: false,
+        refundAmount: 0,
+        cancelledSubtotal: 0,
+        originalTotal: displayOriginalTotal,
+        deliveryCharge: deliveryCharge,
+        retentionFee: 0,
+        refundedDeliveryCharge: 0
       };
     }
   };
@@ -1480,17 +1665,47 @@ const AdminOrderDashboard = () => {
                             
                             return (
                               <div className="flex flex-col">
+                                {/* Show remaining amount for active items (subtotal + delivery) */}
                                 <span className="font-medium text-gray-900">₹{activeOrderInfo.remainingTotal.toFixed(2)}</span>
-                                {activeOrderInfo.hasCancelledItems && (
-                                  <div className="text-xs text-amber-600 mt-1">
-                                    <span className="line-through">₹{order.totalAmt.toFixed(2)}</span>
-                                    <span className="ml-1">
-                                      {activeOrderInfo.isFullyCancelled || order.orderStatus === 'CANCELLED' 
-                                        ? '(fully cancelled)' 
-                                        : '(adjusted)'}
-                                    </span>
+                                {!activeOrderInfo.hasCancelledItems && activeOrderInfo.deliveryCharge > 0 && (
+                                  <div className="text-xs text-gray-500 mt-1">
+                                    <span>Items: ₹{activeOrderInfo.remainingSubtotal.toFixed(2)}</span>
+                                    <span className="mx-1">+</span>
+                                    <span>Delivery: ₹{activeOrderInfo.deliveryCharge.toFixed(2)}</span>
                                   </div>
                                 )}
+                                
+                                {/* Show original and refunded amounts if there are cancelled items */}
+                                {activeOrderInfo.hasCancelledItems && (
+                                  <div className="flex flex-col text-xs mt-1">
+                                    <div className="text-amber-600">
+                                      <span className="line-through">₹{activeOrderInfo.originalTotal.toFixed(2)}</span>
+                                      <span className="ml-1">
+                                        {activeOrderInfo.isFullyCancelled || order.orderStatus === 'CANCELLED' 
+                                          ? '(fully cancelled)' 
+                                          : '(original)'}
+                                      </span>
+                                    </div>
+                                    <div className="text-green-600">
+                                      <span>₹{activeOrderInfo.refundAmount.toFixed(2)}</span>
+                                      <span className="ml-1">(refunded)</span>
+                                    </div>
+                                    {activeOrderInfo.retentionFee > 0 && (
+                                      <div className="text-orange-600">
+                                        <span>₹{activeOrderInfo.retentionFee.toFixed(2)}</span>
+                                        <span className="ml-1">(10% retained)</span>
+                                      </div>
+                                    )}
+                                    {activeOrderInfo.refundedDeliveryCharge > 0 && (
+                                      <div className="text-blue-600">
+                                        <span>₹{activeOrderInfo.refundedDeliveryCharge.toFixed(2)}</span>
+                                        <span className="ml-1">(delivery refunded)</span>
+                                      </div>
+                                    )}
+                                  </div>
+                                )}
+                                
+                                {/* For cancelled orders without specific cancellation data */}
                                 {order.orderStatus === 'CANCELLED' && !activeOrderInfo.hasCancelledItems && (
                                   <div className="text-xs text-red-600 mt-1">
                                     <span className="line-through">₹{order.totalAmt.toFixed(2)}</span>

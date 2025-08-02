@@ -26,6 +26,22 @@ const AdminOrderDetails = ({ order, onClose }) => {
   // Size-based price calculation utility function - calculates base price with size adjustment, then applies discount
   const calculateSizeBasedPrice = (item, productInfo = null) => {
     try {
+      // First priority: Use stored sizeAdjustedPrice if available (this is the actual charged price)
+      if (item?.sizeAdjustedPrice && item.sizeAdjustedPrice > 0) {
+        return item.sizeAdjustedPrice * (item?.quantity || 1);
+      }
+      
+      // Second priority: Use stored unit price if available
+      if (item?.unitPrice && item.unitPrice > 0) {
+        return item.unitPrice * (item?.quantity || 1);
+      }
+      
+      // Third priority: Use stored itemTotal directly
+      if (item?.itemTotal && item.itemTotal > 0) {
+        return item.itemTotal;
+      }
+      
+      // Fallback: Calculate dynamically
       const size = item?.size;
       const product = productInfo || item?.productId || item?.bundleId || item?.productDetails || item?.bundleDetails;
       
@@ -91,6 +107,22 @@ const AdminOrderDetails = ({ order, onClose }) => {
 
   // Get size-based unit price with proper discount application
   const getSizeBasedUnitPrice = (item, productInfo = null) => {
+    // First priority: Use stored sizeAdjustedPrice if available (this is the actual charged price)
+    if (item?.sizeAdjustedPrice && item.sizeAdjustedPrice > 0) {
+      return item.sizeAdjustedPrice;
+    }
+    
+    // Second priority: Use stored unit price if available
+    if (item?.unitPrice && item.unitPrice > 0) {
+      return item.unitPrice;
+    }
+    
+    // Third priority: Use stored itemTotal divided by quantity
+    if (item?.itemTotal && item.itemTotal > 0 && item?.quantity && item.quantity > 0) {
+      return item.itemTotal / item.quantity;
+    }
+    
+    // Fallback: Calculate based on total price
     const totalPrice = calculateSizeBasedPrice(item, productInfo);
     return totalPrice / (item?.quantity || 1);
   };
@@ -292,18 +324,33 @@ const AdminOrderDetails = ({ order, onClose }) => {
         activeItemCount += item.quantity || 1;
       });
 
-      // Add delivery charge only if there are active items (not fully cancelled)
-      const deliveryCharge = order.deliveryCharge || 0;
+      // With the new logic, full delivery charge is retained for partial cancellations
+      // Only for full order cancellation is the delivery charge refunded
       const shouldIncludeDeliveryCharge = activeItems.length > 0;
-      const remainingTotal = remainingSubtotal + (shouldIncludeDeliveryCharge ? deliveryCharge : 0);
+      const originalDeliveryCharge = order.deliveryCharge || 0;
+      
+      // Get any refund amount from cancellations or returns
+      const refundAmount = 
+        (cancellationDetails?.adminResponse?.refundAmount || 0) + 
+        (modificationPermission?.approvedCancellation?.adminResponse?.refundAmount || 0);
+      
+      // Calculate remaining total by starting with the subtotal and delivery charge
+      const calculatedTotal = remainingSubtotal + (shouldIncludeDeliveryCharge ? originalDeliveryCharge : 0);
+      
+      // Don't subtract refund amount from active items' total price
+      // This keeps the display consistent with what the user sees - the full price for active items
+      const remainingTotal = (activeItems.length === 0) ? 0 : calculatedTotal;
+      
+      // For partial cancellations, we keep the full delivery charge
+      const adjustedDeliveryCharge = shouldIncludeDeliveryCharge ? originalDeliveryCharge : 0;
 
       return {
         activeItems,
         activeItemCount,
         remainingTotal,
         remainingSubtotal,
-        deliveryCharge: shouldIncludeDeliveryCharge ? deliveryCharge : 0,
-        originalDeliveryCharge: deliveryCharge,
+        deliveryCharge: adjustedDeliveryCharge,
+        originalDeliveryCharge: originalDeliveryCharge,
         hasCancelledItems: cancelledItemIds.size > 0,
         hasReturnedItems: returnedItemIds.size > 0,
         isTotallyCancelled: activeItems.length === 0 && (order.items?.length > 0)
@@ -744,10 +791,12 @@ const AdminOrderDetails = ({ order, onClose }) => {
                                 <div className="text-blue-700 font-semibold">{formatCurrency(cancellationDetails.adminResponse.refundAmount)}</div>
                               </div>
                             )}
-                            {cancellationDetails.adminResponse.refundPercentage && (
+                            {(cancellationDetails.adminResponse.refundPercentage || cancellationDetails.adminResponse.calculatedRefundPercentage) && (
                               <div>
                                 <span className="font-medium text-blue-800">Refund Percentage:</span>
-                                <div className="text-blue-700">{cancellationDetails.adminResponse.refundPercentage}%</div>
+                                <div className="text-blue-700">
+                                  {cancellationDetails.adminResponse.calculatedRefundPercentage || cancellationDetails.adminResponse.refundPercentage}%
+                                </div>
                               </div>
                             )}
                             {cancellationDetails.adminResponse.adminComments && (
@@ -851,6 +900,22 @@ const AdminOrderDetails = ({ order, onClose }) => {
                     <br />Items Cancelled: {modificationPermission.approvedCancellation.itemsToCancel?.length || 0}
                     <br />Reason: {modificationPermission.approvedCancellation.reason}
                     <br />Date: {new Date(modificationPermission.approvedCancellation.requestDate).toLocaleDateString()}
+                    {modificationPermission.approvedCancellation.adminResponse && (
+                      <>
+                        {modificationPermission.approvedCancellation.adminResponse.refundAmount > 0 && (
+                          <>
+                            <br />Refund Amount: ₹{modificationPermission.approvedCancellation.adminResponse.refundAmount.toFixed(2)}
+                          </>
+                        )}
+                        {(modificationPermission.approvedCancellation.adminResponse.calculatedRefundPercentage || 
+                          modificationPermission.approvedCancellation.adminResponse.refundPercentage) && (
+                          <>
+                            <br />Refund Percentage: {modificationPermission.approvedCancellation.adminResponse.calculatedRefundPercentage || 
+                              modificationPermission.approvedCancellation.adminResponse.refundPercentage}%
+                          </>
+                        )}
+                      </>
+                    )}
                   </div>
                 </div>
               </div>
@@ -1297,6 +1362,19 @@ const AdminOrderDetails = ({ order, onClose }) => {
                                   );
                                 }
                                 
+                                // For partial cancellations, we now keep the full delivery charge
+                                // This block is no longer needed since we don't adjust delivery charge proportionally
+                                if (false && activeOrderInfo.hasCancelledItems && activeOrderInfo.deliveryCharge !== activeOrderInfo.originalDeliveryCharge) {
+                                  return (
+                                    <div className="flex flex-col items-end">
+                                      <span>₹{activeOrderInfo.deliveryCharge?.toFixed(2)}</span>
+                                      <span className="text-xs text-amber-600">
+                                        <span className="line-through">₹{originalDeliveryCharge}</span> (adjusted)
+                                      </span>
+                                    </div>
+                                  );
+                                }
+                                
                                 return `₹${originalDeliveryCharge}`;
                               })()}
                             </td>
@@ -1372,13 +1450,14 @@ const AdminOrderDetails = ({ order, onClose }) => {
                           )}
                           
                           <tr className="border-b border-gray-100">
-                            <td className="py-3 font-medium">Remaining Amount</td>
+                            <td className="py-3 font-medium">Final Amount</td>
                             <td className="py-3 text-right font-bold text-lg text-gray-800">
                               {(() => {
                                 const activeOrderInfo = getActiveOrderInfo(order);
+                                const finalAmount = activeOrderInfo.remainingTotal >= 0 ? activeOrderInfo.remainingTotal : 0;
                                 return (
                                   <div className="flex flex-col items-end">
-                                    <span>₹{activeOrderInfo.remainingTotal?.toFixed(2)}</span>
+                                    <span>₹{finalAmount?.toFixed(2)}</span>
                                     {(activeOrderInfo.hasCancelledItems || activeOrderInfo.hasReturnedItems) && (
                                       <span className="text-xs text-amber-600">
                                         <span className="line-through">₹{order.totalAmt?.toFixed(2)}</span> (original total)
