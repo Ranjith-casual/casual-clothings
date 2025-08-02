@@ -8,6 +8,7 @@ const OrderSuccessPage = () => {
   const location = useLocation();
   const [showAnimation, setShowAnimation] = useState(true);
   const [fadeIn, setFadeIn] = useState(false);
+  const [imageLoaded, setImageLoaded] = useState(false);
   const orderType = location.state?.text || "Order";
   const orderDetails = location.state?.orderDetails || null;
   const user = useSelector((state) => state.user.user);

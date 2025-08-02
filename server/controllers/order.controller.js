@@ -318,6 +318,14 @@ export const onlinePaymentOrderController = async (req, res) => {
         // Use the explicit bundle price
         bundlePrice = item.price || item.bundlePrice || bundleDetails?.bundlePrice || 0;
         
+        console.log(`=== BUNDLE PRICE DEBUG for ${bundleId} ===`);
+        console.log('item.price:', item.price);
+        console.log('item.bundlePrice:', item.bundlePrice);
+        console.log('bundleDetails?.bundlePrice:', bundleDetails?.bundlePrice);
+        console.log('Final bundlePrice:', bundlePrice);
+        console.log('originalPrice:', originalPrice);
+        console.log('=== END BUNDLE DEBUG ===');
+        
         // Calculate total for this bundle item
         const bundleItemTotal = bundlePrice * item.quantity;
         
@@ -352,19 +360,36 @@ export const onlinePaymentOrderController = async (req, res) => {
         if (!productDetails || !productDetails.name) {
           try {
             const product = await ProductModel.findById(productId);
+            console.log(`=== PRODUCT FETCHING DEBUG for ${productId} ===`);
+            console.log('Product found:', !!product);
             if (product) {
+              console.log('Product details:', {
+                name: product.name,
+                price: product.price,
+                discountedPrice: product.discountedPrice,
+                discount: product.discount
+              });
+              
+              // Use discountedPrice if available, otherwise use price
+              const productPrice = product.discountedPrice || product.price;
+              
               productDetails = {
                 name: product.name,
                 image: product.image,
-                price: product.price,
+                price: productPrice,
                 discount: product.discount
               };
+              
+              console.log('Created productDetails:', productDetails);
+            } else {
+              console.log('No product found in database for ID:', productId);
             }
+            console.log('=== END PRODUCT FETCHING DEBUG ===');
           } catch (error) {
             console.error("Error fetching product details:", error);
           }
         }
-        
+
         // Determine the correct price to use (size-adjusted or regular)
         let priceToUse = 0;
         let originalPrice = 0;
@@ -372,8 +397,10 @@ export const onlinePaymentOrderController = async (req, res) => {
         
         // Get the original product price before any adjustments
         originalPrice = productDetails?.price || 0;
-        
-        // First check for size-specific pricing in the product data
+        console.log(`=== PRICE CALCULATION DEBUG for ${productId} ===`);
+        console.log('productDetails:', productDetails);
+        console.log('productDetails.price:', productDetails?.price);
+        console.log('originalPrice (final):', originalPrice);        // First check for size-specific pricing in the product data
         if (item.size && item.productId) {
           try {
             const product = await ProductModel.findById(productId);
@@ -420,8 +447,15 @@ export const onlinePaymentOrderController = async (req, res) => {
         
         // Validate that the calculated price matches expected ranges
         if (calculatedItemTotal <= 0) {
-          console.warn(`⚠️ Warning: Calculated item total is ${calculatedItemTotal} for product ${productId}`);
+          console.warn(`⚠️ WARNING: Calculated item total is ${calculatedItemTotal} for product ${productId}`);
+          console.warn(`⚠️ Values: finalPrice=${finalPrice}, quantity=${item.quantity}, priceToUse=${priceToUse}, originalPrice=${originalPrice}`);
         }
+        
+        console.log(`=== FINAL PRICE DEBUG for ${productId} ===`);
+        console.log('finalPrice:', finalPrice);
+        console.log('calculatedItemTotal:', calculatedItemTotal);
+        console.log('item.quantity:', item.quantity);
+        console.log('=== END FINAL PRICE DEBUG ===');
         
         if (finalPrice !== priceToUse && item.sizeAdjustedPrice === undefined) {
           console.log(`💰 Discount applied: ${productId} - Original: ₹${priceToUse}, Final: ₹${finalPrice} (${discountToApply}% off)`);
@@ -453,6 +487,12 @@ export const onlinePaymentOrderController = async (req, res) => {
           originalPrice: Math.round(originalPrice * 100) / 100,
           itemTotal: calculatedItemTotal
         };
+        
+        console.log(`=== PROCESSED ITEM DEBUG for ${productId} ===`);
+        console.log('processedItem.unitPrice:', processedItem.unitPrice);
+        console.log('processedItem.itemTotal:', processedItem.itemTotal);
+        console.log('processedItem.productDetails.price:', processedItem.productDetails.price);
+        console.log('=== END PROCESSED ITEM DEBUG ===');
         
         // Add size-adjusted price if available (ensures it's a direct property of the item)
         if (item.sizeAdjustedPrice !== undefined) {
@@ -615,6 +655,21 @@ export const onlinePaymentOrderController = async (req, res) => {
 
       // Send confirmation email with proper recipient
       try {
+        // Debug: Log payload.items structure before sending email
+        console.log('=== EMAIL TEMPLATE DEBUG ===');
+        console.log('payload.items structure:');
+        payload.items.forEach((item, index) => {
+          console.log(`Item ${index + 1}:`, {
+            itemType: item.itemType,
+            unitPrice: item.unitPrice,
+            itemTotal: item.itemTotal,
+            quantity: item.quantity,
+            productDetails: item.productDetails,
+            bundleDetails: item.bundleDetails
+          });
+        });
+        console.log('=== END EMAIL DEBUG ===');
+
         await sendEmail({
           sendTo: user.email,
           subject: "Order Confirmation - Casual Clothing Fashion",
@@ -636,10 +691,11 @@ export const onlinePaymentOrderController = async (req, res) => {
                 <h4>Items Ordered:</h4>
                 ${payload.items.map(item => `
                   <div style="border-bottom: 1px solid #eee; padding: 10px 0;">
-                    <p><strong>${item.itemType === 'bundle' ? 'Bundle' : 'Product'}:</strong> ${item.itemType === 'bundle' ? item.bundleDetails.title : item.productDetails.name}</p>
+                    <p><strong>${item.itemType === 'bundle' ? 'Bundle' : 'Product'}:</strong> ${item.itemType === 'bundle' ? (item.bundleDetails?.title || 'Bundle Item') : (item.productDetails?.name || 'Product Item')}</p>
+                    ${item.size ? `<p><strong>Size:</strong> ${item.size}</p>` : ''}
                     <p><strong>Quantity:</strong> ${item.quantity}</p>
-                    <p><strong>Price:</strong> ₹${item.itemType === 'bundle' ? item.bundleDetails.bundlePrice : item.productDetails.price}</p>
-                    <p><strong>Item Total:</strong> ₹${item.itemTotal}</p>
+                    <p><strong>Price:</strong> ₹${item.unitPrice || 0}</p>
+                    <p><strong>Item Total:</strong> ₹${item.itemTotal || 0}</p>
                   </div>
                 `).join('')}
               </div>
