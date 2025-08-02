@@ -8,8 +8,11 @@ import {
     FaCheckCircle, 
     FaTimesCircle,
     FaArrowUp,
-    FaArrowDown
+    FaArrowDown,
+    FaBell,
+    FaExclamationCircle
 } from 'react-icons/fa'
+import { Link } from 'react-router-dom'
 
 function PaymentStatsCards() {
     const [stats, setStats] = useState({
@@ -25,10 +28,32 @@ function PaymentStatsCards() {
         retainedAmount: 0, // Amount retained from partial refunds
         pendingPayments: 0
     })
+    const [pendingRefundRequests, setPendingRefundRequests] = useState([])
+    const [refundLoading, setRefundLoading] = useState(true)
     const [loading, setLoading] = useState(true)
+    
+    // Fetch pending refund requests that need approval
+    const fetchPendingRefundRequests = async () => {
+        try {
+            setRefundLoading(true)
+            const response = await Axios({
+                ...SummaryApi.getPendingRefundApprovals
+            })
+            
+            if (response.data.success) {
+                setPendingRefundRequests(response.data.data || [])
+                console.log('Pending refund requests:', response.data.data)
+            }
+        } catch (error) {
+            console.error('Error fetching pending refund requests:', error)
+        } finally {
+            setRefundLoading(false)
+        }
+    }
 
     useEffect(() => {
         fetchPaymentStats()
+        fetchPendingRefundRequests()
     }, [])
 
     const fetchPaymentStats = async () => {
@@ -264,19 +289,73 @@ function PaymentStatsCards() {
 
     const handleRefresh = () => {
         setLoading(true);
+        setRefundLoading(true);
         fetchPaymentStats();
+        fetchPendingRefundRequests();
     };
 
     return (
         <div>
+            {!refundLoading && pendingRefundRequests.length > 0 && (
+                <div className="bg-amber-50 border-l-4 border-amber-500 p-4 mb-6 rounded-md shadow-sm">
+                    <div className="flex items-start justify-between">
+                        <div className="flex">
+                            <div className="flex-shrink-0">
+                                <FaExclamationCircle className="h-5 w-5 text-amber-500" />
+                            </div>
+                            <div className="ml-3">
+                                <h3 className="text-lg font-medium text-amber-800">
+                                    Pending Refund Approval Requests ({pendingRefundRequests.length})
+                                </h3>
+                                <div className="mt-2 text-sm text-amber-700">
+                                    <p>You have {pendingRefundRequests.length} refund request{pendingRefundRequests.length !== 1 ? 's' : ''} awaiting your approval.</p>
+                                    <ul className="mt-2 space-y-1 list-disc list-inside">
+                                        {pendingRefundRequests.slice(0, 3).map((request, index) => (
+                                            <li key={index} className="text-amber-800">
+                                                Order #{request.orderId?.orderId || request.orderId} - 
+                                                {request.cancellationType === 'FULL_ORDER' 
+                                                    ? ' Full order cancellation' 
+                                                    : ' Partial cancellation'} 
+                                                ({new Date(request.requestDate).toLocaleDateString()})
+                                            </li>
+                                        ))}
+                                        {pendingRefundRequests.length > 3 && (
+                                            <li className="text-amber-800">
+                                                and {pendingRefundRequests.length - 3} more...
+                                            </li>
+                                        )}
+                                    </ul>
+                                </div>
+                                <div className="mt-4">
+                                    <Link 
+                                        to="/admin/refund-management" 
+                                        className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-amber-600 hover:bg-amber-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-amber-500"
+                                    >
+                                        Review Refund Requests
+                                    </Link>
+                                </div>
+                            </div>
+                        </div>
+                        <button 
+                            onClick={fetchPendingRefundRequests}
+                            className="ml-4 bg-amber-100 p-2 rounded-full hover:bg-amber-200 focus:outline-none"
+                        >
+                            <svg className="h-5 w-5 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+            )}
+            
             <div className="flex justify-between items-center mb-4">
                 <h2 className="text-xl font-semibold text-gray-800">Payment Statistics</h2>
                 <button 
                     onClick={handleRefresh}
-                    disabled={loading}
+                    disabled={loading || refundLoading}
                     className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 flex items-center"
                 >
-                    {loading ? 'Refreshing...' : 'Refresh Stats'}
+                    {(loading || refundLoading) ? 'Refreshing...' : 'Refresh Stats'}
                 </button>
             </div>
             

@@ -345,6 +345,10 @@ const SummaryApi = {
         url: '/api/order-cancellation/admin/refunds',
         method: 'get'
     },
+    getPendingRefundApprovals: {
+        url: '/api/order-cancellation/admin/pending-approvals',
+        method: 'get'
+    },
     getUserRefunds: {
         url: '/api/order-cancellation/user-refunds',
         method: 'get'

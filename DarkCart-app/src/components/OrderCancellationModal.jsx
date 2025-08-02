@@ -46,8 +46,18 @@ function OrderCancellationModal({ order, onClose, onCancellationRequested }) {
                 // Only pre-select items that are not already cancelled
                 if (item.status !== 'Cancelled' && !item.cancelApproved) {
                     initialSelection[item._id] = true;
+                    console.log(`Pre-selecting item ${item._id} for cancellation`);
                 }
             });
+            // Ensure at least one item is selected if available
+            const hasSelection = Object.values(initialSelection).some(value => value === true);
+            if (!hasSelection && order.items.length > 0) {
+                const firstActiveItem = order.items.find(item => item.status !== 'Cancelled' && !item.cancelApproved);
+                if (firstActiveItem) {
+                    initialSelection[firstActiveItem._id] = true;
+                    console.log(`Force-selecting first active item ${firstActiveItem._id} as fallback`);
+                }
+            }
             return initialSelection;
         }
         return {};
@@ -187,7 +197,21 @@ function OrderCancellationModal({ order, onClose, onCancellationRequested }) {
             console.log(`❌ Cancelled items count: ${cancelledItems.length}`);
             
             if (activeItems.length === 1) {
-                console.log('💡 Only one active item remaining - will force full cancellation mode');
+                console.log('💡 Only one active item remaining - forcing full cancellation mode');
+                setCancelMode('full');
+                
+                // Make sure the last remaining item is selected and ready for submission
+                if (activeItems[0] && activeItems[0]._id) {
+                    setSelectedItems({ [activeItems[0]._id]: true });
+                    console.log(`Force-selected last remaining item: ${activeItems[0]._id}`);
+                    
+                    // Use a small timeout to ensure state is updated before showing the toast
+                    setTimeout(() => {
+                        toast.success('Ready to submit cancellation for the last remaining item', {
+                            duration: 3000
+                        });
+                    }, 100);
+                }
             }
         }
     }, [])
@@ -383,8 +407,23 @@ function OrderCancellationModal({ order, onClose, onCancellationRequested }) {
             return
         }
 
+            // Check active items count first
+            const activeItems = order.items.filter(item => 
+                item.status !== 'Cancelled' && !item.cancelApproved
+            );
+            
+            console.log(`Active items count: ${activeItems.length} of ${order.items?.length || 0} total items`);
+            
+            // For single item orders or last remaining item, automatically use full cancellation mode
+            // but continue with submission rather than just updating state
+            const effectiveCancelMode = activeItems.length === 1 ? 'full' : cancelMode;
+            
+            if (activeItems.length === 1) {
+                console.log('Only one active item - using full cancellation mode for submission');
+                // We'll use effectiveCancelMode instead of setting state and waiting
+            }
             // For partial cancellation, check if any items are selected
-            if (cancelMode === 'partial') {
+            else if (effectiveCancelMode === 'partial') {
                 const selectedItemIds = Object.keys(selectedItems).filter(id => selectedItems[id])
                 if (selectedItemIds.length === 0) {
                     toast.error('Please select at least one item to cancel')
@@ -449,24 +488,41 @@ function OrderCancellationModal({ order, onClose, onCancellationRequested }) {
                         setCancelMode('full');
                     }
                 }
-            }        setLoading(true)
+            }        
+        
+        // Set loading state early to prevent double clicks
+        setLoading(true)
 
         try {
-            const token = localStorage.getItem('accessToken')
+            console.log("Starting cancellation request submission...");
+            const token = localStorage.getItem('accessToken');
+            
+            if (!token) {
+                toast.error("Authentication token not found. Please log in again.");
+                console.error("No auth token found during submission");
+                setLoading(false);
+                return;
+            }
             
             // IMPORTANT: Always use partial cancellation when there are already cancelled items
             // This ensures admin only sees the items actually being requested for cancellation
             const hasAlreadyCancelledItems = order.items.some(item => item.status === 'Cancelled' || item.cancelApproved);
-            const effectiveCancelMode = hasAlreadyCancelledItems ? 'partial' : cancelMode;
             
-            console.log('Effective cancel mode:', {
+            // Use our already determined effectiveCancelMode (for single items) 
+            // or determine based on existing cancellations
+            const finalCancelMode = hasAlreadyCancelledItems ? 'partial' : effectiveCancelMode;
+            
+            console.log("Cancellation request: Using mode:", finalCancelMode);
+            
+            console.log('Final cancel mode:', {
                 originalMode: cancelMode,
-                effectiveMode: effectiveCancelMode,
+                effectiveMode: finalCancelMode,
                 hasAlreadyCancelledItems,
-                reason: hasAlreadyCancelledItems ? 'Forced to partial due to existing cancelled items' : 'Using original mode'
+                reason: hasAlreadyCancelledItems ? 'Forced to partial due to existing cancelled items' : 
+                       (activeItems.length === 1 ? 'Single item remaining - using full mode' : 'Using original mode')
             });
             
-            if (effectiveCancelMode === 'full') {
+            if (finalCancelMode === 'full') {
                 // Full order cancellation - calculate comprehensive pricing info for admin review
                 let totalDiscountedAmount = 0;
                 let totalOriginalAmount = 0;
@@ -509,49 +565,78 @@ function OrderCancellationModal({ order, onClose, onCancellationRequested }) {
                     itemCount: itemPricingBreakdown.length
                 });
                 
-                const response = await Axios({
-                    ...SummaryApi.requestOrderCancellation,
-                    headers: {
-                        authorization: `Bearer ${token}`
-                    },
-                    data: {
-                        orderId: order._id,
-                        reason,
-                        additionalReason: additionalReason.trim(),
-                        // Enhanced pricing information for admin review
-                        pricingInformation: {
-                            totalAmountCustomerPaid: totalWithDelivery, // Total including delivery charge
-                            totalOriginalRetailPrice: totalOriginalAmount + deliveryCharge, // Include delivery in original total
-                            totalCustomerSavings: totalSavingsAmount, // Savings from discounts (delivery charge not discounted)
-                            refundPercentage: refundPercentage,
-                            calculatedRefundAmount: refundWithDelivery,
-                            deliveryCharge: deliveryCharge,
-                            itemBreakdown: itemPricingBreakdown,
-                            note: "Refund calculated based on discounted prices + delivery charge customer actually paid"
+                console.log("Making full order cancellation API request...");
+                try {
+                    const response = await Axios({
+                        ...SummaryApi.requestOrderCancellation,
+                        headers: {
+                            authorization: `Bearer ${token}`
+                        },
+                        data: {
+                            orderId: order._id,
+                            reason,
+                            additionalReason: additionalReason.trim(),
+                            // Enhanced pricing information for admin review
+                            pricingInformation: {
+                                totalAmountCustomerPaid: totalWithDelivery, // Total including delivery charge
+                                totalOriginalRetailPrice: totalOriginalAmount + deliveryCharge, // Include delivery in original total
+                                totalCustomerSavings: totalSavingsAmount, // Savings from discounts (delivery charge not discounted)
+                                refundPercentage: refundPercentage,
+                                calculatedRefundAmount: refundWithDelivery,
+                                deliveryCharge: deliveryCharge,
+                                itemBreakdown: itemPricingBreakdown,
+                                note: "Refund calculated based on discounted prices + delivery charge customer actually paid"
+                            }
                         }
-                    }
-                })
+                    });
 
-                if (response.data.success) {
-                    toast.success('Cancellation request submitted successfully!')
-                    onCancellationRequested && onCancellationRequested()
-                    onClose()
+                    console.log("Full cancellation API response:", response.data);
+                    
+                    if (response.data.success) {
+                        toast.success('Cancellation request submitted successfully!');
+                        if (onCancellationRequested) {
+                            onCancellationRequested();
+                        }
+                        onClose();
+                    } else if (response.data.message) {
+                        toast.error(response.data.message);
+                    } else {
+                        toast.error('Failed to submit cancellation request. Please try again.');
+                    }
+                } catch (apiError) {
+                    console.error("Error in full cancellation API call:", apiError);
+                    throw apiError; // Re-throw to be caught by outer catch block
                 }
             } else {
                 // Partial item cancellation (or forced partial for orders with existing cancellations)
                 console.log('🔧 Processing as partial cancellation:', {
                     originalMode: cancelMode,
-                    effectiveMode: effectiveCancelMode,
+                    effectiveMode: finalCancelMode,
                     hasExistingCancellations: hasAlreadyCancelledItems,
                     reason: hasAlreadyCancelledItems ? 'Forced partial mode due to existing cancelled items' : 'Normal partial cancellation'
                 });
                 
                 const selectedItemIds = Object.keys(selectedItems).filter(id => selectedItems[id])
                 
-                if (selectedItemIds.length === 0) {
+                // Get active items count (non-cancelled items)
+                const activeItems = order.items.filter(item => 
+                    item.status !== 'Cancelled' && !item.cancelApproved
+                );
+                const isSingleItemRemaining = activeItems.length === 1;
+                
+                // Only enforce selection validation if we're not dealing with the last remaining item
+                if (selectedItemIds.length === 0 && !isSingleItemRemaining) {
                     toast.error('Please select at least one item to cancel')
                     setLoading(false)
                     return
+                }
+                
+                // Special handling for single remaining item - ensure it's selected
+                if (isSingleItemRemaining && selectedItemIds.length === 0) {
+                    // Auto-select the last remaining item if it's not selected
+                    const lastItemId = activeItems[0]._id;
+                    selectedItemIds.push(lastItemId);
+                    console.log(`Auto-selected last remaining item ${lastItemId} for cancellation`);
                 }
                 
                 // Prepare items to cancel with discounted price information
@@ -634,39 +719,68 @@ function OrderCancellationModal({ order, onClose, onCancellationRequested }) {
                     totalActiveItems: order.items.filter(item => item.status !== 'Cancelled' && !item.cancelApproved).length
                 });
                 
-                const response = await Axios({
-                    ...SummaryApi.requestPartialItemCancellation,
-                    headers: {
-                        authorization: `Bearer ${token}`
-                    },
-                    data: {
-                        orderId: order._id,
-                        itemsToCancel,
-                        reason,
-                        additionalReason: additionalReason.trim(),
-                        // Enhanced totals for backend processing
-                        totalRefundAmount: totalRefundAmount,
-                        totalItemValue: totalItemValue,
-                        // Add delivery charge information
-                        deliveryChargeRefund: deliveryChargeRefund,
-                        isEffectivelyFullCancellation: isEffectivelyFullCancellation || isLastRemainingItem,
-                        deliveryCharge: order.deliveryCharge || 0,
-                        // Add continuation cancellation flag
-                        isContinuationCancellation,
-                        isLastRemainingItem
+                console.log("Making partial item cancellation API request...");
+                try {
+                    const response = await Axios({
+                        ...SummaryApi.requestPartialItemCancellation,
+                        headers: {
+                            authorization: `Bearer ${token}`
+                        },
+                        data: {
+                            orderId: order._id,
+                            itemsToCancel,
+                            reason,
+                            additionalReason: additionalReason.trim(),
+                            // Enhanced totals for backend processing
+                            totalRefundAmount: totalRefundAmount,
+                            totalItemValue: totalItemValue,
+                            // Add delivery charge information
+                            deliveryChargeRefund: deliveryChargeRefund,
+                            isEffectivelyFullCancellation: isEffectivelyFullCancellation || isLastRemainingItem,
+                            deliveryCharge: order.deliveryCharge || 0,
+                            // Add continuation cancellation flag
+                            isContinuationCancellation,
+                            isLastRemainingItem
+                        }
+                    });
+                    
+                    console.log("Partial cancellation API response:", response.data);
+                    
+                    if (response.data.success) {
+                        toast.success('Partial cancellation request submitted successfully!');
+                        if (onCancellationRequested) {
+                            onCancellationRequested();
+                        }
+                        onClose();
+                    } else if (response.data.message) {
+                        toast.error(response.data.message);
+                    } else {
+                        toast.error('Failed to submit cancellation request. Please try again.');
                     }
-                })
-
-                if (response.data.success) {
-                    toast.success('Partial cancellation request submitted successfully!')
-                    onCancellationRequested && onCancellationRequested()
-                    onClose()
+                } catch (apiError) {
+                    console.error("Error in partial cancellation API call:", apiError);
+                    throw apiError; // Re-throw to be caught by outer catch block
                 }
             }
         } catch (error) {
-            AxiosTostError(error)
+            console.error("Error submitting cancellation request:", error);
+            
+            // Show more helpful error messages
+            if (error?.response?.status === 401) {
+                toast.error("Your session has expired. Please log in again.");
+            } else if (error?.response?.status === 403) {
+                toast.error("You don't have permission to cancel this order.");
+            } else if (error?.response?.data?.message) {
+                toast.error(error.response.data.message);
+            } else {
+                toast.error("Failed to submit cancellation request. Please try again.");
+            }
+            
+            // Fall back to general error handler
+            AxiosTostError(error);
         } finally {
-            setLoading(false)
+            console.log("Cancellation request submission complete - resetting loading state");
+            setLoading(false);
         }
     }
     
@@ -1150,7 +1264,7 @@ function OrderCancellationModal({ order, onClose, onCancellationRequested }) {
                     </div>
                 </div>
                 
-                {/* Cancellation Options */}
+                    {/* Cancellation Options */}
                 <div className="p-6 border-b">
                     <h3 className="font-semibold mb-3">Cancellation Options</h3>
                     <div className="space-y-3">
@@ -1162,7 +1276,20 @@ function OrderCancellationModal({ order, onClose, onCancellationRequested }) {
                                 item.status === 'Cancelled' || item.cancelApproved
                             ) || [];
                             
-                            // If there are already cancelled items, only show partial cancellation mode
+                            // If only one active item is left, show simplified message
+                            if (activeItems.length === 1) {
+                                return (
+                                    <div className="bg-blue-50 p-3 rounded-md border border-blue-200">
+                                        <div className="flex items-center">
+                                            <FaInfoCircle className="text-blue-600 mr-2" />
+                                            <div>
+                                                <p className="font-medium text-blue-800">Only one item remaining in this order</p>
+                                                <p className="text-sm text-blue-600">This will cancel the entire order</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                );
+                            }                            // If there are already cancelled items, only show partial cancellation mode
                             if (cancelledItems.length > 0) {
                                 return (
                                     <div className="space-y-3">
@@ -1691,8 +1818,38 @@ function OrderCancellationModal({ order, onClose, onCancellationRequested }) {
                             Keep Order
                         </button>
                         <button
-                            type="submit"
-                            disabled={loading || !reason}
+                            type="button" 
+                            onClick={(e) => {
+                                e.preventDefault();
+                                
+                                // Validate form before attempting submission
+                                if (!reason) {
+                                    toast.error('Please select a reason for cancellation');
+                                    return;
+                                }
+
+                                if (reason === 'Other' && !additionalReason.trim()) {
+                                    toast.error('Please provide additional details for other reason');
+                                    return;
+                                }
+
+                                // Validation for partial mode
+                                if (cancelMode === 'partial') {
+                                    const selectedItemIds = Object.keys(selectedItems).filter(id => selectedItems[id]);
+                                    if (selectedItemIds.length === 0) {
+                                        toast.error('Please select at least one item to cancel');
+                                        return;
+                                    }
+                                }
+
+                                // Set loading state and directly call handleSubmit
+                                if (!loading) {
+                                    setLoading(true);
+                                    // Call handleSubmit directly with a synthetic event
+                                    handleSubmit({preventDefault: () => {}});
+                                }
+                            }}
+                            disabled={loading || !reason || (cancelMode === 'partial' && Object.values(selectedItems).filter(Boolean).length === 0 && order.items.filter(item => item.status !== 'Cancelled' && !item.cancelApproved).length > 1)}
                             className="flex-1 px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
                         >
                             {loading ? 'Submitting...' : (() => {
