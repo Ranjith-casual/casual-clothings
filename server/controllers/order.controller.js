@@ -684,20 +684,38 @@ export const onlinePaymentOrderController = async (req, res) => {
                 <p><strong>Order ID:</strong> ${generatedOrder[0].orderId}</p>
                 <p><strong>Order Date:</strong> ${new Date().toLocaleDateString()}</p>
                 <p><strong>Estimated Delivery Date:</strong> ${generatedOrder[0].estimatedDeliveryDate ? new Date(generatedOrder[0].estimatedDeliveryDate).toLocaleDateString() : 'To be confirmed'}</p>
+                <p><strong>Subtotal:</strong> ₹${generatedOrder[0].subTotalAmt || (totalAmount - (generatedOrder[0].deliveryCharge || 0))}</p>
+                <p><strong>Delivery Charge:</strong> ₹${generatedOrder[0].deliveryCharge || 0}</p>
                 <p><strong>Total Amount:</strong> ₹${totalAmount}</p>
                 <p><strong>Payment Method:</strong> ${paymentMethod || "Online Payment"}</p>
                 <p><strong>Total Items:</strong> ${quantity}</p>
                 
                 <h4>Items Ordered:</h4>
-                ${payload.items.map(item => `
+                ${payload.items.map(item => {
+                  // Calculate proper unit price for display
+                  let displayPrice = 0;
+                  if (item.unitPrice) {
+                    displayPrice = item.unitPrice;
+                  } else if (item.itemTotal && item.quantity) {
+                    displayPrice = item.itemTotal / item.quantity;
+                  } else if (item.sizeAdjustedPrice) {
+                    displayPrice = item.sizeAdjustedPrice;
+                  } else if (item.itemType === 'bundle' && item.bundleDetails?.bundlePrice) {
+                    displayPrice = item.bundleDetails.bundlePrice;
+                  } else if (item.productDetails?.price) {
+                    displayPrice = item.productDetails.price;
+                  }
+                  
+                  return `
                   <div style="border-bottom: 1px solid #eee; padding: 10px 0;">
                     <p><strong>${item.itemType === 'bundle' ? 'Bundle' : 'Product'}:</strong> ${item.itemType === 'bundle' ? (item.bundleDetails?.title || 'Bundle Item') : (item.productDetails?.name || 'Product Item')}</p>
                     ${item.size ? `<p><strong>Size:</strong> ${item.size}</p>` : ''}
                     <p><strong>Quantity:</strong> ${item.quantity}</p>
-                    <p><strong>Price:</strong> ₹${item.unitPrice || 0}</p>
-                    <p><strong>Item Total:</strong> ₹${item.itemTotal || 0}</p>
+                    <p><strong>Price:</strong> ₹${displayPrice.toFixed(2)}</p>
+                    <p><strong>Item Total:</strong> ₹${(displayPrice * item.quantity).toFixed(2)}</p>
                   </div>
-                `).join('')}
+                  `;
+                }).join('')}
               </div>
               
               <p>Your order will be delivered to your specified address by ${generatedOrder[0].estimatedDeliveryDate ? new Date(generatedOrder[0].estimatedDeliveryDate).toLocaleDateString() : '3-5 business days'}.</p>
