@@ -2,6 +2,7 @@ import returnProductModel from "../models/returnProduct.model.js";
 import orderModel from "../models/order.model.js";
 import userModel from "../models/users.model.js";
 import mongoose from "mongoose";
+import sendEmail from "../config/sendEmail.js";
 
 // Helper function to check if return is eligible
 const isReturnEligible = (deliveryDate) => {
@@ -494,12 +495,34 @@ export const getAllReturnRequests = async (req, res) => {
         sort[sortBy] = sortOrder === 'desc' ? -1 : 1;
 
         const returnRequests = await returnProductModel.find(query)
-            .populate('orderId', 'orderId orderDate actualDeliveryDate')
-            .populate('userId', 'name email')
-            .populate('adminResponse.processedBy', 'name email')
+            .populate({
+                path: 'orderId',
+                select: 'orderId orderDate actualDeliveryDate',
+                populate: {
+                    path: 'userId',
+                    select: 'name email'
+                }
+            })
+            .populate({
+                path: 'userId',
+                select: 'name email'
+            })
+            .populate({
+                path: 'adminResponse.processedBy',
+                select: 'name email'
+            })
             .sort(sort)
             .skip(skip)
             .limit(parseInt(limit));
+
+        // Filter out any return requests where orderId population failed (orphaned records)
+        const validReturnRequests = returnRequests.filter(returnReq => {
+            if (!returnReq.orderId) {
+                console.warn(`Warning: Return request ${returnReq._id} has invalid orderId reference. Consider cleanup.`);
+                return false;
+            }
+            return true;
+        });
 
         const total = await returnProductModel.countDocuments(query);
 
@@ -507,7 +530,7 @@ export const getAllReturnRequests = async (req, res) => {
             message: "Return requests retrieved successfully",
             success: true,
             data: {
-                returns: returnRequests,
+                returns: validReturnRequests,
                 pagination: {
                     currentPage: parseInt(page),
                     totalPages: Math.ceil(total / limit),
@@ -635,7 +658,12 @@ export const processRefund = async (req, res) => {
 
         returnRequest.status = 'REFUND_PROCESSED';
         returnRequest.refundDetails.refundId = refundId;
-        returnRequest.refundDetails.refundMethod = refundMethod || 'ORIGINAL_PAYMENT_METHOD';
+        
+        // Validate and set refundMethod against enum values
+        const validRefundMethods = ['ORIGINAL_PAYMENT_METHOD', 'BANK_TRANSFER', 'WALLET_CREDIT'];
+        returnRequest.refundDetails.refundMethod = validRefundMethods.includes(refundMethod) ? 
+            refundMethod : 'ORIGINAL_PAYMENT_METHOD';
+            
         returnRequest.refundDetails.refundStatus = 'COMPLETED';
         returnRequest.refundDetails.refundDate = new Date();
 
@@ -813,13 +841,125 @@ export const updateRefundStatus = async (req, res) => {
         returnRequest.refundDetails.refundStatus = refundStatus;
         
         if (refundId) returnRequest.refundDetails.refundId = refundId;
-        if (refundMethod) returnRequest.refundDetails.refundMethod = refundMethod;
+        if (refundMethod) {
+            // Validate refundMethod against enum values
+            const validRefundMethods = ['ORIGINAL_PAYMENT_METHOD', 'BANK_TRANSFER', 'WALLET_CREDIT'];
+            returnRequest.refundDetails.refundMethod = validRefundMethods.includes(refundMethod) ? 
+                refundMethod : 'ORIGINAL_PAYMENT_METHOD';
+        }
         if (refundAmount) returnRequest.refundDetails.actualRefundAmount = refundAmount;
 
         // Update main status based on refund status
         if (refundStatus === 'COMPLETED') {
             returnRequest.status = 'REFUND_PROCESSED';
             returnRequest.refundDetails.refundDate = new Date();
+            
+            // Send email notification to user about refund completion
+            try {
+                // Populate user and order details for email
+                await returnRequest.populate([
+                    { path: 'userId', select: 'name email' },
+                    { path: 'orderId', select: 'orderId orderDate' }
+                ]);
+                
+                if (returnRequest.userId && returnRequest.userId.email) {
+                    const refundAmount = returnRequest.refundDetails.actualRefundAmount || 0;
+                    const itemName = returnRequest.itemDetails.name || 'Unknown Item';
+                    const orderNumber = returnRequest.orderId?.orderId || 'N/A';
+                    
+                    const emailSubject = `Refund Processed - Order ${orderNumber}`;
+                    // Format refund method for display
+                    const formatRefundMethod = (method) => {
+                        const methodMap = {
+                            'ORIGINAL_PAYMENT_METHOD': 'Original Payment Method',
+                            'BANK_TRANSFER': 'Bank Transfer',
+                            'WALLET_CREDIT': 'Wallet Credit'
+                        };
+                        return methodMap[method] || 'Original Payment Method';
+                    };
+
+                    const emailHtml = `
+                        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #ddd; border-radius: 10px;">
+                            <div style="text-align: center; margin-bottom: 30px;">
+                                <h2 style="color: #28a745; margin: 0;">Refund Processed Successfully</h2>
+                            </div>
+                            
+                            <div style="background-color: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+                                <h3 style="color: #333; margin-top: 0;">Dear ${returnRequest.userId.name},</h3>
+                                <p style="color: #666; line-height: 1.6;">
+                                    Your refund request has been processed successfully. The refund amount has been credited and should reflect in your account within 3-5 business days.
+                                </p>
+                            </div>
+                            
+                            <div style="background-color: #fff; border: 1px solid #e9ecef; border-radius: 8px; padding: 20px; margin-bottom: 20px;">
+                                <h4 style="color: #333; margin-top: 0; border-bottom: 2px solid #28a745; padding-bottom: 10px;">Refund Details</h4>
+                                <table style="width: 100%; border-collapse: collapse;">
+                                    <tr>
+                                        <td style="padding: 8px 0; color: #666; font-weight: bold;">Order Number:</td>
+                                        <td style="padding: 8px 0; color: #333;">${orderNumber}</td>
+                                    </tr>
+                                    <tr>
+                                        <td style="padding: 8px 0; color: #666; font-weight: bold;">Item:</td>
+                                        <td style="padding: 8px 0; color: #333;">${itemName}</td>
+                                    </tr>
+                                    <tr>
+                                        <td style="padding: 8px 0; color: #666; font-weight: bold;">Refund Amount:</td>
+                                        <td style="padding: 8px 0; color: #28a745; font-weight: bold; font-size: 18px;">₹${refundAmount}</td>
+                                    </tr>
+                                    <tr>
+                                        <td style="padding: 8px 0; color: #666; font-weight: bold;">Refund Method:</td>
+                                        <td style="padding: 8px 0; color: #333;">${formatRefundMethod(returnRequest.refundDetails.refundMethod)}</td>
+                                    </tr>
+                                    <tr>
+                                        <td style="padding: 8px 0; color: #666; font-weight: bold;">Processed Date:</td>
+                                        <td style="padding: 8px 0; color: #333;">${new Date().toLocaleDateString('en-IN', { 
+                                            year: 'numeric', 
+                                            month: 'long', 
+                                            day: 'numeric' 
+                                        })}</td>
+                                    </tr>
+                                    ${returnRequest.refundDetails.refundId ? `
+                                    <tr>
+                                        <td style="padding: 8px 0; color: #666; font-weight: bold;">Transaction ID:</td>
+                                        <td style="padding: 8px 0; color: #333;">${returnRequest.refundDetails.refundId}</td>
+                                    </tr>
+                                    ` : ''}
+                                </table>
+                            </div>
+                            
+                            <div style="background-color: #e7f3ff; border-left: 4px solid #007bff; padding: 15px; margin-bottom: 20px;">
+                                <h4 style="color: #007bff; margin-top: 0;">Important Information</h4>
+                                <ul style="color: #666; margin: 0; padding-left: 20px;">
+                                    <li>The refund amount will be credited to your original payment method</li>
+                                    <li>It may take 3-5 business days for the amount to reflect in your account</li>
+                                    <li>You will receive a separate confirmation from your bank/payment provider</li>
+                                    <li>Keep this email for your records</li>
+                                </ul>
+                            </div>
+                            
+                            <div style="text-align: center; margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee;">
+                                <p style="color: #666; margin: 0;">
+                                    Thank you for choosing us. We appreciate your business!
+                                </p>
+                                <p style="color: #999; font-size: 12px; margin: 10px 0 0 0;">
+                                    This is an automated email. Please do not reply to this message.
+                                </p>
+                            </div>
+                        </div>
+                    `;
+                    
+                    await sendEmail({
+                        sendTo: returnRequest.userId.email,
+                        subject: emailSubject,
+                        html: emailHtml
+                    });
+                    
+                    console.log(`Refund completion email sent to: ${returnRequest.userId.email}`);
+                }
+            } catch (emailError) {
+                console.error('Error sending refund completion email:', emailError);
+                // Don't fail the API call if email fails
+            }
         } else if (refundStatus === 'FAILED') {
             // Keep current status but add note about failed refund
         }
@@ -867,6 +1007,22 @@ export const updateRefundStatus = async (req, res) => {
 export const getOrderWithReturnDetails = async (req, res) => {
     try {
         const { orderId } = req.params;
+
+        // Validate orderId parameter
+        if (!orderId || orderId === 'null' || orderId === 'undefined') {
+            return res.status(400).json({
+                message: "Invalid order ID provided",
+                success: false
+            });
+        }
+
+        // Validate if orderId is a valid MongoDB ObjectId
+        if (!mongoose.Types.ObjectId.isValid(orderId)) {
+            return res.status(400).json({
+                message: "Invalid order ID format",
+                success: false
+            });
+        }
 
         // Find the order with all items
         const order = await orderModel.findById(orderId)

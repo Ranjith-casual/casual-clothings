@@ -20,7 +20,8 @@ import {
     FaChevronUp,
     FaExclamationTriangle,
     FaCheckCircle,
-    FaTimesCircle
+    FaTimesCircle,
+    FaInfoCircle
 } from 'react-icons/fa';
 
 const AdminReturnManagement = () => {
@@ -132,6 +133,12 @@ const AdminReturnManagement = () => {
     // Fetch order details with return information
     const fetchOrderDetails = async (orderId) => {
         try {
+            // Validate orderId parameter
+            if (!orderId || orderId === 'null' || orderId === 'undefined') {
+                toast.error("Invalid order ID provided");
+                return;
+            }
+
             setLoading(true);
             console.log('Fetching order details for order:', orderId);
             const response = await Axios({
@@ -150,7 +157,17 @@ const AdminReturnManagement = () => {
             }
         } catch (error) {
             console.error('Error fetching order details:', error);
-            toast.error('Failed to fetch order details');
+            
+            // Provide specific error messages based on error type
+            if (error.response?.status === 400) {
+                toast.error("Invalid order ID format");
+            } else if (error.response?.status === 404) {
+                toast.error("Order not found");
+            } else if (error.response?.status === 500) {
+                toast.error("Server error while fetching order details");
+            } else {
+                toast.error('Failed to fetch order details. Please try again.');
+            }
         } finally {
             setLoading(false);
         }
@@ -272,6 +289,126 @@ const AdminReturnManagement = () => {
             adminComments || 'Approved by admin',
             finalRefundAmount
         );
+    };
+
+    // Update refund status (new function for toggle button)
+    const updateRefundStatus = async (returnId, refundStatus, refundDetails = {}) => {
+        try {
+            console.log('Updating refund status:', { returnId, refundStatus, refundDetails });
+            setProcessing(prev => ({ ...prev, [returnId]: true }));
+
+            const requestData = {
+                refundStatus,
+                refundId: refundDetails.refundId || '',
+                refundMethod: refundDetails.refundMethod || 'ORIGINAL_PAYMENT_METHOD',
+                refundAmount: refundDetails.refundAmount || null,
+                adminNotes: refundDetails.adminNotes || `Refund status updated to ${refundStatus} by admin`
+            };
+
+            const response = await Axios({
+                ...SummaryApi.updateRefundStatus,
+                url: SummaryApi.updateRefundStatus.url.replace(':returnId', returnId),
+                data: requestData
+            });
+
+            console.log('Update refund status response:', response);
+
+            if (response.data.success) {
+                toast.success(`Refund status updated to ${refundStatus.toLowerCase()}`);
+                
+                // Immediately update local state for instant UI feedback
+                if (currentView === 'list') {
+                    setReturnRequests(prevRequests => 
+                        prevRequests.map(request => 
+                            request._id === returnId 
+                                ? {
+                                    ...request,
+                                    status: refundStatus === 'COMPLETED' ? 'REFUND_PROCESSED' : request.status,
+                                    refundDetails: {
+                                        ...request.refundDetails,
+                                        refundStatus: refundStatus,
+                                        refundDate: refundStatus === 'COMPLETED' ? new Date() : request.refundDetails?.refundDate,
+                                        actualRefundAmount: refundDetails.refundAmount || request.refundDetails?.actualRefundAmount
+                                    }
+                                }
+                                : request
+                        )
+                    );
+                } else if (currentView === 'order-details' && orderDetails) {
+                    setOrderDetails(prevOrderDetails => ({
+                        ...prevOrderDetails,
+                        allReturnRequests: prevOrderDetails.allReturnRequests.map(request => 
+                            request._id === returnId 
+                                ? {
+                                    ...request,
+                                    status: refundStatus === 'COMPLETED' ? 'REFUND_PROCESSED' : request.status,
+                                    refundDetails: {
+                                        ...request.refundDetails,
+                                        refundStatus: refundStatus,
+                                        refundDate: refundStatus === 'COMPLETED' ? new Date() : request.refundDetails?.refundDate,
+                                        actualRefundAmount: refundDetails.refundAmount || request.refundDetails?.actualRefundAmount
+                                    }
+                                }
+                                : request
+                        )
+                    }));
+                }
+                
+                // Then refresh data in background for consistency
+                setTimeout(() => {
+                    if (currentView === 'list') {
+                        console.log('Background refresh: return requests list');
+                        fetchReturnRequests();
+                    } else if (currentView === 'order-details' && selectedOrderId) {
+                        console.log('Background refresh: order details for order:', selectedOrderId);
+                        fetchOrderDetails(selectedOrderId);
+                    }
+                    fetchStats();
+                }, 100);
+                
+                // Show success message for email notification
+                if (refundStatus === 'COMPLETED') {
+                    toast.success('Customer has been notified via email about refund completion');
+                }
+            } else {
+                console.error('Server error:', response.data.message);
+                toast.error(response.data.message || 'Failed to update refund status');
+            }
+        } catch (error) {
+            console.error('Error updating refund status:', error);
+            toast.error('Failed to update refund status');
+        } finally {
+            setProcessing(prev => ({ ...prev, [returnId]: false }));
+        }
+    };
+
+    // Toggle refund status between PENDING and COMPLETED
+    const toggleRefundStatus = (returnRequest) => {
+        const currentStatus = returnRequest.refundDetails?.refundStatus || 'PENDING';
+        const newStatus = currentStatus === 'COMPLETED' ? 'PENDING' : 'COMPLETED';
+        
+        if (newStatus === 'COMPLETED') {
+            // Show confirmation dialog for completing refund
+            const confirmComplete = window.confirm(
+                `Are you sure you want to mark this refund as COMPLETED?\n\n` +
+                `This will:\n` +
+                `• Send an email notification to the customer\n` +
+                `• Mark the refund as processed\n` +
+                `• Update the refund amount to ₹${returnRequest.refundDetails?.actualRefundAmount || 0}\n\n` +
+                `This action cannot be easily undone.`
+            );
+            
+            if (confirmComplete) {
+                updateRefundStatus(returnRequest._id, newStatus, {
+                    adminNotes: 'Refund completed and customer notified via email'
+                });
+            }
+        } else {
+            // Revert to pending
+            updateRefundStatus(returnRequest._id, newStatus, {
+                adminNotes: 'Refund status reverted to pending'
+            });
+        }
     };
 
     // Get status color
@@ -873,7 +1010,16 @@ const AdminReturnManagement = () => {
                                     Return Status
                                 </th>
                                 <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                                    Refund Status
+                                    <div className="flex items-center space-x-1">
+                                        <span>Refund Status</span>
+                                        <div className="group relative">
+                                            <FaInfoCircle className="w-3 h-3 text-gray-400 cursor-help" />
+                                            <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-gray-800 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-300 whitespace-nowrap z-10">
+                                                Use toggle to mark refund as completed (sends email to customer)
+                                                <div className="absolute top-full left-1/2 transform -translate-x-1/2 border-4 border-transparent border-t-gray-800"></div>
+                                            </div>
+                                        </div>
+                                    </div>
                                 </th>
                                 <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
                                     Created Date
@@ -898,10 +1044,10 @@ const AdminReturnManagement = () => {
                                             </div>
                                             <div>
                                                 <div className="text-sm font-medium text-gray-900">
-                                                    {returnRequest.userId.name}
+                                                    {returnRequest.userId?.name || 'N/A'}
                                                 </div>
                                                 <div className="text-sm text-gray-500">
-                                                    {returnRequest.userId.email}
+                                                    {returnRequest.userId?.email || 'N/A'}
                                                 </div>
                                             </div>
                                         </div>
@@ -925,13 +1071,37 @@ const AdminReturnManagement = () => {
                                         </span>
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap">
-                                        {returnRequest.refundDetails?.refundStatus ? (
-                                            <span className={`px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full border ${getStatusColor(returnRequest.refundDetails.refundStatus)}`}>
-                                                {returnRequest.refundDetails.refundStatus.toUpperCase()}
-                                            </span>
-                                        ) : (
-                                            <span className="text-gray-400 text-xs">N/A</span>
-                                        )}
+                                        <div className="flex items-center space-x-3">
+                                            {returnRequest.refundDetails?.refundStatus ? (
+                                                <span className={`px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full border ${getStatusColor(returnRequest.refundDetails.refundStatus)}`}>
+                                                    {returnRequest.refundDetails.refundStatus.toUpperCase()}
+                                                </span>
+                                            ) : (
+                                                <span className="text-gray-400 text-xs">N/A</span>
+                                            )}
+                                            
+                                            {/* Toggle Button for Refund Status */}
+                                            {returnRequest.status === 'APPROVED' && returnRequest.refundDetails && (
+                                                <button
+                                                    onClick={() => toggleRefundStatus(returnRequest)}
+                                                    disabled={processing[returnRequest._id]}
+                                                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 ${
+                                                        returnRequest.refundDetails.refundStatus === 'COMPLETED'
+                                                            ? 'bg-green-600'
+                                                            : 'bg-gray-200'
+                                                    }`}
+                                                    title={`Click to ${returnRequest.refundDetails.refundStatus === 'COMPLETED' ? 'revert to pending' : 'mark as completed'}`}
+                                                >
+                                                    <span
+                                                        className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                                                            returnRequest.refundDetails.refundStatus === 'COMPLETED'
+                                                                ? 'translate-x-6'
+                                                                : 'translate-x-1'
+                                                        }`}
+                                                    />
+                                                </button>
+                                            )}
+                                        </div>
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                                         {formatDate(returnRequest.createdAt)}
@@ -939,7 +1109,27 @@ const AdminReturnManagement = () => {
                                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                                         <div className="flex space-x-2">
                                             <button
-                                                onClick={() => fetchOrderDetails(returnRequest.orderId._id || returnRequest.orderId)}
+                                                onClick={() => {
+                                                    // Handle different orderId formats and null cases
+                                                    let orderId = null;
+                                                    if (returnRequest.orderId) {
+                                                        // If orderId is populated object, get its _id
+                                                        if (typeof returnRequest.orderId === 'object' && returnRequest.orderId._id) {
+                                                            orderId = returnRequest.orderId._id;
+                                                        } 
+                                                        // If orderId is just a string ID
+                                                        else if (typeof returnRequest.orderId === 'string') {
+                                                            orderId = returnRequest.orderId;
+                                                        }
+                                                    }
+                                                    
+                                                    if (orderId) {
+                                                        fetchOrderDetails(orderId);
+                                                    } else {
+                                                        toast.error('Order ID not found for this return request');
+                                                        console.error('Invalid orderId in return request:', returnRequest);
+                                                    }
+                                                }}
                                                 className="p-2 text-blue-600 hover:text-blue-900 hover:bg-blue-50 rounded-lg transition-colors"
                                                 title="View Order Details"
                                             >
