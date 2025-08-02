@@ -57,23 +57,37 @@ export class PricingService {
         let originalPrice = 0;
         let discount = productInfo?.discount || 0;
         
-        // Step 1: Determine base price with size adjustments
-        if (item.sizeAdjustedPrice !== undefined) {
+        // Step 1: Determine base price - prioritize stored pricing values
+        // First priority: Use stored sizeAdjustedPrice if available
+        if (item.sizeAdjustedPrice !== undefined && Number(item.sizeAdjustedPrice) > 0) {
             // Use explicit size-adjusted price
             basePrice = Number(item.sizeAdjustedPrice);
             originalPrice = basePrice; // For size-adjusted, this is already the adjusted original
-        } else if (item.size && productInfo?.sizePricing?.[item.size] !== undefined) {
-            // Use size-specific pricing from product
+        } 
+        // Second priority: Use stored unitPrice if available
+        else if (item.unitPrice !== undefined && Number(item.unitPrice) > 0) {
+            basePrice = Number(item.unitPrice);
+            originalPrice = basePrice;
+        }
+        // Third priority: Use stored itemTotal divided by quantity if available
+        else if (item.itemTotal !== undefined && Number(item.itemTotal) > 0) {
+            basePrice = Number(item.itemTotal) / quantity;
+            originalPrice = basePrice;
+        }
+        // Fourth priority: Use size-specific pricing from product
+        else if (item.size && productInfo?.sizePricing?.[item.size] !== undefined) {
             basePrice = Number(productInfo.sizePricing[item.size]);
             originalPrice = basePrice;
-        } else if (item.size && this.hasSizeMultipliers(item.size)) {
-            // Apply size multipliers to base price
+        }
+        // Fifth priority: Apply size multipliers to base price
+        else if (item.size && this.hasSizeMultipliers(item.size)) {
             const multiplier = this.getSizeMultiplier(item.size);
             const productPrice = productInfo?.price || 0;
             basePrice = productPrice * multiplier;
             originalPrice = basePrice;
-        } else {
-            // Use regular product price
+        } 
+        // Last priority: Use regular product price
+        else {
             basePrice = productInfo?.price || 0;
             originalPrice = basePrice;
         }
@@ -236,7 +250,26 @@ export class PricingService {
      */
     static getFallbackPricing(item) {
         const quantity = item.quantity || 1;
-        const price = item.price || item.unitPrice || 0;
+        
+        // Prioritize stored pricing values in fallback calculation
+        let price = 0;
+        
+        // First priority: Use sizeAdjustedPrice if available
+        if (item.sizeAdjustedPrice !== undefined && Number(item.sizeAdjustedPrice) > 0) {
+            price = Number(item.sizeAdjustedPrice);
+        }
+        // Second priority: Use unitPrice if available
+        else if (item.unitPrice !== undefined && Number(item.unitPrice) > 0) {
+            price = Number(item.unitPrice);
+        }
+        // Third priority: Calculate from itemTotal if available
+        else if (item.itemTotal !== undefined && Number(item.itemTotal) > 0) {
+            price = Number(item.itemTotal) / quantity;
+        }
+        // Last priority: Use basic price or default to 0
+        else {
+            price = item.price || 0;
+        }
         
         return {
             unitPrice: price,

@@ -238,9 +238,22 @@ export const getPaymentStats = async (req, res) => {
                             $cond: [
                                 { $or: [
                                     { $eq: ["$paymentStatus", "REFUNDED"] },
-                                    { $eq: ["$paymentStatus", "REFUND_SUCCESSFUL"] }
+                                    { $eq: ["$paymentStatus", "REFUND_SUCCESSFUL"] },
+                                    { $eq: ["$orderStatus", "CANCELLED"] }
                                 ]},
-                                { $ifNull: ["$refundDetails.refundAmount", "$totalAmt"] },
+                                { 
+                                    $cond: [
+                                        { $gt: [{ $ifNull: ["$cancellationData.refundDetails.actualRefundAmount", 0] }, 0] },
+                                        "$cancellationData.refundDetails.actualRefundAmount",
+                                        { 
+                                            $cond: [
+                                                { $gt: [{ $ifNull: ["$cancellationData.refundDetails.refundAmount", 0] }, 0] },
+                                                "$cancellationData.refundDetails.refundAmount",
+                                                { $ifNull: ["$refundDetails.refundAmount", 0] }
+                                            ]
+                                        }
+                                    ]
+                                },
                                 0
                             ]
                         }
@@ -248,8 +261,17 @@ export const getPaymentStats = async (req, res) => {
                     retainedAmount: {
                         $sum: {
                             $cond: [
-                                { $eq: ["$paymentStatus", "REFUND_SUCCESSFUL"] },
-                                { $ifNull: ["$refundDetails.retainedAmount", 0] },
+                                { $or: [
+                                    { $eq: ["$paymentStatus", "REFUND_SUCCESSFUL"] },
+                                    { $eq: ["$orderStatus", "CANCELLED"] }
+                                ]},
+                                { 
+                                    $cond: [
+                                        { $gt: [{ $ifNull: ["$cancellationData.refundDetails.retentionFee", 0] }, 0] },
+                                        "$cancellationData.refundDetails.retentionFee",
+                                        { $ifNull: ["$refundDetails.retainedAmount", 0] }
+                                    ]
+                                },
                                 0
                             ]
                         }
@@ -280,12 +302,60 @@ export const getPaymentStats = async (req, res) => {
         };
 
         // Calculate net revenue (gross revenue minus refunded amounts)
-        const grossRevenue = result.totalRevenue; // Total revenue before refunds
-        const netRevenue = grossRevenue - result.refundedAmount; // Simple calculation: Gross - Refunded
+        // Recalculate more accurate statistics
+        // Get more detailed refund and retention data from cancelled orders
+        const cancelledOrdersData = await orderModel.find({ orderStatus: 'CANCELLED' })
+            .select('totalAmt cancellationData refundDetails');
+        
+        // Get any additional refund data from orderCancellations
+        const allRefunds = await orderCancellationModel.find({
+            $or: [
+                { 'refundDetails.refundStatus': 'COMPLETED' },
+                { 'adminResponse.status': 'APPROVED' },
+                { 'status': 'APPROVED' }
+            ]
+        }).populate('orderId', 'totalAmt');
+        
+        let accurateRefundedAmount = 0;
+        
+        // Calculate from cancelled orders with refund details
+        cancelledOrdersData.forEach(order => {
+            if (order.cancellationData && order.cancellationData.refundDetails) {
+                if (order.cancellationData.refundDetails.actualRefundAmount) {
+                    accurateRefundedAmount += Number(order.cancellationData.refundDetails.actualRefundAmount);
+                } else if (order.cancellationData.refundDetails.refundAmount) {
+                    accurateRefundedAmount += Number(order.cancellationData.refundDetails.refundAmount);
+                }
+            } else if (order.refundDetails && order.refundDetails.refundAmount) {
+                accurateRefundedAmount += Number(order.refundDetails.refundAmount);
+            }
+        });
+        
+        // Add from orderCancellations model if not already counted
+        allRefunds.forEach(refund => {
+            if (refund.adminResponse && refund.adminResponse.refundAmount) {
+                // Check if the order was already counted to avoid double counting
+                const alreadyCounted = cancelledOrdersData.some(
+                    order => order._id.toString() === refund.orderId?._id?.toString()
+                );
+                
+                if (!alreadyCounted) {
+                    accurateRefundedAmount += Number(refund.adminResponse.refundAmount);
+                }
+            }
+        });
+        
+        // Get gross revenue (total orders placed)
+        const grossRevenue = result.totalRevenue; 
         
         // Calculate retained amount (from partial refunds)
-        // This is the portion of refunded orders that was retained (not refunded)
         const retainedAmount = await calculateRetainedAmount();
+        
+        // Use the more accurate refunded amount if available
+        const refundedAmount = accurateRefundedAmount > 0 ? accurateRefundedAmount : result.refundedAmount;
+        
+        // Calculate net revenue (gross minus refunds plus retention)
+        const netRevenue = grossRevenue - refundedAmount + retainedAmount;
         
         return res.status(200).json({
             success: true,
@@ -293,11 +363,11 @@ export const getPaymentStats = async (req, res) => {
             message: "Payment statistics retrieved successfully",
             data: {
                 ...result,
-                netRevenue: netRevenue, // Net revenue = Gross Revenue - Refunded Amount
+                netRevenue: netRevenue, // Net revenue = Gross Revenue - Refunded Amount + Retained Amount
                 grossRevenue: grossRevenue, // Original total revenue before refunds
                 totalRevenue: netRevenue, // Update totalRevenue to be net revenue
-                refundedAmount: result.refundedAmount, // Actual refunded amount (not total order value)
-                retainedAmount: retainedAmount || 0 // Amount retained from partial refunds
+                refundedAmount: refundedAmount, // More accurate refunded amount
+                retainedAmount: retainedAmount // More accurate amount retained from partial refunds
             }
         });
         
@@ -317,23 +387,86 @@ const calculateRetainedAmount = async () => {
     try {
         // Get all completed refunds
         const completedRefunds = await orderCancellationModel.find({
-            'refundDetails.refundStatus': 'COMPLETED'
-        }).populate('orderId', 'totalAmt');
+            $or: [
+                { 'refundDetails.refundStatus': 'COMPLETED' },
+                { 'adminResponse.status': 'APPROVED' },
+                { 'status': 'APPROVED' }
+            ]
+        }).populate('orderId', 'totalAmt items cancellationData');
 
         let totalRetainedAmount = 0;
 
         // Calculate retained amount for each refund
         completedRefunds.forEach(refund => {
-            if (refund.orderId && refund.adminResponse) {
-                const orderTotal = refund.orderId.totalAmt || 0;
-                const refundPercentage = refund.adminResponse.refundPercentage || 0;
-                const refundedAmount = refund.adminResponse.refundAmount || 0;
-                
-                // Calculate the amount retained (non-refunded portion)
-                const retainedPercentage = 100 - refundPercentage;
-                const retainedAmount = orderTotal * (retainedPercentage / 100);
-                
-                totalRetainedAmount += retainedAmount;
+            if (refund.orderId) {
+                // If we have explicit retention fee in the refund details, use that
+                if (refund.refundDetails && refund.refundDetails.retentionFee) {
+                    totalRetainedAmount += refund.refundDetails.retentionFee;
+                }
+                // If we have retention fee in admin response, use that
+                else if (refund.adminResponse && refund.adminResponse.retentionFee) {
+                    totalRetainedAmount += refund.adminResponse.retentionFee;
+                }
+                // Otherwise calculate based on refund percentage or amount
+                else if (refund.adminResponse) {
+                    const orderTotal = refund.orderId.totalAmt || 0;
+                    
+                    // If we have items to cancel, calculate based on those items only
+                    if (refund.itemsToCancel && refund.itemsToCancel.length > 0) {
+                        let cancelledItemsTotal = 0;
+                        
+                        // Calculate total value of cancelled items
+                        refund.itemsToCancel.forEach(cancelItem => {
+                            const itemId = cancelItem.itemId?.toString();
+                            const originalItem = refund.orderId.items.find(item => 
+                                item._id.toString() === itemId
+                            );
+                            
+                            if (originalItem) {
+                                const itemPrice = originalItem.unitPrice * originalItem.quantity;
+                                cancelledItemsTotal += itemPrice;
+                            }
+                        });
+                        
+                        // If we have a refund amount, the retention fee is the difference
+                        if (refund.adminResponse.refundAmount) {
+                            const refundedAmount = refund.adminResponse.refundAmount;
+                            const retainedAmount = cancelledItemsTotal - refundedAmount;
+                            totalRetainedAmount += Math.max(0, retainedAmount);
+                        }
+                        // If we have refund percentage, calculate retention based on that
+                        else if (refund.adminResponse.refundPercentage) {
+                            const refundPercentage = refund.adminResponse.refundPercentage || 0;
+                            const retainedPercentage = 100 - refundPercentage;
+                            const retainedAmount = cancelledItemsTotal * (retainedPercentage / 100);
+                            totalRetainedAmount += retainedAmount;
+                        }
+                        // Default to standard 10% retention fee
+                        else {
+                            totalRetainedAmount += cancelledItemsTotal * 0.10; // 10% retention
+                        }
+                    }
+                    // Full order cancellation
+                    else {
+                        // If we have a refund amount, the retention fee is the difference
+                        if (refund.adminResponse.refundAmount) {
+                            const refundedAmount = refund.adminResponse.refundAmount;
+                            const retainedAmount = orderTotal - refundedAmount;
+                            totalRetainedAmount += Math.max(0, retainedAmount);
+                        }
+                        // If we have refund percentage, calculate retention based on that
+                        else if (refund.adminResponse.refundPercentage) {
+                            const refundPercentage = refund.adminResponse.refundPercentage || 0;
+                            const retainedPercentage = 100 - refundPercentage;
+                            const retainedAmount = orderTotal * (retainedPercentage / 100);
+                            totalRetainedAmount += retainedAmount;
+                        }
+                        // Default to standard 10% retention fee
+                        else {
+                            totalRetainedAmount += orderTotal * 0.10; // 10% retention
+                        }
+                    }
+                }
             }
         });
 

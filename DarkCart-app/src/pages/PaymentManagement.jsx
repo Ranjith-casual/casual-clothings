@@ -42,6 +42,21 @@ function PaymentManagement() {
     // Size-based price calculation utility function
     const calculateSizeBasedPrice = (item, productInfo = null) => {
         try {
+            // First priority: Use stored sizeAdjustedPrice if available (this is the actual charged price)
+            if (item?.sizeAdjustedPrice && item.sizeAdjustedPrice > 0) {
+                return item.sizeAdjustedPrice * (item?.quantity || 1);
+            }
+            
+            // Second priority: Use stored unit price if available
+            if (item?.unitPrice && item.unitPrice > 0) {
+                return item.unitPrice * (item?.quantity || 1);
+            }
+            
+            // Third priority: Use stored itemTotal directly
+            if (item?.itemTotal && item.itemTotal > 0) {
+                return item.itemTotal;
+            }
+            
             const size = item?.size;
             
             // If no size, return original price
@@ -106,6 +121,22 @@ function PaymentManagement() {
 
     // Get size-based unit price
     const getSizeBasedUnitPrice = (item, productInfo = null) => {
+        // First priority: Use stored sizeAdjustedPrice if available (this is the actual charged price)
+        if (item?.sizeAdjustedPrice && item.sizeAdjustedPrice > 0) {
+            return item.sizeAdjustedPrice;
+        }
+        
+        // Second priority: Use stored unit price if available
+        if (item?.unitPrice && item.unitPrice > 0) {
+            return item.unitPrice;
+        }
+        
+        // Third priority: Use stored itemTotal divided by quantity
+        if (item?.itemTotal && item.itemTotal > 0 && item?.quantity && item.quantity > 0) {
+            return item.itemTotal / item.quantity;
+        }
+        
+        // Fallback: Calculate based on total price
         const totalPrice = calculateSizeBasedPrice(item, productInfo);
         return totalPrice / (item?.quantity || 1);
     };
