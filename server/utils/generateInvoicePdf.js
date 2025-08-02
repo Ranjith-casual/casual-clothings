@@ -136,12 +136,50 @@ export const generateInvoicePdf = async (data, type = 'delivery') => {
             const items = data.items || data.products || [];
             items.forEach((item, i) => {
                 // Get values with fallbacks
-                const productName = item.productDetails?.name || item.name || 'Product';
+                const productName = item.productDetails?.name || 
+                                  item.productId?.name || 
+                                  item.bundleDetails?.title || 
+                                  item.bundleId?.title || 
+                                  item.name || 'Product';
+                
                 const quantity = item.quantity || 1;
-                const price = item.productDetails?.price || item.price || 0;
-                const itemTotal = item.itemTotal || (price * quantity);
+                
+                // For refunds, prioritize the actual price customer paid over catalog price
+                let price = 0;
+                let itemTotal = 0;
+                
+                if (type === 'refund') {
+                    // For refunds, use the actual amount customer paid (including discounts)
+                    itemTotal = item.itemTotal || item.totalPrice || 0;
+                    price = itemTotal / quantity;
+                    
+                    // Fallback to size-adjusted price or discounted price if available
+                    if (price === 0) {
+                        price = item.sizeAdjustedPrice || 
+                               item.unitPrice || 
+                               item.productId?.discountedPrice || 
+                               item.productDetails?.discountedPrice ||
+                               item.bundleId?.bundlePrice ||
+                               item.bundleDetails?.bundlePrice ||
+                               item.productId?.price || 
+                               item.productDetails?.price || 
+                               item.price || 0;
+                        itemTotal = price * quantity;
+                    }
+                } else {
+                    // For regular invoices, use standard pricing
+                    price = item.sizeAdjustedPrice || 
+                           item.unitPrice || 
+                           item.productDetails?.price || 
+                           item.productId?.price ||
+                           item.bundleDetails?.bundlePrice ||
+                           item.bundleId?.bundlePrice ||
+                           item.price || 0;
+                    itemTotal = item.itemTotal || (price * quantity);
+                }
+                
                 const itemSize = item.size || item.productDetails?.size || 'N/A';
-                const itemType = item.itemType || (item.bundleId ? 'bundle' : 'product');
+                const itemType = item.itemType || (item.bundleId || item.bundleDetails ? 'bundle' : 'product');
                 
                 // Check if we need a new page
                 if (tableRow > 700) {

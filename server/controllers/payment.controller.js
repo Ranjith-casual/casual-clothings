@@ -1157,8 +1157,18 @@ const generateInvoicePDF = async (order, type = 'order') => {
 // Function to send email with invoice after successful refund
 export const sendRefundInvoiceEmail = async (order, refundDetails) => {
     try {
-        // Generate PDF invoice
-        const filePath = await generateInvoicePdf(order, 'refund');
+        // Enhance order data with refund-specific information for invoice generation
+        const enhancedOrderData = {
+            ...order.toObject(),
+            refundAmount: refundDetails.refundAmount,
+            refundId: refundDetails.refundId,
+            refundDate: refundDetails.refundDate,
+            refundReason: refundDetails.refundReason || 'Order Cancellation',
+            refundStatus: 'Completed'
+        };
+        
+        // Generate PDF invoice with enhanced data
+        const filePath = await generateInvoicePdf(enhancedOrderData, 'refund');
         const filename = path.basename(filePath);
         
         // Email template for refund with invoice

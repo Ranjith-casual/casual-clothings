@@ -1208,7 +1208,7 @@ export const completeRefund = async (req, res) => {
                 // Get order details with populated product info
                 const orderDetails = await orderModel.findById(order._id)
                     .populate('userId', 'name email')
-                    .populate('items.productId', 'name image price discount')
+                    .populate('items.productId', 'name image price discount discountedPrice')
                     .populate('items.bundleId', 'title image images bundlePrice originalPrice')
                     .populate('deliveryAddress');
 
@@ -1218,6 +1218,7 @@ export const completeRefund = async (req, res) => {
                     refundPercentage: cancellationRequest.adminResponse.refundPercentage,
                     refundId: cancellationRequest.refundDetails.refundId,
                     refundDate: cancellationRequest.refundDetails.refundDate,
+                    refundReason: cancellationRequest.reason || 'Order Cancellation',
                     retainedAmount: order.totalAmt - cancellationRequest.adminResponse.refundAmount
                 };
 
