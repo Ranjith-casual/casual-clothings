@@ -113,9 +113,9 @@ function Home() {
       </div>
 
       {/* Cart Categories Recommendation */}
-      <div className="bg-gray-50 py-4">
+      {/* <div className="bg-gray-50 py-4">
         <CartCategoryProducts title="You might also like" limit={8} />
-      </div>
+      </div> */}
       
        <div className="container mx-auto px-4 md:px-6 lg:px-8 py-8 md:py-12">
         <motion.div
