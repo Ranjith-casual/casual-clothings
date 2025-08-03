@@ -11,6 +11,7 @@ import Logo from "../assets/logo.png";
 import noCart from "../assets/Empty-cuate.png"; // Import fallback image
 import ErrorBoundary from "../components/ErrorBoundary";
 import ProductImageLink from "../components/ProductImageLink";
+import RandomCategoryProducts from "../components/RandomCategoryProducts";
 
 // Import payment icons
 import {
@@ -747,6 +748,14 @@ const PaymentPage = () => {
             </div>
           </div>
         </div>
+      </div>
+      
+      {/* Recommended Products Section */}
+      <div className="container mx-auto px-4 sm:px-6 lg:px-8 mt-12 mb-8">
+        <RandomCategoryProducts 
+          title="You Might Also Like" 
+          limit={6}
+        />
       </div>
     </div>
   );

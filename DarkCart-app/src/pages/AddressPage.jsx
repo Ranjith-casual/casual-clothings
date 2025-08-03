@@ -13,6 +13,7 @@ import EditAddressData from "../components/EditAddressData";
 import Logo from "../assets/logo.png";
 import ErrorBoundary from "../components/ErrorBoundary";
 import ProductImageLink from "../components/ProductImageLink";
+import RandomCategoryProducts from "../components/RandomCategoryProducts";
 
 // Helper function to safely access product properties
 const getProductProperty = (item, propertyPath, fallback = "") => {
@@ -994,6 +995,14 @@ const AddressPage = () => {
         </div>
       </div>
       
+      {/* Recommended Products */}
+      <div className="container mx-auto px-4 sm:px-6 lg:px-8 mt-6 mb-8">
+        <RandomCategoryProducts 
+          title="Frequently Bought Together" 
+          limit={6}
+        />
+      </div>
+
       {/* Modals */}
       {openAddAddress && <AddAddress close={() => setOpenAddAddress(false)} />}
       {openEditAddress && editAddressData && (

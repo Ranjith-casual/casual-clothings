@@ -13,6 +13,7 @@ import Axios from '../utils/Axios';
 import SummaryApi from '../common/SummaryApi';
 import ErrorBoundary from '../components/ErrorBoundary';
 import ProductImageLink from '../components/ProductImageLink';
+import RandomCategoryProducts from '../components/RandomCategoryProducts';
 import { 
   toggleItemSelection, 
   selectAllItems, 
@@ -1041,6 +1042,14 @@ const BagPage = () => {
               </div>
             </div>
           </div>
+        )}
+        
+        {/* Add RandomCategoryProducts component for product suggestions */}
+        {cartItemsList.length > 0 && (
+          <RandomCategoryProducts 
+            title="Complete Your Look" 
+            limit={6}
+          />
         )}
       </div>
     </div>

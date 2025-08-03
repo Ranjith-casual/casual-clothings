@@ -3,6 +3,7 @@ import { useSelector } from "react-redux";
 import { Link, useNavigate } from "react-router-dom";
 import { validURLConvert } from "../utils/validURLConvert";
 import PremiumCategoryWiseProductDisplay from "../components/PremiumCategoryWiseProductDisplay";
+import CartCategoryProducts from "../components/CartCategoryProducts";
 import { motion } from "framer-motion";
 import { FaTshirt, FaArrowRight } from "react-icons/fa";
 import HomeBanner from "../components/HomeBanner";
@@ -110,6 +111,12 @@ function Home() {
           );
         })}
       </div>
+
+      {/* Cart Categories Recommendation */}
+      <div className="bg-gray-50 py-4">
+        <CartCategoryProducts title="You might also like" limit={8} />
+      </div>
+      
        <div className="container mx-auto px-4 md:px-6 lg:px-8 py-8 md:py-12">
         <motion.div
           initial={{ opacity: 0 }}

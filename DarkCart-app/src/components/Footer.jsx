@@ -93,7 +93,7 @@ function Footer() {
               {[
                 { icon: FaMapMarkerAlt, text: "Sivsakthi Nagar, 5th Street, Tirupur, Tamil Nadu - 641604" },
                 { icon: FaPhone, text: "+91 9442955929" },
-                { icon: FaEnvelope, text: "casualclothings2024@gmail.com" },
+                { icon: FaEnvelope, text: "casualclothings787@gmail.com" },
               ].map(({ icon: Icon, text }, idx) => (
                 <div key={idx} className="group flex items-start space-x-3 text-gray-600 hover:text-gray-900 transition-colors duration-300">
                   <div className="p-2 bg-white rounded-md shadow-sm border border-gray-100 flex-shrink-0">
