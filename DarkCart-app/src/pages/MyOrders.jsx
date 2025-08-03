@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { useSelector, useDispatch } from 'react-redux'
 import { useNavigate } from 'react-router-dom'
-import { FaMapMarkerAlt, FaCity, FaFlag, FaMailBulk, FaBox, FaUser, FaEnvelope, FaCalendar, FaTimes, FaExclamationTriangle, FaBan, FaRedo, FaInfoCircle, FaCheck, FaSpinner, FaCreditCard, FaCog, FaTruck, FaDownload, FaFilePdf, FaUndo, FaListAlt, FaClock } from 'react-icons/fa'
+import { FaMapMarkerAlt, FaCity, FaFlag, FaMailBulk, FaBox, FaUser, FaEnvelope, FaCalendar, FaTimes, FaExclamationTriangle, FaBan, FaRedo, FaInfoCircle, FaCheck, FaSpinner, FaCreditCard, FaCog, FaTruck, FaDownload, FaFilePdf, FaUndo, FaListAlt, FaMoneyBill, FaClock, FaRegClock } from 'react-icons/fa'
 import AnimatedImage from '../components/NoData';
 import toast from 'react-hot-toast';
 import SummaryApi from '../common/SummaryApi';
@@ -678,45 +678,57 @@ function MyOrders() {
     switch (refundStatus.toUpperCase()) {
       case 'COMPLETED':
         return (
-          <div className="inline-flex items-center px-3 py-2 rounded-lg text-sm font-medium bg-green-100 text-green-800 border border-green-200">
-            <FaCheck className="mr-2" size={14} />
-            <span>Refund Completed</span>
+          <div className="inline-flex items-center px-3 sm:px-4 py-1.5 sm:py-2 rounded-md text-xs sm:text-sm font-medium bg-white text-black border border-gray-300 shadow-md whitespace-nowrap transition-all">
+            <div className="flex items-center justify-center w-4 h-4 sm:w-5 sm:h-5 rounded-full bg-black text-white mr-2">
+              <FaCheck className="w-2 h-2 sm:w-2.5 sm:h-2.5" />
+            </div>
+            <span className="truncate">Refund Completed</span>
           </div>
         );
       case 'PROCESSING':
         return (
-          <div className="inline-flex items-center px-3 py-2 rounded-lg text-sm font-medium bg-yellow-100 text-yellow-800 border border-yellow-200">
-            <FaSpinner className="animate-spin mr-2" size={14} />
-            <span>Refund Processing</span>
+          <div className="inline-flex items-center px-3 sm:px-4 py-1.5 sm:py-2 rounded-md text-xs sm:text-sm font-medium bg-white text-black border border-gray-300 shadow-md whitespace-nowrap transition-all">
+            <div className="flex items-center justify-center w-4 h-4 sm:w-5 sm:h-5 rounded-full bg-black text-white mr-2">
+              <FaSpinner className="animate-spin w-2 h-2 sm:w-2.5 sm:h-2.5" />
+            </div>
+            <span className="truncate">Processing Refund</span>
           </div>
         );
       case 'FAILED':
         return (
-          <div className="inline-flex items-center px-3 py-2 rounded-lg text-sm font-medium bg-red-100 text-red-800 border border-red-200">
-            <FaTimes className="mr-2" size={14} />
-            <span>Refund Failed</span>
+          <div className="inline-flex items-center px-3 sm:px-4 py-1.5 sm:py-2 rounded-md text-xs sm:text-sm font-medium bg-white text-black border border-gray-300 shadow-md whitespace-nowrap transition-all">
+            <div className="flex items-center justify-center w-4 h-4 sm:w-5 sm:h-5 rounded-full bg-black text-white mr-2">
+              <FaTimes className="w-2 h-2 sm:w-2.5 sm:h-2.5" />
+            </div>
+            <span className="truncate">Refund Failed</span>
           </div>
         );
       case 'PENDING':
         return (
-          <div className="inline-flex items-center px-3 py-2 rounded-lg text-sm font-medium bg-orange-100 text-orange-800 border border-orange-200">
-            <FaCreditCard className="mr-2" size={14} />
-            <span>Refund Pending</span>
+          <div className="inline-flex items-center px-3 sm:px-4 py-1.5 sm:py-2 rounded-md text-xs sm:text-sm font-medium bg-white text-black border border-gray-300 shadow-md whitespace-nowrap transition-all">
+            <div className="flex items-center justify-center w-4 h-4 sm:w-5 sm:h-5 rounded-full bg-black text-white mr-2">
+              <FaRegClock className="w-2 h-2 sm:w-2.5 sm:h-2.5" />
+            </div>
+            <span className="truncate">Refund Pending</span>
           </div>
         );
       case 'NOT_APPLICABLE':
         return (
-          <div className="inline-flex items-center px-3 py-2 rounded-lg text-sm font-medium bg-gray-100 text-gray-600 border border-gray-200">
-            <FaInfoCircle className="mr-2" size={14} />
-            <span>No Refund Required</span>
+          <div className="inline-flex items-center px-3 sm:px-4 py-1.5 sm:py-2 rounded-md text-xs sm:text-sm font-medium bg-white text-black border border-gray-300 shadow-md whitespace-nowrap transition-all">
+            <div className="flex items-center justify-center w-4 h-4 sm:w-5 sm:h-5 rounded-full bg-black text-white mr-2">
+              <FaInfoCircle className="w-2 h-2 sm:w-2.5 sm:h-2.5" />
+            </div>
+            <span className="truncate">No Refund Required</span>
           </div>
         );
       default:
         // Default to pending for any unknown status
         return (
-          <div className="inline-flex items-center px-3 py-2 rounded-lg text-sm font-medium bg-orange-100 text-orange-800 border border-orange-200">
-            <FaCreditCard className="mr-2" size={14} />
-            <span>Refund Pending</span>
+          <div className="inline-flex items-center px-3 sm:px-4 py-1.5 sm:py-2 rounded-md text-xs sm:text-sm font-medium bg-white text-black border border-gray-300 shadow-md whitespace-nowrap transition-all">
+            <div className="flex items-center justify-center w-4 h-4 sm:w-5 sm:h-5 rounded-full bg-black text-white mr-2">
+              <FaRegClock className="w-2 h-2 sm:w-2.5 sm:h-2.5" />
+            </div>
+            <span className="truncate">Processing Refund</span>
           </div>
         );
     }
@@ -725,26 +737,26 @@ function MyOrders() {
   return (
     <div className="bg-white min-h-screen">
       {/* Header - Responsive */}
-      <div className='bg-white shadow-sm p-3 sm:p-4 md:p-6 mb-4 sm:mb-6 flex items-center justify-between border-b border-gray-200'>
-        <div className='flex items-center gap-2 sm:gap-3'>
-          <FaBox className='text-lg sm:text-xl text-black' />
+      <div className='bg-white shadow-md p-4 sm:p-5 md:p-6 mb-5 sm:mb-7 flex items-center justify-between border-b border-gray-200'>
+        <div className='flex items-center gap-3 sm:gap-4'>
+          <FaBox className='text-xl sm:text-2xl text-black' />
           <div>
-            <h1 className='text-lg sm:text-xl md:text-2xl font-bold text-black'>My Orders</h1>
+            <h1 className='text-xl sm:text-2xl md:text-3xl font-bold text-black tracking-tight'>My Orders</h1>
             {user && user.role?.toUpperCase() === 'ADMIN' && (
-              <p className="text-xs text-gray-500 mt-1">
+              <p className="text-xs text-gray-600 mt-1.5 font-medium">
                 Only showing orders you have placed personally
               </p>
             )}
           </div>
         </div>
-        <div className="flex items-center gap-2">
-          <span className="text-sm text-gray-600 mr-1 hidden sm:inline">
+        <div className="flex items-center gap-3">
+          <span className="text-sm font-medium text-gray-700 mr-2 hidden sm:inline">
             {userOrders.length} {userOrders.length === 1 ? 'order' : 'orders'}
           </span>
           <button 
             onClick={refreshOrders}
             disabled={refreshingOrders}
-            className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            className="flex items-center gap-2 px-4 py-2 text-sm font-semibold text-black bg-gray-100 border border-gray-200 rounded-md hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             <FaRedo className={`w-3 h-3 ${refreshingOrders ? 'animate-spin' : ''}`} />
             {refreshingOrders ? 'Refreshing...' : 'Refresh Orders'}
@@ -771,17 +783,17 @@ function MyOrders() {
           const isCancelled = isOrderCancelled(order);
           
           return(
-            <div key={order?._id+index+"order"} className={`relative transition-all duration-300 p-3 sm:p-4 md:p-6 mb-3 sm:mb-4 md:mb-6 rounded-lg mx-2 sm:mx-4 md:mx-6 lg:mx-8 ${
+            <div key={order?._id+index+"order"} className={`relative transition-all duration-300 p-4 sm:p-5 md:p-6 mb-5 sm:mb-6 md:mb-7 rounded-lg mx-2 sm:mx-4 md:mx-6 lg:mx-8 ${
               isCancelled 
-                ? 'bg-red-50 border-2 border-red-200 shadow-sm opacity-75' 
-                : 'bg-white shadow-sm hover:shadow-md border border-gray-200'
+                ? 'bg-red-50 border-2 border-red-200 shadow-md opacity-80' 
+                : 'bg-white shadow-md hover:shadow-lg border border-gray-200'
             }`}>
               
               {/* Cancelled Order Overlay */}
               {isCancelled && (
-                <div className="absolute top-2 right-2 sm:top-3 sm:right-3 md:top-4 md:right-4">
-                  <div className="bg-red-500 text-white px-2 sm:px-3 py-1 rounded-full flex items-center gap-1 text-xs sm:text-sm font-bold shadow-lg">
-                    <FaBan className="w-3 h-3" />
+                <div className="absolute top-2 right-2 sm:top-3 sm:right-3 md:top-4 md:right-4 z-30">
+                  <div className="bg-white text-red-700 px-2.5 sm:px-4 py-1 sm:py-1.5 rounded-full flex items-center gap-1.5 sm:gap-2 text-xs sm:text-sm font-extrabold shadow-md border-2 border-red-600">
+                    <FaBan className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
                     <span>CANCELLED</span>
                   </div>
                 </div>
@@ -789,8 +801,10 @@ function MyOrders() {
 
               {/* Refund Status Display for Cancelled Orders */}
               {isCancelled && (
-                <div className="absolute top-12 right-2 sm:top-14 sm:right-3 md:top-16 md:right-4">
-                  {getRefundStatusDisplay(order._id, order.orderStatus)}
+                <div className="absolute top-11 right-2 sm:top-14 sm:right-3 md:top-16 md:right-4 z-20">
+                  <div className="bg-white shadow-md border border-gray-300 rounded-md px-2 sm:px-2.5 py-0.5 sm:py-1">
+                    {getRefundStatusDisplay(order._id, order.orderStatus)}
+                  </div>
                 </div>
               )}
 
@@ -845,10 +859,14 @@ function MyOrders() {
                 return null;
               })()} */}
 
-              {/* Cancelled Order Diagonal Stripe */}
+              {/* Cancelled Order Visual Indicators */}
               {isCancelled && (
-                <div className="absolute inset-0 pointer-events-none">
-                  <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-br from-transparent via-red-100/30 to-transparent opacity-50 rounded-lg"></div>
+                <div className="absolute inset-0 pointer-events-none z-10">
+                  <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-br from-red-50/50 via-white/80 to-red-50/50 opacity-90 rounded-lg"></div>
+                  <div className="absolute inset-0 opacity-10" style={{
+                    backgroundImage: 'repeating-linear-gradient(45deg, #f87171 0, #f87171 8px, transparent 8px, transparent 16px)',
+                    backgroundSize: '22px 22px'
+                  }}></div>
                 </div>
               )}
 
@@ -925,39 +943,51 @@ function MyOrders() {
                 <div className='flex-1 space-y-3 sm:space-y-4 md:space-y-5 order-2 xl:order-1 w-full'>
                   
                   {/* Order Header - Responsive */}
-                  <div className={`rounded-lg p-2 sm:p-3 md:p-4 border ${
+                  <div className={`rounded-lg p-3 sm:p-4 md:p-5 border ${
                     isCancelled 
-                      ? 'bg-red-100 border-red-300' 
-                      : 'bg-gray-50 border-gray-200'
+                      ? 'bg-red-100 border-red-300 shadow-sm' 
+                      : 'bg-white border-gray-300 shadow-sm'
                   }`}>
                     <div className='flex flex-col sm:flex-row gap-2 sm:gap-3 sm:items-center sm:justify-between'>
                       <div className='flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2'>
                         <div className='flex items-center gap-2'>
-                          <FaBox className={`text-xs sm:text-sm ${isCancelled ? 'text-red-600' : 'text-black'}`} />
-                          <span className={`text-xs sm:text-sm font-medium ${isCancelled ? 'text-red-700' : 'text-gray-700'}`}>Order No:</span>
+                          <FaBox className={`text-sm sm:text-base ${isCancelled ? 'text-red-600' : 'text-black'}`} />
+                          <span className={`text-sm sm:text-base font-semibold ${isCancelled ? 'text-red-700' : 'text-gray-800'}`}>Order No:</span>
                         </div>
-                        <span className={`text-xs sm:text-sm font-bold break-all ${isCancelled ? 'text-red-800' : 'text-black'}`}>
+                        <span className={`text-sm sm:text-base font-bold break-all tracking-wide ${isCancelled ? 'text-red-800' : 'text-black'}`}>
                           {order?.orderId}
                         </span>
                       </div>
                       <div className='flex items-center gap-2 mt-2 sm:mt-0'>
                         {/* Order Status Badge - Conditionally show payment status based on helper function */}
                         {getPaymentStatus(order) === "PAID" ? (
-                          <span className="px-2 sm:px-3 py-1 rounded-full text-xs font-semibold w-fit bg-green-100 text-green-800 border border-green-200">
-                            ✓ Paid
-                          </span>
+                          <div className="inline-flex items-center px-3 py-1.5 rounded-md text-xs font-medium bg-white text-black border border-gray-300 shadow-sm">
+                            <div className="flex items-center justify-center w-4 h-4 rounded-full bg-black text-white mr-1.5">
+                              <FaCheck className="w-2 h-2" />
+                            </div>
+                            <span>Paid</span>
+                          </div>
                         ) : getPaymentStatus(order) === "CANCELLED" ? (
-                          <span className="px-2 sm:px-3 py-1 rounded-full text-xs font-semibold w-fit bg-red-100 text-red-800 border border-red-200">
-                            ✗ Cancelled
-                          </span>
+                          <div className="inline-flex items-center px-3 py-1.5 rounded-md text-xs font-medium bg-white text-black border border-gray-300 shadow-sm">
+                            <div className="flex items-center justify-center w-4 h-4 rounded-full bg-black text-white mr-1.5">
+                              <FaBan className="w-2 h-2" />
+                            </div>
+                            <span>Cancelled</span>
+                          </div>
                         ) : getPaymentStatus(order) === "CANCELLATION_REQUESTED" ? (
-                          <span className="px-2 sm:px-3 py-1 rounded-full text-xs font-semibold w-fit bg-orange-100 text-orange-800 border border-orange-200">
-                            📋 Cancellation Requested
-                          </span>
+                          <div className="inline-flex items-center px-3 py-1.5 rounded-md text-xs font-medium bg-white text-black border border-gray-300 shadow-sm">
+                            <div className="flex items-center justify-center w-4 h-4 rounded-full bg-black text-white mr-1.5">
+                              <FaExclamationTriangle className="w-2 h-2" />
+                            </div>
+                            <span>Cancellation Requested</span>
+                          </div>
                         ) : (
-                          <span className="px-2 sm:px-3 py-1 rounded-full text-xs font-semibold w-fit bg-yellow-100 text-yellow-800 border border-yellow-200">
-                            ⏱ Payment Pending
-                          </span>
+                          <div className="inline-flex items-center px-3 py-1.5 rounded-md text-xs font-medium bg-white text-black border border-gray-300 shadow-sm">
+                            <div className="flex items-center justify-center w-4 h-4 rounded-full bg-black text-white mr-1.5">
+                              <FaRegClock className="w-2 h-2" />
+                            </div>
+                            <span>Payment Pending</span>
+                          </div>
                         )}
                       </div>
                     </div>
@@ -1188,9 +1218,9 @@ function MyOrders() {
                                     {/* Enhanced cancelled status badge with refund info */}
                                     {isItemCancelled && !isCancelled && (
                                       <>
-                                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-red-500 text-white border border-red-600">
-                                          <FaBan className="w-3 h-3 mr-1" />
-                                          ITEM CANCELLED
+                                        <span className="inline-flex items-center px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-full text-xs font-bold bg-white text-red-700 border-2 border-red-500 shadow-sm">
+                                          <FaBan className="w-2 h-2 sm:w-2.5 sm:h-2.5 mr-0.5 sm:mr-1" />
+                                          CANCELLED
                                         </span>
                                         {(() => {
                                           // Find the cancellation requests for this order to get refund percentages
@@ -1533,20 +1563,20 @@ function MyOrders() {
                     </div>
                     
                     {/* Price Details */}
-                    <div className={`mt-3 p-2 sm:p-3 rounded-lg border ${
-                      isCancelled ? 'bg-red-50 border-red-200' : 'bg-white border-gray-200'
+                    <div className={`mt-4 p-3 sm:p-4 rounded-lg border ${
+                      isCancelled ? 'bg-red-50 border-red-200 shadow-sm' : 'bg-white border-gray-300 shadow-sm'
                     }`}>
                       <div className="p-2 sm:p-3">
                         <div className="space-y-3">
                           {/* Delivery Charge */}
                           <div className="flex justify-between items-center">
-                            <span className={`text-xs sm:text-sm ${
-                              isCancelled ? 'text-red-700' : 'text-gray-700'
-                            }`}>
+                            <span className={`text-sm sm:text-base ${
+                              isCancelled ? 'text-red-700' : 'text-gray-800'
+                            } font-medium`}>
                               Delivery Charge
                             </span>
-                            <span className={`font-medium text-sm ${
-                              isCancelled ? 'text-red-800' : 'text-gray-900'
+                            <span className={`font-semibold text-sm sm:text-base ${
+                              isCancelled ? 'text-red-800' : 'text-black'
                             }`}>
                               {(() => {
                                 // Use PricingService to get the delivery charge consistently
@@ -1567,14 +1597,14 @@ function MyOrders() {
                           </div>
                           
                           {/* Total Amount - with size-based pricing calculation */}
-                          <div className="border-t pt-3 mt-3">
+                          <div className="border-t border-gray-300 pt-4 mt-4">
                             <div className="flex justify-between items-center">
-                              <span className={`font-semibold text-sm sm:text-base ${
+                              <span className={`font-bold text-base sm:text-lg ${
                                 isCancelled ? 'text-red-800' : 'text-black'
                               }`}>
                                 Total Amount
                               </span>
-                              <span className={`font-bold text-base ${
+                              <span className={`font-extrabold text-lg ${
                                 isCancelled ? 'text-red-800 line-through' : 'text-black'
                               }`}>
                                 {(() => {
@@ -1863,15 +1893,15 @@ function MyOrders() {
                   </div>
                   
                   {/* Order Timeline */}
-                  <div className={`rounded-lg p-2 sm:p-3 md:p-4 border ${
+                  <div className={`rounded-lg p-3 sm:p-4 md:p-5 border ${
                     isCancelled 
-                      ? 'bg-red-50 border-red-200' 
-                      : 'bg-gray-50 border-gray-200'
+                      ? 'bg-red-50 border-red-200 shadow-sm' 
+                      : 'bg-white border-gray-300 shadow-sm'
                   }`}>
-                    <h4 className={`font-semibold mb-2 sm:mb-3 flex items-center gap-2 text-sm sm:text-base ${
+                    <h4 className={`font-bold mb-3 sm:mb-4 flex items-center gap-2 text-base sm:text-lg ${
                       isCancelled ? 'text-red-800' : 'text-black'
-                    }`}>
-                      <FaBox className={`text-xs sm:text-sm ${isCancelled ? 'text-red-600' : 'text-black'}`} />
+                    } tracking-tight`}>
+                      <FaBox className={`text-sm sm:text-base ${isCancelled ? 'text-red-600' : 'text-black'}`} />
                       Order Status
                     </h4>
                     <OrderTimeline status={order?.orderStatus} />
@@ -1879,15 +1909,27 @@ function MyOrders() {
                   
                   {/* Refund Status Section - Only for Cancelled Orders */}
                   {isCancelled && (
-                    <div className="rounded-lg p-2 sm:p-3 md:p-4 border bg-orange-50 border-orange-200">
-                      <h4 className="font-semibold mb-2 sm:mb-3 flex items-center gap-2 text-sm sm:text-base text-orange-800">
-                        <FaCreditCard className="text-xs sm:text-sm text-orange-600" />
+                    <div className="rounded-lg p-3 sm:p-4 md:p-5 border bg-white border-gray-300 shadow-sm">
+                      <h4 className="font-bold mb-3 sm:mb-4 flex items-center gap-2 text-base sm:text-lg text-black tracking-tight">
+                        <FaCreditCard className="text-sm sm:text-base text-gray-800" />
                         Refund Status
                       </h4>
-                      <div className="ml-4 sm:ml-6">
-                        {getRefundStatusDisplay(order._id, order.orderStatus)}
-                        <div className="mt-2 text-xs sm:text-sm text-orange-700">
-                          <p>
+                      <div className="rounded-lg border border-gray-300 p-3 sm:p-4 bg-white shadow-sm">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
+                          <div className="flex items-center gap-2 sm:gap-3">
+                            <div className="bg-black text-white p-1.5 sm:p-2 rounded-full flex items-center justify-center">
+                              <FaMoneyBill className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+                            </div>
+                            <span className="font-semibold text-black text-sm sm:text-base">Current Status:</span>
+                          </div>
+                          <div className="mt-2 sm:mt-0">
+                            {getRefundStatusDisplay(order._id, order.orderStatus)}
+                          </div>
+                        </div>
+                        
+                        <div className="mt-3 sm:mt-4 pt-3 sm:pt-4 border-t border-gray-200 text-xs sm:text-sm text-gray-700 flex items-start gap-2 sm:gap-3">
+                          <FaInfoCircle className="text-black mt-0.5 flex-shrink-0 w-3 h-3 sm:w-3.5 sm:h-3.5" />
+                          <p className="leading-relaxed">
                             {(() => {
                               const status = getRefundStatusFromRequests(order._id)?.toUpperCase();
                               switch (status) {
@@ -1986,48 +2028,48 @@ function MyOrders() {
                   {/* </div> */}
                   
                   {/* Delivery Address - Enhanced Responsive */}
-                  <div className={`rounded-lg p-2 sm:p-3 md:p-4 border ${
+                  <div className={`rounded-lg p-3 sm:p-4 md:p-5 border ${
                     isCancelled 
-                      ? 'bg-red-50 border-red-200' 
-                      : 'bg-gray-50 border-gray-200'
+                      ? 'bg-red-50 border-red-200 shadow-sm' 
+                      : 'bg-white border-gray-300 shadow-sm'
                   }`}>
-                    <div className='flex items-center gap-2 mb-2 sm:mb-3'>
-                      <FaMapMarkerAlt className={`text-xs sm:text-sm ${isCancelled ? 'text-red-600' : 'text-black'}`} />
-                      <span className={`font-semibold text-sm sm:text-base ${isCancelled ? 'text-red-800' : 'text-black'}`}>
+                    <div className='flex items-center gap-2 mb-3 sm:mb-4'>
+                      <FaMapMarkerAlt className={`text-sm sm:text-base ${isCancelled ? 'text-red-600' : 'text-black'}`} />
+                      <span className={`font-bold text-base sm:text-lg ${isCancelled ? 'text-red-800' : 'text-black'} tracking-tight`}>
                         Delivery Address
                       </span>
                       {isCancelled && (
-                        <span className="text-xs text-red-600 font-medium">(Order Cancelled)</span>
+                        <span className="text-xs text-red-600 font-semibold ml-2">(Order Cancelled)</span>
                       )}
                     </div>
                     <div className='space-y-2 sm:space-y-3 ml-4 sm:ml-6'>
                       {/* Street Address */}
-                      <div className={`rounded-md p-2 sm:p-3 border ${
+                      <div className={`rounded-md p-3 sm:p-4 border ${
                         isCancelled 
                           ? 'bg-red-25 border-red-200' 
-                          : 'bg-white border-gray-200'
-                      }`}>
-                        <div className='flex flex-col sm:flex-row sm:items-start gap-1 sm:gap-2'>
-                          <span className={`font-medium text-xs sm:text-sm min-w-fit ${isCancelled ? 'text-red-700' : 'text-gray-700'}`}>Street:</span>
-                          <span className={`font-medium text-xs sm:text-sm break-words ${isCancelled ? 'text-red-800' : 'text-black'}`}>
+                          : 'bg-white border-gray-300'
+                      } shadow-sm`}>
+                        <div className='flex flex-col sm:flex-row sm:items-start gap-2 sm:gap-3'>
+                          <span className={`font-semibold text-sm sm:text-base min-w-fit ${isCancelled ? 'text-red-700' : 'text-gray-800'}`}>Street:</span>
+                          <span className={`font-medium text-sm sm:text-base break-words ${isCancelled ? 'text-red-800' : 'text-black'}`}>
                             {order?.deliveryAddress?.address_line}
                           </span>
                         </div>
                       </div>
                       
                       {/* City & State - Responsive Grid */}
-                      <div className='grid grid-cols-1 md:grid-cols-2 gap-2 sm:gap-3'>
-                        <div className={`rounded-md p-2 sm:p-3 border ${
+                      <div className='grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4 mt-3'>
+                        <div className={`rounded-md p-3 sm:p-4 border ${
                           isCancelled 
                             ? 'bg-red-25 border-red-200' 
-                            : 'bg-white border-gray-200'
-                        }`}>
+                            : 'bg-white border-gray-300'
+                        } shadow-sm`}>
                           <div className='flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2'>
-                            <div className='flex items-center gap-1 sm:gap-2'>
-                              <FaCity className={`text-xs ${isCancelled ? 'text-red-600' : 'text-black'}`} />
-                              <span className={`font-medium text-xs sm:text-sm ${isCancelled ? 'text-red-700' : 'text-gray-700'}`}>City:</span>
+                            <div className='flex items-center gap-2 sm:gap-3'>
+                              <FaCity className={`text-sm ${isCancelled ? 'text-red-600' : 'text-black'}`} />
+                              <span className={`font-semibold text-sm sm:text-base ${isCancelled ? 'text-red-700' : 'text-gray-800'}`}>City:</span>
                             </div>
-                            <span className={`font-medium text-xs sm:text-sm break-words ${isCancelled ? 'text-red-800' : 'text-black'}`}>
+                            <span className={`font-medium text-sm sm:text-base break-words ${isCancelled ? 'text-red-800' : 'text-black'}`}>
                               {order?.deliveryAddress?.city}
                             </span>
                           </div>
@@ -2048,12 +2090,12 @@ function MyOrders() {
                       </div>
                       
                       {/* PIN & Country - Responsive Grid */}
-                      <div className='grid grid-cols-1 md:grid-cols-2 gap-2 sm:gap-3'>
-                        <div className={`rounded-md p-2 sm:p-3 border ${
+                      <div className='grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4 mt-3'>
+                        <div className={`rounded-md p-3 sm:p-4 border ${
                           isCancelled 
                             ? 'bg-red-25 border-red-200' 
-                            : 'bg-white border-gray-200'
-                        }`}>
+                            : 'bg-white border-gray-300'
+                        } shadow-sm`}>
                           <div className='flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2'>
                             <div className='flex items-center gap-1 sm:gap-2'>
                               <FaMailBulk className={`text-xs ${isCancelled ? 'text-red-600' : 'text-black'}`} />
@@ -2085,7 +2127,7 @@ function MyOrders() {
                   </div>
                   
                   {/* Bottom Controls */}
-                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mt-4 gap-3">
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mt-6 gap-4">
                     {/* Action Buttons - Download Invoice & View Details */}
                     <div className="flex items-center flex-wrap gap-2">
                       {/* Download Invoice Button */}
@@ -2095,10 +2137,10 @@ function MyOrders() {
                       <button
                         onClick={() => fetchComprehensiveOrderDetails(order._id)}
                         disabled={loadingDetails && activeOrderId === order._id}
-                        className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-semibold transition-colors ${
+                        className={`flex items-center gap-2 px-5 py-2.5 rounded-md text-sm font-bold transition-colors ${
                           loadingDetails && activeOrderId === order._id
                             ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                            : 'bg-green-50 text-green-700 border border-green-200 hover:bg-green-100'
+                            : 'bg-gray-900 text-white border border-gray-800 hover:bg-black'
                         }`}
                       >
                         {loadingDetails && activeOrderId === order._id ? (
@@ -2118,7 +2160,7 @@ function MyOrders() {
                       {order.orderStatus === 'DELIVERED' && (
                         <button
                           onClick={() => navigate(`/return-product?orderId=${order._id}`)}
-                          className="flex items-center gap-2 px-4 py-2 rounded-md text-sm font-semibold transition-colors bg-orange-50 text-orange-700 border border-orange-200 hover:bg-orange-100"
+                          className="flex items-center gap-2 px-5 py-2.5 rounded-md text-sm font-bold transition-colors bg-white text-gray-900 border-2 border-gray-800 hover:bg-gray-100"
                         >
                           <FaUndo className='w-4 h-4' />
                           <span>Return Products</span>
@@ -2171,10 +2213,10 @@ function MyOrders() {
                             <button
                               onClick={() => handleCancelOrder(order)}
                               disabled={cancellingOrderId === order.orderId}
-                              className={`px-4 py-2 rounded-md text-sm font-semibold transition-colors ${
+                              className={`px-5 py-2.5 rounded-md text-sm font-bold transition-colors ${
                                 cancellingOrderId === order.orderId
                                   ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                                  : 'bg-red-50 text-red-700 border border-red-200 hover:bg-red-100'
+                                  : 'bg-white text-red-700 border-2 border-red-600 hover:bg-red-50'
                               }`}
                             >
                               {cancellingOrderId === order.orderId ? (

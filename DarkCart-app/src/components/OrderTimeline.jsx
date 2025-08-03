@@ -1,5 +1,14 @@
 import React from 'react'
-import { FaBox, FaCheckCircle, FaTruck, FaCog, FaBan } from 'react-icons/fa'
+import { 
+  FaBox, 
+  FaCheckCircle, 
+  FaTruck, 
+  FaCog, 
+  FaBan, 
+  FaShoppingBag, 
+  FaRegClock, 
+  FaClipboardCheck 
+} from 'react-icons/fa'
 
 const OrderTimeline = ({ status }) => {
   // Add animation styles to component
@@ -14,6 +23,11 @@ const OrderTimeline = ({ status }) => {
         from { transform: translateY(-5px); opacity: 0; }
         to { transform: translateY(0); opacity: 1; }
       }
+      @keyframes pulseRing {
+        0% { transform: scale(.95); box-shadow: 0 0 0 0 rgba(0, 0, 0, 0.1); }
+        70% { transform: scale(1); box-shadow: 0 0 0 10px rgba(0, 0, 0, 0); }
+        100% { transform: scale(.95); box-shadow: 0 0 0 0 rgba(0, 0, 0, 0); }
+      }
     `;
     document.head.appendChild(styleEl);
     return () => {
@@ -23,10 +37,10 @@ const OrderTimeline = ({ status }) => {
   
   // Define the order statuses and their corresponding icons and colors
   const statuses = [
-    { name: 'ORDER PLACED', icon: <FaBox />, color: 'text-blue-500' },
-    { name: 'PROCESSING', icon: <FaCog className="animate-spin-slow" />, color: 'text-yellow-500' },
-    { name: 'OUT FOR DELIVERY', icon: <FaTruck />, color: 'text-orange-500' },
-    { name: 'DELIVERED', icon: <FaCheckCircle />, color: 'text-green-500' },
+    { name: 'ORDER PLACED', icon: <FaShoppingBag />, color: 'text-black', bgColor: 'bg-white', description: 'Your order has been confirmed' },
+    { name: 'PROCESSING', icon: <FaCog className="animate-spin-slow" />, color: 'text-black', bgColor: 'bg-white', description: 'Your order is being prepared' },
+    { name: 'OUT FOR DELIVERY', icon: <FaTruck />, color: 'text-black', bgColor: 'bg-white', description: 'Your order is on the way' },
+    { name: 'DELIVERED', icon: <FaClipboardCheck />, color: 'text-black', bgColor: 'bg-white', description: 'Your order has been delivered' },
   ]
 
   // Find the current status index
@@ -35,55 +49,53 @@ const OrderTimeline = ({ status }) => {
     : statuses.findIndex(s => s.name === status);
 
   return (
-    <div className="w-full py-4 font-sans" style={{ animation: 'fadeIn 0.5s ease-out' }}>
+    <div className="w-full py-6 font-sans" style={{ animation: 'fadeIn 0.5s ease-out' }}>
       {status === 'CANCELLED' ? (
-        <div className="flex flex-col items-center justify-center p-4 bg-red-50 rounded-lg border border-red-200 shadow-sm" style={{ animation: 'slideIn 0.5s ease-out' }}>
-          <FaBan className="text-2xl sm:text-3xl text-red-500 mb-2" />
-          <h3 className="font-bold text-red-700 tracking-wide">Order Cancelled</h3>
-          <p className="text-xs sm:text-sm text-red-600 text-center mt-1 tracking-wide">This order has been cancelled and will not be processed further.</p>
+        <div className="flex flex-col items-center justify-center p-6 bg-white rounded-xl border border-gray-200 shadow-md mx-auto max-w-md" style={{ animation: 'slideIn 0.5s ease-out' }}>
+          <div className="w-16 h-16 rounded-full flex items-center justify-center bg-white border-2 border-black mb-4 shadow-lg">
+            <FaBan className="text-2xl text-black" />
+          </div>
+          <h3 className="font-bold text-lg text-black tracking-wide">Order Cancelled</h3>
+          <p className="text-sm text-gray-600 text-center mt-2 max-w-xs tracking-wide">This order has been cancelled and will not be processed further.</p>
         </div>
       ) : (
         <>
           {/* Desktop timeline (hidden on small screens) */}
-          <div className="hidden sm:block relative mb-6" style={{ animation: 'slideIn 0.6s ease-out' }}>
+          <div className="hidden sm:block relative mb-8" style={{ animation: 'slideIn 0.6s ease-out' }}>
             {/* Container for the timeline */}
-            <div className="flex items-center justify-between px-4">
-              {/* Line connecting all steps */}
-              <div className="absolute left-2 right-2 top-1/3 transform -translate-y-1/2 h-1 bg-gray-200 z-0">
-                <div 
-                  className="h-full bg-green-500 transition-all duration-500" 
-                  style={{ 
-                    width: currentStatusIndex >= 0 
-                      ? `${Math.min(100, (currentStatusIndex / (statuses.length - 1)) * 100)}%` 
-                      : '0%' 
-                  }}
-                ></div>
-              </div>
+            <div className="flex items-center justify-between px-2 sm:px-4 md:px-8 max-w-4xl mx-auto">
               
               {statuses.map((step, index) => {
                 const isCompleted = index <= currentStatusIndex;
                 const isCurrent = index === currentStatusIndex;
                 
                 return (
-                  <div key={step.name} className="relative z-10 flex flex-col items-center" style={{ animation: `fadeIn 0.5s ease-out ${0.2 + index * 0.1}s both` }}>
-                    <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-full flex items-center justify-center shadow-sm mb-3 ${
+                  <div key={step.name} className="relative z-10 flex flex-col items-center flex-1 mx-2" style={{ animation: `fadeIn 0.5s ease-out ${0.2 + index * 0.1}s both` }}>
+                    <div className={`w-16 h-16 rounded-full flex items-center justify-center shadow-lg mb-4 ${
                       isCurrent 
-                        ? `${step.color} bg-white border-2 border-current animate-pulse` 
+                        ? 'bg-white border-2 border-black text-black animate-pulse' 
                         : isCompleted 
-                          ? `text-white bg-green-500` 
-                          : `text-gray-400 bg-gray-50 border border-gray-300`
-                    }`}>
-                      {step.icon}
+                          ? 'text-white bg-black' 
+                          : 'text-gray-400 bg-white border border-gray-300'
+                    }`} style={isCurrent ? { animation: 'pulseRing 2s cubic-bezier(0.455, 0.03, 0.515, 0.955) infinite' } : {}}>
+                      <div className={`text-xl ${isCurrent ? 'scale-110' : ''}`}>
+                        {step.icon}
+                      </div>
                     </div>
-                    <p className={`text-[10px] sm:text-xs font-medium text-center tracking-wide max-w-[120px] leading-tight ${
+                    <p className={`text-xs font-semibold text-center tracking-wide max-w-[120px] leading-tight ${
                       isCurrent 
-                        ? step.color 
+                        ? 'text-black' 
                         : isCompleted 
-                          ? 'text-green-500' 
+                          ? 'text-black' 
                           : 'text-gray-500'
                     }`}>
                       {step.name.replace(/_/g, ' ')}
                     </p>
+                    {isCurrent && (
+                      <p className="text-[10px] text-gray-600 text-center mt-1 max-w-[120px]">
+                        {step.description}
+                      </p>
+                    )}
                   </div>
                 )
               })}
@@ -91,19 +103,8 @@ const OrderTimeline = ({ status }) => {
           </div>
           
           {/* Mobile timeline (vertical, shown only on small screens) */}
-          <div className="sm:hidden" style={{ animation: 'fadeIn 0.5s ease-out' }}>
-            <div className="relative pl-2">
-              {/* Vertical line */}
-              <div className="absolute left-5 top-0 bottom-0 w-1 bg-gray-200 z-0">
-                <div 
-                  className="w-full bg-green-500 transition-all duration-500" 
-                  style={{ 
-                    height: currentStatusIndex >= 0 
-                      ? `${Math.min(100, (currentStatusIndex / (statuses.length - 1)) * 100)}%` 
-                      : '0%' 
-                  }}
-                ></div>
-              </div>
+          <div className="sm:hidden px-2" style={{ animation: 'fadeIn 0.5s ease-out' }}>
+            <div className="relative pl-6 mx-auto max-w-md">
               
               {statuses.map((step, index) => {
                 const isCompleted = index <= currentStatusIndex;
@@ -112,32 +113,45 @@ const OrderTimeline = ({ status }) => {
                 return (
                   <div 
                     key={step.name} 
-                    className="flex items-start pb-8 relative z-10" 
+                    className="flex items-start pb-8 mb-2 relative z-10" 
                     style={{ animation: `slideIn 0.5s ease-out ${0.2 + index * 0.1}s both` }}
                   >
-                    <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 shadow-sm ${
+                    <div className={`w-14 h-14 rounded-full flex items-center justify-center shrink-0 shadow-md ${
                       isCurrent 
-                        ? `${step.color} bg-white border-2 border-current animate-pulse` 
+                        ? 'bg-white border-2 border-black text-black' 
                         : isCompleted 
-                          ? `text-white bg-green-500` 
-                          : `text-gray-400 bg-gray-50 border border-gray-300`
-                    }`}>
-                      {step.icon}
+                          ? 'text-white bg-black' 
+                          : 'text-gray-400 bg-white border border-gray-300'
+                    }`} style={isCurrent ? { animation: 'pulseRing 2s cubic-bezier(0.455, 0.03, 0.515, 0.955) infinite' } : {}}>
+                      <div className={`text-lg ${isCurrent ? 'scale-110' : ''}`}>
+                        {step.icon}
+                      </div>
                     </div>
-                    <div className="ml-4 pt-1">
-                      <p className={`font-medium text-sm tracking-wide ${
+                    <div className="ml-5 pt-3">
+                      <p className={`font-semibold text-sm tracking-wide ${
                         isCurrent 
-                          ? step.color 
+                          ? 'text-black' 
                           : isCompleted 
-                            ? 'text-green-500' 
+                            ? 'text-black' 
                             : 'text-gray-500'
                       }`}>
                         {step.name.replace(/_/g, ' ')}
                       </p>
-                      <p className="text-xs text-gray-500 mt-0.5 tracking-wide">
-                        {isCurrent && 'Current status'}
-                        {!isCurrent && isCompleted && 'Completed'}
-                        {!isCurrent && !isCompleted && 'Pending'}
+                      {isCurrent && (
+                        <p className="text-xs text-gray-600 mt-0.5">
+                          {step.description}
+                        </p>
+                      )}
+                      <p className={`text-xs mt-1 tracking-wide ${
+                        isCurrent 
+                          ? 'font-medium text-black' 
+                          : isCompleted 
+                            ? 'text-gray-700' 
+                            : 'text-gray-500'
+                      }`}>
+                        {isCurrent && '• Current status'}
+                        {!isCurrent && isCompleted && '• Completed'}
+                        {!isCurrent && !isCompleted && '• Pending'}
                       </p>
                     </div>
                   </div>
@@ -158,9 +172,14 @@ const OrderTimeline = ({ status }) => {
           animation: spin-slow 3s linear infinite;
         }
         @keyframes pulse-custom {
-          0% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.4); }
-          70% { box-shadow: 0 0 0 10px rgba(59, 130, 246, 0); }
-          100% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0); }
+          0% { box-shadow: 0 0 0 0 rgba(0, 0, 0, 0.15); }
+          70% { box-shadow: 0 0 0 8px rgba(0, 0, 0, 0); }
+          100% { box-shadow: 0 0 0 0 rgba(0, 0, 0, 0); }
+        }
+        @keyframes float {
+          0% { transform: translateY(0px); }
+          50% { transform: translateY(-5px); }
+          100% { transform: translateY(0px); }
         }
       `}</style>
     </div>
