@@ -12,7 +12,8 @@ import {
     FaMoneyBillWave,
     FaTshirt,
     FaWarehouse,
-    FaUndo
+    FaUndo,
+    FaEnvelope
 } from 'react-icons/fa'
 
 function AdminDashboard() {
@@ -88,6 +89,12 @@ function AdminDashboard() {
             description: "Monitor and manage product inventory levels",
             path: "/dashboard/stock-management",
             icon: <FaWarehouse className="text-purple-600" />
+        },
+        {
+            title: "Contact Management",
+            description: "Manage customer inquiries and respond to messages",
+            path: "/dashboard/contact-management",
+            icon: <FaEnvelope className="text-indigo-600" />
         }
     ]
 

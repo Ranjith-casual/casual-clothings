@@ -64,10 +64,9 @@ function About() {
         </div>
 
         {/* Contact Section */}
-        <div className="mb-16">
+        <div id="contact" className="mb-16 scroll-mt-20">
           <h2 className="text-2xl font-medium text-gray-900 mb-6 font-['Playfair_Display']">Get In Touch</h2>
           <div className="bg-white rounded-lg shadow-sm overflow-hidden">
-            {/* Import your Contact component here */}
             <Contact />
           </div>
         </div>

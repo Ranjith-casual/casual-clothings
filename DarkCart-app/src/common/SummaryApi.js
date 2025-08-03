@@ -1,4 +1,4 @@
-export const baseURL = import.meta.env.VITE_API_URL;
+export const baseURL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
 
 const SummaryApi = {
     register:{
@@ -372,6 +372,32 @@ const SummaryApi = {
     getPaymentStatsWithDelivery: {
         url: '/api/payment/stats/delivery',
         method: 'get'
+    },
+    
+    // Contact Management APIs
+    getAllContacts: {
+        url: '/api/contact/all',
+        method: 'get'
+    },
+    updateContactStatus: {
+        url: '/api/contact/:id/status',
+        method: 'put'
+    },
+    replyToContact: {
+        url: '/api/contact/:id/reply',
+        method: 'post'
+    },
+    addContactComment: {
+        url: '/api/contact/:id/comment',
+        method: 'post'
+    },
+    deleteContact: {
+        url: '/api/contact/:id',
+        method: 'delete'
+    },
+    submitContactForm: {
+        url: '/api/contact/submit',
+        method: 'post'
     },
     
     // Custom T-Shirt Request APIs

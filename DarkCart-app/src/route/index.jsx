@@ -59,6 +59,8 @@ import CancellationPolicyPage from "../pages/CancellationPolicyPage";
 import RefundManagementPage from "../pages/RefundManagementPage";
 import InventoryManagement from "../pages/InventoryManagement";
 import Sitemap from "../pages/Sitemap";
+import AdminContactManagement from "../pages/AdminContactManagement";
+import UserContactHistory from "../pages/UserContactHistory";
 
 const router = createBrowserRouter([
     {
@@ -112,6 +114,10 @@ const router = createBrowserRouter([
             {
                 path:"/sustainability",
                 element : <Sustainability/>
+            },
+            {
+                path:"/contact-history",
+                element : <UserContactHistory/>
             },
             {
                 path:"/custom-tshirt",
@@ -258,6 +264,10 @@ const router = createBrowserRouter([
                 {
                     path:"inventory-management/:productId",
                     element:<AdminPermission><InventoryManagement/></AdminPermission>
+                },
+                {
+                    path:"contact-management",
+                    element:<AdminPermission><AdminContactManagement/></AdminPermission>
                 },
 
                 // Add catch-all for dashboard subroutes

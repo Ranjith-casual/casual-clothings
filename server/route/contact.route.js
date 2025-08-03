@@ -3,18 +3,27 @@ import {
   submitContactMessage, 
   getAllContactMessages, 
   updateMessageStatus, 
-  deleteMessage 
+  addAdminReply,
+  addAdminComment,
+  deleteMessage,
+  getUserContactHistory
 } from '../controllers/contact.controller.js';
+import auth from '../middleware/auth.js';
+import { admin } from '../middleware/Admin.js';
 
 const router = express.Router();
 
 // Public route for submitting contact forms
 router.post('/send', submitContactMessage);
 
-// NOTE: These routes would normally be protected with authentication
-// But we're making them public for now
-router.get('/all', getAllContactMessages);
-router.put('/:id/status', updateMessageStatus);
-router.delete('/:id', deleteMessage);
+// User route to get their own contact history
+router.get('/user', auth, getUserContactHistory);
+
+// Admin routes - protected with authentication and authorization
+router.get('/all', auth, admin, getAllContactMessages);
+router.put('/:id/status', auth, admin, updateMessageStatus);
+router.post('/:id/reply', auth, admin, addAdminReply);
+router.post('/:id/comment', auth, admin, addAdminComment);
+router.delete('/:id', auth, admin, deleteMessage);
 
 export default router;

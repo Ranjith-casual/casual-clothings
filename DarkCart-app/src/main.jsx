@@ -5,6 +5,10 @@ import './index.css'
 import router from './route/index.jsx'
 import { store } from './store/store.js'
 import { Provider } from 'react-redux'
+import { setupAxiosInterceptors } from './utils/axiosConfig.js'
+
+// Set up Axios interceptors for global authentication
+setupAxiosInterceptors()
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>

@@ -11,10 +11,21 @@ const MySwal = withReactContent(Swal);
 
 function Contact() {
   const navigate = useNavigate();
+  const contactFormRef = React.useRef(null);
   
   // Get user state from Redux store
   const user = useSelector(state => state.user);
   const isLoggedIn = !!user._id; // User is logged in if they have an _id
+  
+  // Scroll to form when component mounts if #contact anchor is in the URL
+  useEffect(() => {
+    if (window.location.hash === '#contact' && contactFormRef.current) {
+      setTimeout(() => {
+        contactFormRef.current.scrollIntoView({ behavior: 'smooth' });
+        contactFormRef.current.querySelector('input, textarea').focus();
+      }, 500);
+    }
+  }, []);
   
   // Default store location
   const [storeLocation] = useState({
@@ -91,8 +102,14 @@ function Contact() {
     try {
       console.log("Attempting to send form data:", formData);
       
-      // Get token from localStorage or wherever you store it
-      const token = localStorage.getItem('token'); // Adjust based on your token storage method
+      // Get token from localStorage - check both accessToken and token
+      const token = localStorage.getItem('accessToken') || localStorage.getItem('token');
+      
+      if (!token) {
+        throw new Error('Authentication token not found. Please log in again.');
+      }
+      
+      console.log("Using token for contact submission");
       
       const response = await axios({
         method: 'post',
@@ -129,6 +146,21 @@ function Contact() {
         background: "#ffffff",
         color: "#000000"
       });
+      
+      // Redirect to the history page to see all messages including this one
+      await MySwal.fire({
+        icon: "info",
+        title: "View your message history?",
+        text: "Would you like to see all your messages?",
+        showCancelButton: true,
+        confirmButtonText: "Yes, show my messages",
+        cancelButtonText: "No, stay here",
+        confirmButtonColor: "#111827",
+      }).then((result) => {
+        if (result.isConfirmed) {
+          navigate("/contact-history");
+        }
+      });
 
       // Reset form fields except user info
       setFormData(prev => ({
@@ -141,12 +173,28 @@ function Contact() {
       clearInterval(progressInterval);
       setSubmitProgress(0);
       
+      console.error("Error sending contact message:", error);
+      
       // Handle auth errors
       if (error.response && error.response.status === 401) {
         await MySwal.fire({
           icon: "error",
           title: "Authentication Error",
           text: "Your session has expired. Please log in again.",
+          confirmButtonText: "Log In",
+          background: "#ffffff",
+          color: "#000000"
+        });
+        navigate("/login");
+        return;
+      }
+      
+      // Handle token not found error
+      if (error.message === 'Authentication token not found. Please log in again.') {
+        await MySwal.fire({
+          icon: "error",
+          title: "Authentication Required",
+          text: "Please log in again to send your message.",
           confirmButtonText: "Log In",
           background: "#ffffff",
           color: "#000000"
@@ -204,7 +252,7 @@ function Contact() {
           </p>
         </div>
       ) : (
-        <form onSubmit={handleSubmit} className="space-y-6">
+        <form ref={contactFormRef} onSubmit={handleSubmit} className="space-y-6">
           <div className="space-y-2">
             <label htmlFor="fullName" className="block text-sm font-medium text-gray-700 font-['Poppins']">Full Name</label>
             <input 
@@ -318,11 +366,25 @@ function Contact() {
           </div>
           
           {/* User info indicator */}
-          <div className="flex items-center justify-center space-x-2 text-sm text-gray-500">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-green-500" viewBox="0 0 20 20" fill="currentColor">
-              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-            </svg>
-            <span className="font-['Poppins']">Logged in as {user.name}</span>
+          <div className="flex flex-col space-y-3">
+            <div className="flex items-center justify-center space-x-2 text-sm text-gray-500">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-green-500" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+              </svg>
+              <span className="font-['Poppins']">Logged in as {user.name}</span>
+            </div>
+            
+            <div className="flex items-center justify-center">
+              <Link 
+                to="/contact-history" 
+                className="text-sm text-indigo-600 hover:text-indigo-800 flex items-center font-medium"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M6 2a2 2 0 00-2 2v12a2 2 0 002 2h8a2 2 0 002-2V7.414A2 2 0 0015.414 6L12 2.586A2 2 0 0010.586 2H6zm2 10a1 1 0 10-2 0v3a1 1 0 102 0v-3zm2-3a1 1 0 011 1v5a1 1 0 11-2 0v-5a1 1 0 011-1zm4-1a1 1 0 10-2 0v7a1 1 0 102 0V8z" clipRule="evenodd" />
+                </svg>
+                View your contact history
+              </Link>
+            </div>
           </div>
         </form>
       )}

@@ -80,8 +80,12 @@ function Login() {
 
       if(response.data.success){
         toast.success(response.data.message);
+        // Set tokens in localStorage using your app's standard format
         localStorage.setItem("accessToken", response.data.data.accessToken);
         localStorage.setItem("refreshToken", response.data.data.refreshToken);
+        
+        // For backward compatibility with components that use "token" instead of "accessToken"
+        localStorage.setItem("token", response.data.data.accessToken);
         
         // Generate new session ID for notification tracking
         const sessionId = Date.now().toString() + Math.random().toString(36).substr(2, 9);
@@ -132,8 +136,12 @@ function Login() {
 
       if (response.data.success) {
         toast.success(response.data.message);
+        // Set tokens in localStorage using your app's standard format
         localStorage.setItem("accessToken", response.data.data.accessToken);
         localStorage.setItem("refreshToken", response.data.data.refreshToken);
+        
+        // For backward compatibility with components that use "token" instead of "accessToken"
+        localStorage.setItem("token", response.data.data.accessToken);
         
         // Generate new session ID for notification tracking
         const sessionId = Date.now().toString() + Math.random().toString(36).substr(2, 9);
