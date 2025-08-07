@@ -101,6 +101,10 @@ const orderSchema = mongoose.Schema({
         type: String,
         default: ""
     },
+    razorpayOrderId: {
+        type: String,
+        default: ""
+    },
     paymentStatus: {
         type: String,
         default: ""

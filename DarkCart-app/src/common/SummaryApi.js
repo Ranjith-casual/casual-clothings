@@ -270,12 +270,29 @@ const SummaryApi = {
         url: '/api/payment/refund/initiate',
         method: 'post'
     },
+    getPaymentStatus: {
+        url: '/api/payment/status',
+        method: 'get'
+    },
     getPaymentSettings: {
         url: '/api/payment/settings',
         method: 'get'
     },
     updatePaymentSettings: {
         url: '/api/payment/settings/update',
+        method: 'post'
+    },
+    // Razorpay payment APIs
+    createRazorpayOrder: {
+        url: '/api/payment/razorpay/create-order',
+        method: 'post'
+    },
+    verifyRazorpayPayment: {
+        url: '/api/payment/razorpay/verify',
+        method: 'post'
+    },
+    initiateRazorpayRefund: {
+        url: '/api/payment/razorpay/refund',
         method: 'post'
     },
     // Bundle API endpoints

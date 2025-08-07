@@ -7,6 +7,8 @@ import { generateInvoicePdf } from "../utils/generateInvoicePdf.js";
 import PDFDocument from 'pdfkit';
 import fs from 'fs';
 import path from 'path';
+import PaymentSettingsModel from '../models/paymentSettings.model.js';
+import razorpayService from '../services/razorpay.service.js';
 
 export const getAllPayments = async (req, res) => {
     try {
@@ -1549,32 +1551,24 @@ export const initiateRefund = async (req, res) => {
 
 export const getPaymentSettings = async (req, res) => {
     try {
-        // In a real application, you would store these settings in database
-        // For now, return default settings
-        const defaultSettings = {
+        const settings = await PaymentSettingsModel.getSettings();
+        
+        // Don't expose sensitive data like keySecret
+        const responseData = {
             razorpay: {
-                enabled: false,
-                keyId: '',
-                keySecret: '',
-                webhookSecret: ''
+                enabled: settings.razorpay.enabled,
+                keyId: settings.razorpay.keyId,
+                webhookSecret: settings.razorpay.webhookSecret ? '***masked***' : ''
             },
-            cod: {
-                enabled: true,
-                minimumAmount: 0,
-                maximumAmount: 50000
-            },
-            general: {
-                defaultPaymentMethod: 'cod',
-                autoRefundEnabled: false,
-                paymentTimeout: 15
-            }
+            cod: settings.cod,
+            general: settings.general
         };
         
         return res.status(200).json({
             success: true,
             error: false,
             message: "Payment settings retrieved successfully",
-            data: defaultSettings
+            data: responseData
         });
         
     } catch (error) {
@@ -1588,12 +1582,43 @@ export const getPaymentSettings = async (req, res) => {
     }
 };
 
+// Public endpoint to check payment method availability (no auth required)
+export const getPaymentStatus = async (req, res) => {
+    try {
+        const settings = await PaymentSettingsModel.getSettings();
+        
+        // Only return public information about payment availability
+        const responseData = {
+            razorpay: {
+                enabled: settings.razorpay.enabled,
+                keyId: settings.razorpay.enabled ? settings.razorpay.keyId : null
+            },
+            cod: {
+                enabled: settings.cod.enabled
+            }
+        };
+        
+        return res.status(200).json({
+            success: true,
+            error: false,
+            message: "Payment status retrieved successfully",
+            data: responseData
+        });
+        
+    } catch (error) {
+        console.error("Error in getPaymentStatus:", error);
+        return res.status(500).json({
+            success: false,
+            error: true,
+            message: "Error retrieving payment status",
+            details: error.message
+        });
+    }
+};
+
 export const updatePaymentSettings = async (req, res) => {
     try {
         const settings = req.body;
-        
-        // In a real application, you would save these settings to database
-        // For now, just validate and return success
         
         if (!settings) {
             return res.status(400).json({
@@ -1614,8 +1639,8 @@ export const updatePaymentSettings = async (req, res) => {
             }
         }
         
-        // Here you would save to database:
-        // await PaymentSettings.findOneAndUpdate({}, settings, { upsert: true });
+        // Save settings to database
+        await PaymentSettingsModel.updateSettings(settings);
         
         return res.status(200).json({
             success: true,
@@ -1767,6 +1792,294 @@ export const getPaymentStatsWithDelivery = async (req, res) => {
             success: false,
             error: true,
             message: "Error retrieving payment statistics",
+            details: error.message
+        });
+    }
+};
+
+// Razorpay payment creation
+export const createRazorpayOrder = async (req, res) => {
+    try {
+        const { amount, orderId, notes } = req.body;
+        
+        if (!amount || amount <= 0) {
+            return res.status(400).json({
+                success: false,
+                error: true,
+                message: "Valid amount is required"
+            });
+        }
+        
+        // Check if Razorpay is enabled
+        const settings = await PaymentSettingsModel.getSettings();
+        if (!settings.razorpay.enabled) {
+            return res.status(400).json({
+                success: false,
+                error: true,
+                message: "Razorpay payment is not enabled"
+            });
+        }
+        
+        const orderData = {
+            amount: amount,
+            receipt: `order_${orderId || Date.now()}`,
+            notes: notes || {}
+        };
+        
+        const razorpayOrder = await razorpayService.createOrder(orderData);
+        
+        return res.status(200).json({
+            success: true,
+            error: false,
+            message: "Razorpay order created successfully",
+            data: {
+                orderId: razorpayOrder.id,
+                amount: razorpayOrder.amount,
+                currency: razorpayOrder.currency,
+                receipt: razorpayOrder.receipt
+            }
+        });
+        
+    } catch (error) {
+        console.error("Error in createRazorpayOrder:", error);
+        return res.status(500).json({
+            success: false,
+            error: true,
+            message: "Error creating Razorpay order",
+            details: error.message
+        });
+    }
+};
+
+// Verify Razorpay payment
+export const verifyRazorpayPayment = async (req, res) => {
+    try {
+        const {
+            razorpay_order_id,
+            razorpay_payment_id,
+            razorpay_signature,
+            order_id // Your internal order ID
+        } = req.body;
+        
+        if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
+            return res.status(400).json({
+                success: false,
+                error: true,
+                message: "Missing required payment verification parameters"
+            });
+        }
+        
+        // Verify signature
+        const isValidSignature = await razorpayService.verifyPaymentSignature(
+            razorpay_order_id,
+            razorpay_payment_id,
+            razorpay_signature
+        );
+        
+        if (!isValidSignature) {
+            return res.status(400).json({
+                success: false,
+                error: true,
+                message: "Invalid payment signature"
+            });
+        }
+        
+        // Get payment details from Razorpay
+        const paymentDetails = await razorpayService.getPaymentDetails(razorpay_payment_id);
+        
+        // Update order payment status if order_id is provided
+        if (order_id) {
+            await orderModel.findOneAndUpdate(
+                { orderId: order_id },
+                {
+                    paymentStatus: "PAID",
+                    paymentId: razorpay_payment_id,
+                    razorpayOrderId: razorpay_order_id,
+                    paymentMethod: "Razorpay"
+                }
+            );
+        }
+        
+        return res.status(200).json({
+            success: true,
+            error: false,
+            message: "Payment verified successfully",
+            data: {
+                paymentId: razorpay_payment_id,
+                orderId: razorpay_order_id,
+                status: paymentDetails.status,
+                amount: paymentDetails.amount / 100 // Convert back to rupees
+            }
+        });
+        
+    } catch (error) {
+        console.error("Error in verifyRazorpayPayment:", error);
+        return res.status(500).json({
+            success: false,
+            error: true,
+            message: "Error verifying payment",
+            details: error.message
+        });
+    }
+};
+
+// Razorpay webhook handler
+export const handleRazorpayWebhook = async (req, res) => {
+    try {
+        const webhookSignature = req.headers['x-razorpay-signature'];
+        const webhookBody = JSON.stringify(req.body);
+        
+        // Verify webhook signature
+        const isValidWebhook = await razorpayService.verifyWebhookSignature(
+            webhookBody,
+            webhookSignature
+        );
+        
+        if (!isValidWebhook) {
+            return res.status(400).json({
+                success: false,
+                error: true,
+                message: "Invalid webhook signature"
+            });
+        }
+        
+        const event = req.body.event;
+        const paymentEntity = req.body.payload.payment.entity;
+        
+        switch (event) {
+            case 'payment.captured':
+                // Payment was successful
+                await handlePaymentSuccess(paymentEntity);
+                break;
+                
+            case 'payment.failed':
+                // Payment failed
+                await handlePaymentFailure(paymentEntity);
+                break;
+                
+            case 'payment.authorized':
+                // Payment authorized but not captured
+                await handlePaymentAuthorized(paymentEntity);
+                break;
+                
+            default:
+                console.log(`Unhandled webhook event: ${event}`);
+        }
+        
+        return res.status(200).json({
+            success: true,
+            message: "Webhook processed successfully"
+        });
+        
+    } catch (error) {
+        console.error("Error in handleRazorpayWebhook:", error);
+        return res.status(500).json({
+            success: false,
+            error: true,
+            message: "Error processing webhook"
+        });
+    }
+};
+
+// Helper function to handle successful payments
+const handlePaymentSuccess = async (paymentEntity) => {
+    try {
+        // Find order by razorpay order ID
+        const order = await orderModel.findOne({
+            razorpayOrderId: paymentEntity.order_id
+        });
+        
+        if (order) {
+            await orderModel.findByIdAndUpdate(order._id, {
+                paymentStatus: "PAID",
+                paymentId: paymentEntity.id,
+                paymentMethod: "Razorpay"
+            });
+            
+            console.log(`Payment successful for order ${order.orderId}`);
+        }
+    } catch (error) {
+        console.error("Error handling payment success:", error);
+    }
+};
+
+// Helper function to handle failed payments
+const handlePaymentFailure = async (paymentEntity) => {
+    try {
+        // Find order by razorpay order ID
+        const order = await orderModel.findOne({
+            razorpayOrderId: paymentEntity.order_id
+        });
+        
+        if (order) {
+            await orderModel.findByIdAndUpdate(order._id, {
+                paymentStatus: "FAILED",
+                paymentId: paymentEntity.id,
+                paymentMethod: "Razorpay"
+            });
+            
+            console.log(`Payment failed for order ${order.orderId}`);
+        }
+    } catch (error) {
+        console.error("Error handling payment failure:", error);
+    }
+};
+
+// Helper function to handle authorized payments
+const handlePaymentAuthorized = async (paymentEntity) => {
+    try {
+        // Find order by razorpay order ID
+        const order = await orderModel.findOne({
+            razorpayOrderId: paymentEntity.order_id
+        });
+        
+        if (order) {
+            await orderModel.findByIdAndUpdate(order._id, {
+                paymentStatus: "AUTHORIZED",
+                paymentId: paymentEntity.id,
+                paymentMethod: "Razorpay"
+            });
+            
+            console.log(`Payment authorized for order ${order.orderId}`);
+        }
+    } catch (error) {
+        console.error("Error handling payment authorization:", error);
+    }
+};
+
+// Update refund function to use Razorpay
+export const initiateRazorpayRefund = async (req, res) => {
+    try {
+        const { paymentId, amount, notes } = req.body;
+        
+        if (!paymentId || !amount) {
+            return res.status(400).json({
+                success: false,
+                error: true,
+                message: "Payment ID and amount are required"
+            });
+        }
+        
+        // Create refund using Razorpay service
+        const refund = await razorpayService.createRefund(paymentId, amount, notes);
+        
+        return res.status(200).json({
+            success: true,
+            error: false,
+            message: "Refund initiated successfully",
+            data: {
+                refundId: refund.id,
+                amount: refund.amount / 100,
+                status: refund.status
+            }
+        });
+        
+    } catch (error) {
+        console.error("Error in initiateRazorpayRefund:", error);
+        return res.status(500).json({
+            success: false,
+            error: true,
+            message: "Error initiating refund",
             details: error.message
         });
     }

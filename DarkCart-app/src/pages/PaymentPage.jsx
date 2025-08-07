@@ -12,6 +12,7 @@ import noCart from "../assets/Empty-cuate.png"; // Import fallback image
 import ErrorBoundary from "../components/ErrorBoundary";
 import ProductImageLink from "../components/ProductImageLink";
 import RandomCategoryProducts from "../components/RandomCategoryProducts";
+import useRazorpay from "../hooks/useRazorpay";
 
 // Import payment icons
 import {
@@ -70,8 +71,12 @@ const PaymentPage = () => {
   const { fetchCartItems, handleOrder } = useGlobalContext();
   const cartItemsList = useSelector((state) => state.cartItem.cart);
   const addressList = useSelector((state) => state.addresses.addressList);
+  const user = useSelector((state) => state.user);
   const navigate = useNavigate();
   const location = useLocation();
+
+  // Razorpay integration
+  const { processPayment, loading: razorpayLoading, isRazorpayEnabled } = useRazorpay();
 
   // Get selected items from sessionStorage (set in BagPage)
   const [selectedCartItemIds, setSelectedCartItemIds] = useState([]);
@@ -84,17 +89,15 @@ const PaymentPage = () => {
   const [estimatedDeliveryDate, setEstimatedDeliveryDate] = useState('');
   const [deliveryDays, setDeliveryDays] = useState(0);
   const [selectedAddress, setSelectedAddress] = useState(null);
-  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('online'); // Default to online payment
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('razorpay');
   const [isProcessing, setIsProcessing] = useState(false);
   const [deliveryDates, setDeliveryDates] = useState([]);
 
-  // Helper function to map payment method codes to backend-expected names
-  const getPaymentMethodName = (methodCode) => {
-    const methodMapping = {
-      'online': 'Online Payment',
-    };
-    return methodMapping[methodCode] || 'Online Payment';
-  };
+  // Update payment method when Razorpay status changes
+  useEffect(() => {
+    // Always use Razorpay as the only payment method
+    setSelectedPaymentMethod('razorpay');
+  }, [isRazorpayEnabled]);
 
   // Get selected items from sessionStorage and filter cart items
   useEffect(() => {
@@ -291,34 +294,40 @@ const PaymentPage = () => {
       return;
     }
 
-    setIsProcessing(true);
+    // Only handle Razorpay payment - no other options
+    if (!isRazorpayEnabled) {
+      toast.error("Payment service is currently unavailable. Please try again later.");
+      return;
+    }
 
+    handleRazorpayPayment();
+  };
+
+  const handleRazorpayPayment = async () => {
     try {
-      // Show a loading toast
-      toast.loading("Processing your order...", {
-        id: "order-processing",
+      setIsProcessing(true);
+      
+      // Show loading toast for Razorpay
+      toast.loading("Preparing Razorpay payment...", {
+        id: "razorpay-processing",
       });
-
-      // Make sure items are properly formatted for the API
+      
+      // First create the order in our backend
       const preparedItems = checkoutItems.map(item => {
-        // Calculate pricing for this item using our pricing function
         const itemPricing = calculateItemPricing(item);
         
-        // Include complete product details for orders
         if (item.itemType === 'bundle') {
           return {
             _id: item._id,
             bundleId: typeof item.bundleId === 'object' ? item.bundleId._id : item.bundleId,
             bundleDetails: typeof item.bundleId === 'object' ? {
               title: item.bundleId.title,
-              // Handle both single image and images array
               image: item.bundleId.image || (item.bundleId.images && item.bundleId.images.length > 0 ? item.bundleId.images[0] : ''),
               images: item.bundleId.images || [],
               bundlePrice: item.bundleId.bundlePrice
             } : undefined,
             itemType: 'bundle',
             quantity: item.quantity || 1,
-            // Include pricing information
             price: itemPricing.finalPrice,
             originalPrice: itemPricing.originalPrice,
             discount: itemPricing.discount,
@@ -331,16 +340,15 @@ const PaymentPage = () => {
             productDetails: typeof item.productId === 'object' ? {
               name: item.productId.name,
               image: item.productId.image,
-              price: itemPricing.finalPrice, // Use calculated price
+              price: itemPricing.finalPrice,
               originalPrice: itemPricing.originalPrice,
               sizes: item.productId.sizes,
               sizePricing: item.productId.sizePricing
             } : undefined,
-            size: item.size, // Include size information for product items
-            sizeAdjustedPrice: item.sizeAdjustedPrice, // Include size-specific price if available
+            size: item.size,
+            sizeAdjustedPrice: item.sizeAdjustedPrice,
             itemType: 'product',
             quantity: item.quantity || 1,
-            // Include pricing information
             price: itemPricing.finalPrice,
             originalPrice: itemPricing.originalPrice,
             discount: itemPricing.discount,
@@ -349,10 +357,11 @@ const PaymentPage = () => {
         }
       });
 
-      const response = await Axios({
+      // Create order in our backend first (this will be in PENDING status initially)
+      const orderResponse = await Axios({
         ...SummaryApi.onlinePaymentOrder,
         data: {
-          list_items: preparedItems, // Send properly formatted items
+          list_items: preparedItems,
           totalAmount: totalPrice + deliveryCharge,
           addressId: selectedAddressId,
           subTotalAmt: totalPrice,
@@ -361,62 +370,89 @@ const PaymentPage = () => {
           estimatedDeliveryDate: estimatedDeliveryDate,
           deliveryDays: deliveryDays,
           quantity: totalQty,
-          paymentMethod: getPaymentMethodName(selectedPaymentMethod), // Add payment method
-        },
-        timeout: 30000 // Add timeout to prevent hanging requests
+          paymentMethod: "Razorpay",
+        }
       });
 
-      const { data: responseData } = response;
+      if (!orderResponse.data.success) {
+        throw new Error(orderResponse.data.message || "Failed to create order");
+      }
+
+      const internalOrderId = orderResponse.data.data._id; // Internal MongoDB order ID
+      const orderIdForDisplay = orderResponse.data.data.orderId; // Display order ID
+      const totalAmount = totalPrice + deliveryCharge;
 
       // Dismiss the loading toast
-      toast.dismiss("order-processing");
+      toast.dismiss("razorpay-processing");
 
-      if (responseData.success) {
-        toast.success("Order placed successfully");
-        
-        // Remove selected items from sessionStorage
-        sessionStorage.removeItem('selectedCartItems');
-        
-        // Refresh cart to reflect changes after a brief delay to ensure backend processing is complete
-        setTimeout(() => {
-          fetchCartItems();
-        }, 1000);
-        
-        handleOrder();
-        navigate("/order-success", {
-          state: {
-            text: "Order",
-            orderDetails: {
-              estimatedDeliveryDate: estimatedDeliveryDate,
-              deliveryDays: deliveryDays,
-              deliveryDistance: deliveryDistance,
-              totalAmount: totalPrice + deliveryCharge,
-              itemCount: totalQty
-            }
-          },
-        });
-      } else {
-        toast.error(responseData.message || "Failed to place order");
-      }
+      // Get customer details for Razorpay prefill
+      const customerDetails = {
+        name: user?.name || selectedAddress?.name || '',
+        email: user?.email || '',
+        mobile: selectedAddress?.mobile || user?.mobile || ''
+      };
+
+      // Process payment using Razorpay
+      await processPayment({
+        amount: totalAmount,
+        orderId: orderIdForDisplay, // Use display order ID for receipt
+        customerDetails: customerDetails,
+        notes: {
+          orderType: 'ecommerce',
+          itemCount: totalQty,
+          deliveryCharge: deliveryCharge,
+          internalOrderId: internalOrderId
+        },
+        onSuccess: (paymentData) => {
+          // Payment successful
+          console.log('Razorpay payment successful:', paymentData);
+          toast.success("Payment successful! Order placed.");
+          
+          // Remove selected items from sessionStorage
+          sessionStorage.removeItem('selectedCartItems');
+          sessionStorage.removeItem('selectedCartItemsData');
+          
+          // Refresh cart
+          setTimeout(() => {
+            fetchCartItems();
+          }, 1000);
+          
+          handleOrder();
+          navigate("/order-success", {
+            state: {
+              text: "Order",
+              orderDetails: {
+                orderId: orderIdForDisplay,
+                estimatedDeliveryDate: estimatedDeliveryDate,
+                deliveryDays: deliveryDays,
+                deliveryDistance: deliveryDistance,
+                totalAmount: totalAmount,
+                itemCount: totalQty,
+                paymentId: paymentData.paymentId,
+                paymentMethod: 'Razorpay'
+              }
+            },
+          });
+        },
+        onFailure: (error) => {
+          // Payment failed
+          console.error("Razorpay payment failed:", error);
+          toast.error("Payment failed. Please try again.");
+          
+          // Optionally, you could update the order status to FAILED here
+          // or let the webhook handle it
+        }
+      });
+
     } catch (error) {
-      console.error("Order placement error:", error);
-      toast.dismiss("order-processing");
+      console.error("Razorpay payment error:", error);
+      toast.dismiss("razorpay-processing");
       
-      if (error.code === 'ECONNABORTED') {
-        toast.error("The request timed out. Please try again.");
-      } else if (error.response && error.response.data && error.response.data.message) {
+      if (error.response?.data?.message) {
         toast.error(error.response.data.message);
       } else {
-        AxiosTostError(error);
+        toast.error(error.message || "Payment failed. Please try again.");
       }
-      
-      // Add fallback error message if AxiosTostError doesn't show anything
-      setTimeout(() => {
-        const toastElements = document.querySelectorAll('[data-id^="toast-"]');
-        if (toastElements.length === 0) {
-          toast.error("Failed to place order. Please try again.");
-        }
-      }, 300);
     } finally {
       setIsProcessing(false);
     }
@@ -464,52 +500,80 @@ const PaymentPage = () => {
               <div className="p-4 sm:p-5">
                 {/* Payment Methods List */}
                 <div className="space-y-4">
-                  {/* Online Payment - Default Selected */}
-                  <div className="border border-gray-200 rounded-md overflow-hidden">
-                    <div 
-                      className={`p-4 flex items-center cursor-pointer ${
-                        selectedPaymentMethod === 'online' ? 'bg-gray-50' : ''
-                      }`}
-                      onClick={() => setSelectedPaymentMethod('online')}
-                    >
-                      <input
-                        type="radio"
-                        id="payment-online"
-                        name="payment-method"
-                        checked={selectedPaymentMethod === 'online'}
-                        onChange={() => setSelectedPaymentMethod('online')}
-                        className="w-4 h-4 text-black border-gray-300 focus:ring-black"
-                      />
-                      <label htmlFor="payment-online" className="ml-3 flex items-center cursor-pointer">
-                        <FaCreditCard className="text-gray-700 mr-2" />
-                        <span className="font-medium text-gray-900">Online Payment</span>
-                      </label>
-                    </div>
-                    
-                    {selectedPaymentMethod === 'online' && (
-                      <div className="p-4 border-t bg-gray-50">
-                        <p className="text-xs sm:text-sm text-gray-600">
-                          Pay securely using your credit/debit card, net banking, or UPI.
+                  {/* Razorpay Payment - Only payment option */}
+                  {isRazorpayEnabled ? (
+                    <div className="border border-blue-200 rounded-md overflow-hidden bg-blue-50">
+                      <div className="p-4 flex items-center">
+                        <input
+                          type="radio"
+                          id="payment-razorpay"
+                          name="payment-method"
+                          checked={true}
+                          readOnly
+                          className="w-4 h-4 text-blue-600 border-blue-300 focus:ring-blue-500"
+                        />
+                        <label htmlFor="payment-razorpay" className="ml-3 flex items-center">
+                          <FaCreditCard className="text-blue-600 mr-2" />
+                          <span className="font-medium text-gray-900">Pay with Razorpay</span>
+                          <span className="ml-2 text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full">Secure Payment</span>
+                        </label>
+                      </div>
+                      
+                      <div className="p-4 border-t border-blue-200 bg-white">
+                        <p className="text-xs sm:text-sm text-gray-600 mb-3">
+                          Pay securely using Credit/Debit Cards, Net Banking, UPI, or Wallets through Razorpay.
                         </p>
-                        <p className="text-xs sm:text-sm text-gray-600 mt-2">
-                          Your payment information is encrypted and secure.
+                        <div className="flex items-center space-x-3 mb-3">
+                          <FaCcVisa className="text-blue-600 text-xl" />
+                          <FaCcMastercard className="text-red-600 text-xl" />
+                          <FaCcAmex className="text-green-600 text-xl" />
+                          <FaWallet className="text-purple-600 text-xl" />
+                          <span className="text-xs text-gray-500">& more</span>
+                        </div>
+                        <div className="flex items-center space-x-4 text-xs text-gray-500">
+                          <div className="flex items-center">
+                            <div className="w-2 h-2 bg-green-500 rounded-full mr-1"></div>
+                            <span>256-bit SSL encryption</span>
+                          </div>
+                          <div className="flex items-center">
+                            <div className="w-2 h-2 bg-blue-500 rounded-full mr-1"></div>
+                            <span>PCI DSS compliant</span>
+                          </div>
+                        </div>
+                        <p className="text-xs text-gray-500 mt-2 font-medium">
+                          Powered by Razorpay - Trusted by millions of businesses
+                        </p>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="border border-red-200 rounded-md overflow-hidden bg-red-50">
+                      <div className="p-4 text-center">
+                        <div className="text-red-600 mb-2">
+                          <FaCreditCard className="mx-auto text-2xl mb-2" />
+                        </div>
+                        <h3 className="font-medium text-gray-900 mb-2">Payment Service Unavailable</h3>
+                        <p className="text-sm text-gray-600">
+                          Payment service is currently being set up. Please try again later.
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="text-xs sm:text-sm text-gray-600 mt-4">
+                    <div className="flex items-center">
+                      <div className="w-2 h-2 bg-green-500 rounded-full mr-2"></div>
+                      <p>
+                        All payments are processed securely through Razorpay. Your card details are never stored on our servers.
+                      </p>
+                    </div>
+                    {isRazorpayEnabled && (
+                      <div className="flex items-center mt-2">
+                        <div className="w-2 h-2 bg-blue-500 rounded-full mr-2"></div>
+                        <p>
+                          Industry-leading security with 3D Secure authentication and real-time fraud monitoring.
                         </p>
                       </div>
                     )}
-                  </div>
-
-                
-
-                  {/* UPI */}
-                
-
-                  {/* Net Banking */}
-                
-
-                  <div className="text-xs sm:text-sm text-gray-600 mt-4">
-                    <p>
-                      All payments are processed securely. Your card details are never stored on our servers.
-                    </p>
                   </div>
                 </div>
               </div>
@@ -734,10 +798,12 @@ const PaymentPage = () => {
                 
                 <button
                   onClick={handlePlaceOrder}
-                  disabled={isProcessing || !selectedPaymentMethod}
+                  disabled={isProcessing || !isRazorpayEnabled || razorpayLoading}
                   className="w-full bg-black hover:bg-gray-900 text-white py-3.5 mt-6 font-medium text-sm sm:text-base disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors duration-200 tracking-wide uppercase"
                 >
-                  {isProcessing ? "PROCESSING PAYMENT..." : "PAY NOW"}
+                  {!isRazorpayEnabled ? "PAYMENT SERVICE UNAVAILABLE" :
+                   isProcessing ? "PROCESSING PAYMENT..." : 
+                   "PAY WITH RAZORPAY"}
                 </button>
                 
                 <div className="mt-6 text-xs sm:text-sm text-center text-gray-600 space-y-1">
