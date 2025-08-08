@@ -1159,7 +1159,7 @@ function OrderCancellationModal({ order, onClose, onCancellationRequested }) {
                                 // For paid status, show green
                                 if (paymentStatus === 'PAID') return 'text-green-600';
                                 // For online payments, show green
-                                if (paymentMethod === 'ONLINE' || paymentMethod === 'Online Payment') return 'text-green-600';
+                                if (paymentMethod === 'ONLINE' || paymentMethod === 'Online Payment' || paymentMethod === 'Razorpay') return 'text-green-600';
                                 // For pending, show yellow
                                 return 'text-yellow-600';
                             })()}`}>
@@ -1170,7 +1170,7 @@ function OrderCancellationModal({ order, onClose, onCancellationRequested }) {
                                     // Handle different payment statuses
                                     if (paymentStatus === 'REFUND_SUCCESSFUL') return '✓ Refund Processed';
                                     if (paymentStatus === 'PAID') return '✓ Paid';
-                                    if ((paymentMethod === 'ONLINE' || paymentMethod === 'Online Payment') && 
+                                    if ((paymentMethod === 'ONLINE' || paymentMethod === 'Online Payment' || paymentMethod === 'Razorpay') && 
                                         order?.orderStatus !== 'CANCELLED') return '✓ Paid';
                                     if (paymentStatus === 'PENDING') return '⏱ Payment Pending';
                                     

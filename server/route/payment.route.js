@@ -15,6 +15,14 @@ import {
     handleRazorpayWebhook,
     initiateRazorpayRefund
 } from '../controllers/payment.controller.js';
+import {
+    processCompleteRefund,
+    processPartialRefund,
+    checkRefundStatus,
+    getOrderRefundHistory,
+    getRefundAnalytics,
+    processBulkRefunds
+} from '../controllers/refund.controller.js';
 import auth from '../middleware/auth.js';
 import { admin } from '../middleware/Admin.js';
 
@@ -58,5 +66,13 @@ paymentRouter.post('/razorpay/create-order', auth, createRazorpayOrder);
 paymentRouter.post('/razorpay/verify', auth, verifyRazorpayPayment);
 paymentRouter.post('/razorpay/webhook', handleRazorpayWebhook); // No auth needed for webhooks
 paymentRouter.post('/razorpay/refund', auth, admin, initiateRazorpayRefund);
+
+// Enhanced refund management routes
+paymentRouter.post('/refund/complete', auth, admin, processCompleteRefund);
+paymentRouter.post('/refund/partial', auth, admin, processPartialRefund);
+paymentRouter.post('/refund/bulk', auth, admin, processBulkRefunds);
+paymentRouter.get('/refund/status/:orderId', auth, admin, checkRefundStatus);
+paymentRouter.get('/refund/history/:orderId', auth, admin, getOrderRefundHistory);
+paymentRouter.get('/refund/analytics', auth, admin, getRefundAnalytics);
 
 export default paymentRouter;

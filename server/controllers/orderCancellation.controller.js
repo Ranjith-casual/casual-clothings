@@ -337,12 +337,13 @@ export const requestOrderCancellation = async (req, res) => {
         // 2. Orders with partial refund processing (when some items were already cancelled)
         // 3. Orders with successful refund (when previous partial refunds were completed)
         const allowedPaymentStatuses = ['PAID', 'PARTIAL_REFUND_PROCESSING', 'REFUND_SUCCESSFUL'];
+        const onlinePaymentMethods = ['Online Payment', 'Razorpay'];
         
-        if (order.paymentMethod !== 'Online Payment' || !allowedPaymentStatuses.includes(order.paymentStatus)) {
+        if (!onlinePaymentMethods.includes(order.paymentMethod) || !allowedPaymentStatuses.includes(order.paymentStatus)) {
             return res.status(400).json({
                 success: false,
                 error: true,
-                message: `Only paid online orders can be cancelled. Current status: ${order.paymentStatus}`
+                message: `Only paid online orders can be cancelled. Payment method: ${order.paymentMethod}, Status: ${order.paymentStatus}`
             });
         }
 

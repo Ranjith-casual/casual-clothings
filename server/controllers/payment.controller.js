@@ -1944,22 +1944,42 @@ export const handleRazorpayWebhook = async (req, res) => {
         }
         
         const event = req.body.event;
-        const paymentEntity = req.body.payload.payment.entity;
         
         switch (event) {
             case 'payment.captured':
                 // Payment was successful
+                const paymentEntity = req.body.payload.payment.entity;
                 await handlePaymentSuccess(paymentEntity);
                 break;
                 
             case 'payment.failed':
                 // Payment failed
-                await handlePaymentFailure(paymentEntity);
+                const failedPaymentEntity = req.body.payload.payment.entity;
+                await handlePaymentFailure(failedPaymentEntity);
                 break;
                 
             case 'payment.authorized':
                 // Payment authorized but not captured
-                await handlePaymentAuthorized(paymentEntity);
+                const authorizedPaymentEntity = req.body.payload.payment.entity;
+                await handlePaymentAuthorized(authorizedPaymentEntity);
+                break;
+                
+            case 'refund.created':
+                // Refund was initiated
+                const refundCreatedEntity = req.body.payload.refund.entity;
+                await handleRefundCreated(refundCreatedEntity);
+                break;
+                
+            case 'refund.processed':
+                // Refund was processed successfully
+                const refundProcessedEntity = req.body.payload.refund.entity;
+                await handleRefundProcessed(refundProcessedEntity);
+                break;
+                
+            case 'refund.failed':
+                // Refund failed
+                const refundFailedEntity = req.body.payload.refund.entity;
+                await handleRefundFailed(refundFailedEntity);
                 break;
                 
             default:
@@ -2082,5 +2102,85 @@ export const initiateRazorpayRefund = async (req, res) => {
             message: "Error initiating refund",
             details: error.message
         });
+    }
+};
+
+// Helper function to handle refund created webhook
+const handleRefundCreated = async (refundEntity) => {
+    try {
+        // Find order by payment ID
+        const order = await orderModel.findOne({
+            paymentId: refundEntity.payment_id
+        });
+        
+        if (order) {
+            await orderModel.findByIdAndUpdate(order._id, {
+                paymentStatus: "REFUND_PROCESSING",
+                'refundDetails.refundId': refundEntity.id,
+                'refundDetails.refundAmount': refundEntity.amount / 100,
+                'refundDetails.refundDate': new Date()
+            });
+            
+            console.log(`Refund created for order ${order.orderId}, refund ID: ${refundEntity.id}`);
+        }
+    } catch (error) {
+        console.error("Error handling refund created:", error);
+    }
+};
+
+// Helper function to handle refund processed webhook
+const handleRefundProcessed = async (refundEntity) => {
+    try {
+        // Find order by payment ID
+        const order = await orderModel.findOne({
+            paymentId: refundEntity.payment_id
+        });
+        
+        if (order) {
+            await orderModel.findByIdAndUpdate(order._id, {
+                paymentStatus: "REFUND_SUCCESSFUL",
+                orderStatus: "CANCELLED",
+                'refundDetails.refundId': refundEntity.id,
+                'refundDetails.refundAmount': refundEntity.amount / 100,
+                'refundDetails.refundDate': new Date()
+            });
+            
+            console.log(`Refund processed successfully for order ${order.orderId}`);
+            
+            // Here you can add additional logic like:
+            // - Send refund confirmation email to customer
+            // - Update inventory if needed
+            // - Trigger any post-refund business logic
+        }
+    } catch (error) {
+        console.error("Error handling refund processed:", error);
+    }
+};
+
+// Helper function to handle refund failed webhook
+const handleRefundFailed = async (refundEntity) => {
+    try {
+        // Find order by payment ID
+        const order = await orderModel.findOne({
+            paymentId: refundEntity.payment_id
+        });
+        
+        if (order) {
+            await orderModel.findByIdAndUpdate(order._id, {
+                paymentStatus: "REFUND_FAILED",
+                'refundDetails.refundId': refundEntity.id,
+                'refundDetails.refundAmount': refundEntity.amount / 100,
+                'refundDetails.refundDate': new Date()
+            });
+            
+            console.log(`Refund failed for order ${order.orderId}, refund ID: ${refundEntity.id}`);
+            
+            // Here you can add logic for failed refunds:
+            // - Notify admin about failed refund
+            // - Create a task for manual refund processing
+            // - Send notification to customer about the issue
+        }
+    } catch (error) {
+        console.error("Error handling refund failed:", error);
     }
 };

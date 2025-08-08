@@ -27,7 +27,9 @@ const DisplayPriceInRupees = (price) => {
 const getPaymentStatusDisplay = (order) => {
     if (!order) return 'N/A';
     
-    const isOnlinePayment = order.paymentMethod === "Online Payment" || order.paymentMethod === "ONLINE";
+    const isOnlinePayment = order.paymentMethod === "Online Payment" || 
+                           order.paymentMethod === "ONLINE" || 
+                           order.paymentMethod === "Razorpay";
     const status = order.paymentStatus;
     
     // Debug log for payment status detection

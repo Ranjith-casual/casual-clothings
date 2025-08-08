@@ -255,6 +255,20 @@ export const onlinePaymentOrderController = async (req, res) => {
     // Create single order payload with all items
     const orderId = `ORD-${new mongoose.Types.ObjectId()}`;
     
+    // Set default delivery charge if not provided
+    const defaultDeliveryCharge = parseInt(process.env.DEFAULT_DELIVERY_CHARGE) || 100;
+    const finalDeliveryCharge = deliveryCharge || defaultDeliveryCharge;
+    
+    // Calculate final total amount including delivery charge
+    const finalTotalAmount = totalAmount + (finalDeliveryCharge - (deliveryCharge || 0));
+    
+    console.log(`📦 Delivery Charge Calculation:
+      - Original Delivery Charge: ₹${deliveryCharge || 0}
+      - Final Delivery Charge: ₹${finalDeliveryCharge}
+      - Original Total: ₹${totalAmount}
+      - Final Total: ₹${finalTotalAmount}
+    `);
+    
     // Calculate estimated delivery date (3-5 business days from order date)
     const calculateEstimatedDeliveryDate = () => {
         const orderDate = new Date();
@@ -553,12 +567,12 @@ export const onlinePaymentOrderController = async (req, res) => {
       estimatedDeliveryDate: estimatedDeliveryDate ? new Date(estimatedDeliveryDate) : calculateEstimatedDeliveryDate(),
       deliveryDistance: deliveryDistance || 0,
       deliveryDays: deliveryDays || 0,
-      deliveryCharge: deliveryCharge || 0, // Add deliveryCharge field
+      deliveryCharge: finalDeliveryCharge, // Use calculated delivery charge
       paymentStatus: "PAID", // Always PAID for online payments
       paymentMethod: paymentMethod || "Online Payment",
       deliveryAddress: addressId,
       subTotalAmt: subTotalAmt,
-      totalAmt: totalAmount,
+      totalAmt: finalTotalAmount, // Use calculated total amount
       orderStatus: "ORDER PLACED"
     };
 

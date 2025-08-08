@@ -21,7 +21,9 @@ const OrderDetailsModal = ({ order, onClose, isLoading }) => {
   // Helper function for payment status display - Enhanced to handle Online Payment method
   const getPaymentStatusDisplay = (order) => {
     // Check if payment method is Online Payment and status is PAID
-    const isOnlinePayment = order?.paymentMethod === "Online Payment" || order?.paymentMethod === "ONLINE";
+    const isOnlinePayment = order?.paymentMethod === "Online Payment" || 
+                           order?.paymentMethod === "ONLINE" || 
+                           order?.paymentMethod === "Razorpay";
     const status = order?.paymentStatus;
     
     // Debug log for payment status detection

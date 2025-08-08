@@ -554,7 +554,8 @@ function MyOrders() {
     
     // For online payments - if payment method is online and order is placed successfully
     if ((orderData?.paymentMethod === "ONLINE" || 
-         orderData?.paymentMethod === "Online Payment") && 
+         orderData?.paymentMethod === "Online Payment" ||
+         orderData?.paymentMethod === "Razorpay") && 
         orderData?.orderStatus !== "CANCELLED") {
       return "PAID";
     }

@@ -237,7 +237,7 @@ const AddressPage = () => {
   const [openEditAddress, setOpenEditAddress] = useState(false);
 
   // Delivery charge calculation states
-  const [deliveryCharge, setDeliveryCharge] = useState(0);
+  const [deliveryCharge, setDeliveryCharge] = useState(100); // Fixed ₹100 delivery charge
   const [isCalculatingDelivery, setIsCalculatingDelivery] = useState(false);
   const [deliveryDistance, setDeliveryDistance] = useState(null);
   const [isDeliveryCalculated, setIsDeliveryCalculated] = useState(false);
@@ -436,7 +436,7 @@ const AddressPage = () => {
 
   const calculateDeliveryCharge = async (customerAddress) => {
     if (!customerAddress) {
-      setDeliveryCharge(0);
+      setDeliveryCharge(100); // Fixed ₹100 delivery charge even without address
       setDeliveryDistance(null);
       setIsDeliveryCalculated(false);
       setEstimatedDeliveryDate(null);
@@ -448,52 +448,25 @@ const AddressPage = () => {
     setIsDeliveryCalculated(false);
     
     try {
-      // Extract and normalize the customer city/district name
-      const normalizedCustomerCity = extractAndNormalizeCity(customerAddress);
+      // Fixed delivery charge of ₹100 for all orders regardless of location
+      setDeliveryDistance('Standard');
+      setDeliveryCharge(100); // Fixed ₹100 for all deliveries
       
-      if (!normalizedCustomerCity) {
-        throw new Error("Unable to extract city from address");
-      }
-      
-      // Early return for same city
-      const shopCity = 'tirupur';
-      const customerCity = normalizedCustomerCity.toLowerCase();
-      
-      if (customerCity === shopCity) {
-        setDeliveryDistance('0');
-        setDeliveryCharge(50); // ₹50 for same place delivery
-        
-        // Calculate delivery date for same city (1 day)
-        const deliveryDaysCount = 1;
-        const deliveryDateInfo = getEstimatedDeliveryDate(deliveryDaysCount);
-        setDeliveryDays(deliveryDaysCount);
-        setEstimatedDeliveryDate(deliveryDateInfo.formattedDate);
-        
-        setIsDeliveryCalculated(true);
-        return;
-      }
-      
-      // Only call API if cities are different
-      const roadDistance = await getRoadDistance(SHOP_LOCATION, normalizedCustomerCity);
-      const deliveryCharge = getDeliveryChargeFromDistance(roadDistance);
-      
-      // Calculate delivery days and date based on distance
-      const deliveryDaysCount = getDeliveryDaysFromDistance(roadDistance);
+      // Standard delivery time (2-3 days for all locations)
+      const deliveryDaysCount = 3;
       const deliveryDateInfo = getEstimatedDeliveryDate(deliveryDaysCount);
-      
-      setDeliveryDistance(roadDistance.toFixed(2));
-      setDeliveryCharge(deliveryCharge);
       setDeliveryDays(deliveryDaysCount);
       setEstimatedDeliveryDate(deliveryDateInfo.formattedDate);
+      
       setIsDeliveryCalculated(true);
       
     } catch (error) {
-      console.error("Error calculating delivery charge:", error);
-      setDeliveryCharge(0); // Default to free delivery if calculation fails
+      console.error("Error setting delivery charge:", error);
+      setDeliveryCharge(100); // Default to ₹100 even on error
       setDeliveryDistance(null);
+      setIsDeliveryCalculated(false);
       setEstimatedDeliveryDate(null);
       setDeliveryDays(null);
-      setIsDeliveryCalculated(true); // Still mark as calculated even if failed
     } finally {
       setIsCalculatingDelivery(false);
     }
@@ -504,7 +477,7 @@ const AddressPage = () => {
     // If there are no addresses, reset the selected index
     if (!addressList || addressList.length === 0) {
       setSelectedAddressIndex(null);
-      setDeliveryCharge(0);
+      setDeliveryCharge(100); // Fixed ₹100 delivery charge even without address
       setDeliveryDistance(null);
       setIsDeliveryCalculated(false);
       return;
@@ -520,7 +493,7 @@ const AddressPage = () => {
   useEffect(() => {
     // If selected index is null or invalid, reset values
     if (selectedAddressIndex === null || !addressList || !addressList[selectedAddressIndex]) {
-      setDeliveryCharge(0);
+      setDeliveryCharge(100); // Fixed ₹100 delivery charge even without address
       setDeliveryDistance(null);
       setIsDeliveryCalculated(false);
       setEstimatedDeliveryDate(null);

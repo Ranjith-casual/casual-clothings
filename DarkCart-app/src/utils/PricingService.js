@@ -172,33 +172,16 @@ export class PricingService {
     }
     
     /**
-     * Calculate delivery charge based on total amount and distance
-     * @param {number} totalAmount - Order total
-     * @param {number} distance - Delivery distance
-     * @param {Object} deliveryRules - Delivery pricing rules
-     * @returns {number} Delivery charge
+     * Calculate delivery charge - now uses fixed ₹100 for all orders
+     * @param {number} totalAmount - Order total (kept for compatibility)
+     * @param {number} distance - Delivery distance (kept for compatibility)
+     * @param {Object} deliveryRules - Delivery pricing rules (kept for compatibility)
+     * @returns {number} Delivery charge (always 100)
      */
-    static calculateDeliveryCharge(totalAmount, distance = 0, deliveryRules = {}) {
-        const {
-            freeDeliveryThreshold = 500,
-            baseDeliveryCharge = 50,
-            perKmCharge = 5,
-            maxDeliveryCharge = 200
-        } = deliveryRules;
-        
-        // Free delivery above threshold
-        if (totalAmount >= freeDeliveryThreshold) {
-            return 0;
-        }
-        
-        // Calculate distance-based charge
-        let deliveryCharge = baseDeliveryCharge;
-        if (distance > 0) {
-            deliveryCharge += (distance * perKmCharge);
-        }
-        
-        // Apply maximum limit
-        return Math.min(deliveryCharge, maxDeliveryCharge);
+    static calculateDeliveryCharge(totalAmount = 0, distance = 0, deliveryRules = {}) {
+        // Fixed delivery charge of ₹100 for all orders
+        // This overrides any previous calculation logic for consistency
+        return 100;
     }
     
     /**

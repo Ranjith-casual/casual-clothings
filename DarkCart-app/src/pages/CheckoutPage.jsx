@@ -113,8 +113,8 @@ const CheckoutPage = () => {
   const [editAddressData, setEditAddressData] = useState(null);
   const [openEditAddress, setOpenEditAddress] = useState(false);
 
-  // Delivery charge calculation states
-  const [deliveryCharge, setDeliveryCharge] = useState(0);
+  // Delivery charge - fixed at ₹100 for all orders
+  const [deliveryCharge, setDeliveryCharge] = useState(100);
   const [isCalculatingDelivery, setIsCalculatingDelivery] = useState(false);
   const [deliveryDistance, setDeliveryDistance] = useState(null);
 
@@ -243,9 +243,12 @@ const CheckoutPage = () => {
   // Removed custom delivery charge calculation in favor of PricingService.calculateDeliveryCharge
   // which provides a consistent calculation across the application
 
+  // Delivery charge is now fixed at ₹100 for all orders
+  // Function kept for compatibility but simplified
+
   const calculateDeliveryCharge = async (customerAddress) => {
     if (!customerAddress) {
-      setDeliveryCharge(0);
+      setDeliveryCharge(100); // Still ₹100 even without address
       setDeliveryDistance(null);
       return;
     }
@@ -253,32 +256,13 @@ const CheckoutPage = () => {
     setIsCalculatingDelivery(true);
     
     try {
-      const normalizedCustomerCity = extractAndNormalizeCity(customerAddress);
-      
-      if (!normalizedCustomerCity) {
-        throw new Error("Unable to extract city from address");
-      }
-      
-      const shopCity = 'tirupur';
-      const customerCity = normalizedCustomerCity.toLowerCase();
-      
-      if (customerCity === shopCity) {
-        setDeliveryDistance('0');
-        // Use PricingService for consistent calculation
-        setDeliveryCharge(PricingService.calculateDeliveryCharge(totalPrice, 0));
-        return;
-      }
-      
-      const roadDistance = await getRoadDistance(SHOP_LOCATION, normalizedCustomerCity);
-      // Use PricingService for consistent delivery charge calculation
-      const deliveryCharge = PricingService.calculateDeliveryCharge(totalPrice, roadDistance);
-      
-      setDeliveryDistance(roadDistance.toFixed(2));
-      setDeliveryCharge(deliveryCharge);
+      // Fixed delivery charge of ₹100 for all orders regardless of distance
+      setDeliveryCharge(100);
+      setDeliveryDistance('Standard'); // Show as standard delivery
       
     } catch (error) {
-      console.error("Error calculating delivery charge:", error);
-      setDeliveryCharge(0);
+      console.error("Error setting delivery charge:", error);
+      setDeliveryCharge(100); // Default to ₹100 even on error
       setDeliveryDistance(null);
     } finally {
       setIsCalculatingDelivery(false);
@@ -290,7 +274,7 @@ const CheckoutPage = () => {
     if (selectedAddressIndex !== null && addressList[selectedAddressIndex]) {
       calculateDeliveryCharge(addressList[selectedAddressIndex]);
     } else {
-      setDeliveryCharge(0);
+      setDeliveryCharge(100); // Fixed ₹100 delivery charge even without address
       setDeliveryDistance(null);
     }
   }, [selectedAddressIndex, addressList]);
