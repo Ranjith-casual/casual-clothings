@@ -15,20 +15,25 @@ export const validateStockAvailability = async (req, res, next) => {
 
         // Check stock for each item
         for (const item of list_items) {
-            // Determine if this is a bundle or product item
-            const isBundle = !!(item.bundleId && (
-                (typeof item.bundleId === 'object' && item.bundleId._id) || 
-                (typeof item.bundleId === 'string')
-            ));
-            
-            const isProduct = !!(item.productId && (
-                (typeof item.productId === 'object' && item.productId._id) || 
-                (typeof item.productId === 'string')
-            ));
+            // Determine if this is a bundle or product item - updated to be more flexible
+            const isBundle = !!(item.bundleId || item.itemType === 'bundle');
+            const isProduct = !!(item.productId || item.itemType === 'product');
             
             if (isBundle) {
                 // Validate bundle exists
-                const bundleId = (typeof item.bundleId === 'object' && item.bundleId._id) ? item.bundleId._id : item.bundleId;
+                let bundleId;
+                if (typeof item.bundleId === 'object' && item.bundleId && item.bundleId._id) {
+                    bundleId = item.bundleId._id;
+                } else if (typeof item.bundleId === 'string') {
+                    bundleId = item.bundleId;
+                } else {
+                    return res.status(400).json({
+                        success: false,
+                        error: true,
+                        message: "Invalid bundle ID format"
+                    });
+                }
+                
                 const bundle = await BundleModel.findById(bundleId);
                 
                 if (!bundle) {
@@ -50,7 +55,19 @@ export const validateStockAvailability = async (req, res, next) => {
                 
             } else if (isProduct) {
                 // Validate product exists and has sufficient stock
-                const productId = (typeof item.productId === 'object' && item.productId._id) ? item.productId._id : item.productId;
+                let productId;
+                if (typeof item.productId === 'object' && item.productId && item.productId._id) {
+                    productId = item.productId._id;
+                } else if (typeof item.productId === 'string') {
+                    productId = item.productId;
+                } else {
+                    return res.status(400).json({
+                        success: false,
+                        error: true,
+                        message: "Invalid product ID format"
+                    });
+                }
+                
                 const product = await ProductModel.findById(productId);
                 
                 if (!product) {

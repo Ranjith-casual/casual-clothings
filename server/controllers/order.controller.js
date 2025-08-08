@@ -94,8 +94,81 @@ export const checkOrderModificationPermissionController = async (req, res) => {
 
 export const onlinePaymentOrderController = async (req, res) => {
   try {
+    console.log("=== ONLINE PAYMENT ORDER CONTROLLER START ===");
+    console.log("Request method:", req.method);
+    console.log("Request URL:", req.url);
+    console.log("Request headers:", JSON.stringify(req.headers, null, 2));
+    console.log("Request body:", JSON.stringify(req.body, null, 2));
+    
     const userId = req.userId;
+    console.log("User ID from auth:", userId);
+    
     const { list_items, totalAmount, addressId, subTotalAmt, quantity, paymentMethod, deliveryCharge, deliveryDistance, estimatedDeliveryDate, deliveryDays } = req.body;
+
+    // Validate basic required fields first
+    if (!list_items) {
+      console.log("ERROR: list_items is missing");
+      return res.status(400).json({
+        success: false,
+        error: true,
+        message: "list_items is required"
+      });
+    }
+
+    if (!Array.isArray(list_items)) {
+      console.log("ERROR: list_items is not an array:", typeof list_items);
+      return res.status(400).json({
+        success: false,
+        error: true,
+        message: "list_items must be an array"
+      });
+    }
+
+    if (list_items.length === 0) {
+      console.log("ERROR: list_items is empty");
+      return res.status(400).json({
+        success: false,
+        error: true,
+        message: "list_items cannot be empty"
+      });
+    }
+
+    if (!totalAmount) {
+      console.log("ERROR: totalAmount is missing");
+      return res.status(400).json({
+        success: false,
+        error: true,
+        message: "totalAmount is required"
+      });
+    }
+
+    if (!addressId) {
+      console.log("ERROR: addressId is missing");
+      return res.status(400).json({
+        success: false,
+        error: true,
+        message: "addressId is required"
+      });
+    }
+
+    // Validate and sanitize deliveryDistance
+    let sanitizedDeliveryDistance = 0;
+    if (deliveryDistance !== undefined && deliveryDistance !== null) {
+      if (typeof deliveryDistance === 'string') {
+        // Handle string values like "Standard", convert to 0
+        if (deliveryDistance.toLowerCase() === 'standard' || deliveryDistance === '') {
+          sanitizedDeliveryDistance = 0;
+        } else {
+          const parsed = parseFloat(deliveryDistance);
+          sanitizedDeliveryDistance = isNaN(parsed) ? 0 : parsed;
+        }
+      } else if (typeof deliveryDistance === 'number') {
+        sanitizedDeliveryDistance = deliveryDistance;
+      }
+    }
+    console.log(`Delivery distance sanitized: ${deliveryDistance} -> ${sanitizedDeliveryDistance}`);
+
+    console.log("Basic validation passed, proceeding with order processing...");
 
     // Get user details for email
     const user = await UserModel.findById(userId);
@@ -111,9 +184,12 @@ export const onlinePaymentOrderController = async (req, res) => {
     try {
       for (const item of list_items) {
         // Process item validation
+        console.log("=== PROCESSING ITEM ===");
+        console.log("Item structure:", JSON.stringify(item, null, 2));
 
         // Add null check for item itself
         if (!item) {
+          console.log("ERROR: Item is null or undefined");
           return res.status(400).json({
             success: false,
             error: true,
@@ -122,22 +198,28 @@ export const onlinePaymentOrderController = async (req, res) => {
         }
 
         // Determine if this is a bundle or product item - more robust checking
-        const isBundle = !!(item.bundleId && (
-          (typeof item.bundleId === 'object' && item.bundleId && item.bundleId._id) || 
-          (typeof item.bundleId === 'string' && item.bundleId.length > 0)
-        ));
-        
-        const isProduct = !!(item.productId && (
-          (typeof item.productId === 'object' && item.productId && item.productId._id) || 
-          (typeof item.productId === 'string' && item.productId.length > 0)
-        ));
+        const isBundle = !!(item.bundleId || item.itemType === 'bundle');
+        const isProduct = !!(item.productId || item.itemType === 'product');
+
+        console.log("isBundle:", isBundle, "isProduct:", isProduct);
+        console.log("item.bundleId:", item.bundleId);
+        console.log("item.productId:", item.productId);
+        console.log("item.itemType:", item.itemType);
       
       if (isBundle) {
         // Validate bundle exists
         let bundleId;
         try {
-          bundleId = (typeof item.bundleId === 'object' && item.bundleId && item.bundleId._id) ? item.bundleId._id : item.bundleId;
+          if (typeof item.bundleId === 'object' && item.bundleId && item.bundleId._id) {
+            bundleId = item.bundleId._id;
+          } else if (typeof item.bundleId === 'string') {
+            bundleId = item.bundleId;
+          } else {
+            throw new Error("Invalid bundle ID format");
+          }
+          console.log("Extracted bundleId:", bundleId);
         } catch (bundleIdError) {
+          console.log("Error extracting bundleId:", bundleIdError.message);
           return res.status(400).json({
             success: false,
             error: true,
@@ -187,7 +269,13 @@ export const onlinePaymentOrderController = async (req, res) => {
         // Validate product exists and has sufficient stock
         let productId;
         try {
-          productId = (typeof item.productId === 'object' && item.productId && item.productId._id) ? item.productId._id : item.productId;
+          if (typeof item.productId === 'object' && item.productId && item.productId._id) {
+            productId = item.productId._id;
+          } else if (typeof item.productId === 'string') {
+            productId = item.productId;
+          } else {
+            throw new Error("Invalid product ID format");
+          }
           console.log("Extracted productId:", productId);
         } catch (productIdError) {
           console.log("Error extracting productId:", productIdError.message);
@@ -256,11 +344,12 @@ export const onlinePaymentOrderController = async (req, res) => {
     const orderId = `ORD-${new mongoose.Types.ObjectId()}`;
     
     // Set default delivery charge if not provided
-    const defaultDeliveryCharge = parseInt(process.env.DEFAULT_DELIVERY_CHARGE) || 100;
+    const defaultDeliveryCharge = parseInt(process.env.DEFAULT_DELIVERY_CHARGE) || 80;
     const finalDeliveryCharge = deliveryCharge || defaultDeliveryCharge;
     
     // Calculate final total amount including delivery charge
-    const finalTotalAmount = totalAmount + (finalDeliveryCharge - (deliveryCharge || 0));
+    // totalAmount should already include items total, we just need to ensure delivery charge is correct
+    const finalTotalAmount = totalAmount;
     
     console.log(`📦 Delivery Charge Calculation:
       - Original Delivery Charge: ₹${deliveryCharge || 0}
@@ -565,7 +654,7 @@ export const onlinePaymentOrderController = async (req, res) => {
       totalQuantity: quantity, // Total quantity of all items
       orderDate: new Date(),
       estimatedDeliveryDate: estimatedDeliveryDate ? new Date(estimatedDeliveryDate) : calculateEstimatedDeliveryDate(),
-      deliveryDistance: deliveryDistance || 0,
+      deliveryDistance: sanitizedDeliveryDistance,
       deliveryDays: deliveryDays || 0,
       deliveryCharge: finalDeliveryCharge, // Use calculated delivery charge
       paymentStatus: "PAID", // Always PAID for online payments
@@ -773,7 +862,7 @@ export const onlinePaymentOrderController = async (req, res) => {
     return res.status(500).json({
       success: false,
       error: true,
-      message: "Error in cash payment controller",
+      message: "Error in online payment controller",
       details: error.message,
     });
   }
