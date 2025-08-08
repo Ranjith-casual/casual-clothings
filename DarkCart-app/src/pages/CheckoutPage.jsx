@@ -258,7 +258,7 @@ const CheckoutPage = () => {
     try {
       // Fixed delivery charge of ₹100 for all orders regardless of distance
       setDeliveryCharge(100);
-      setDeliveryDistance('Standard'); // Show as standard delivery
+      setDeliveryDistance(0); // Standard delivery distance is 0
       
     } catch (error) {
       console.error("Error setting delivery charge:", error);
