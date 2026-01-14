@@ -73,7 +73,21 @@ export default defineConfig({
         ]
       },
       workbox: {
-        globPatterns: ['**/*.{js,css,html,ico,png,svg,jpg,jpeg,webp}'],
+        // Increase file size limit to 5MB (default is 2MB)
+        maximumFileSizeToCacheInBytes: 5 * 1024 * 1024, // 5MB
+        
+        // Exclude large images from precaching
+        globPatterns: ['**/*.{js,css,html,ico,png,svg}'],
+        
+        // Don't precache large JPG/JPEG files (they'll be cached at runtime)
+        globIgnores: [
+          '**/node_modules/**/*',
+          '**/HomeBanner/**/*',
+          '**/assets/noCart*',
+          '**/*.jpg',
+          '**/*.jpeg'
+        ],
+        
         runtimeCaching: [
           {
             urlPattern: /^https:\/\/api\.*/i,
@@ -104,7 +118,19 @@ export default defineConfig({
             }
           },
           {
-            urlPattern: /\.(?:png|jpg|jpeg|svg|gif|webp)$/,
+            // Cache large images at runtime (not precached)
+            urlPattern: /\.(?:jpg|jpeg)$/,
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'large-images-cache',
+              expiration: {
+                maxEntries: 50,
+                maxAgeSeconds: 30 * 24 * 60 * 60 // 30 days
+              }
+            }
+          },
+          {
+            urlPattern: /\.(?:png|svg|gif|webp)$/,
             handler: 'CacheFirst',
             options: {
               cacheName: 'images-cache',
