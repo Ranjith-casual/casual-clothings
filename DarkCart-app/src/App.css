@@ -1,0 +1,350 @@
+/* Premium Typography and Animations */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@100;200;300;400;500;600;700&display=swap');
+
+/* Glassmorphism Effect */
+.glassmorphism {
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.glassmorphism-dark {
+  background: rgba(0, 0, 0, 0.2);
+  backdrop-filter: blur(15px);
+  -webkit-backdrop-filter: blur(15px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* Premium Fade Animations */
+@keyframes premiumFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes premiumSlideIn {
+  from {
+    opacity: 0;
+    transform: translateX(-50px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.premium-fade-in {
+  animation: premiumFadeIn 0.8s ease-out forwards;
+}
+
+.premium-slide-in {
+  animation: premiumSlideIn 0.8s ease-out forwards;
+}
+
+/* Typography Enhancements */
+.premium-typography {
+  font-family: 'Inter', sans-serif;
+  font-weight: 300;
+  letter-spacing: 0.05em;
+}
+
+.premium-typography-bold {
+  font-family: 'Inter', sans-serif;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+}
+
+/* Hover Effects */
+.premium-hover-scale {
+  transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+.premium-hover-scale:hover {
+  transform: scale(1.05) translateY(-5px);
+}
+
+/* Custom Scrollbar */
+.premium-scroll::-webkit-scrollbar {
+  width: 2px;
+}
+
+.premium-scroll::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.1);
+}
+
+.premium-scroll::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 1px;
+}
+
+.premium-scroll::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.5);
+}
+
+.hide-scrollbar {
+    scrollbar-width: none; /* Firefox */
+    -ms-overflow-style: none; /* IE and Edge */
+  }
+  
+  .hide-scrollbar::-webkit-scrollbar {
+    display: none; /* Chrome, Safari, Opera */
+  }
+  @keyframes glow {
+    0%, 100% {
+      text-shadow: 0 0 5px rgba(255, 255, 255, 0.6), 0 0 10px rgba(255, 255, 255, 0.4);
+    }
+    50% {
+      text-shadow: 0 0 20px rgba(255, 255, 255, 0.8), 0 0 30px rgba(255, 255, 255, 0.6);
+    }
+  }
+  
+  .glow {
+    animation: glow 1.5s ease-in-out infinite;
+  }
+  
+  /* 3D rotation effect */
+  .rotate-3d {
+    transform: perspective(500px) rotateY(20deg);
+  }
+  
+  /* Custom responsive breakpoint for 1284px */
+@media (max-width: 1284px) and (min-width: 1280px) {
+  .header-container {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+  
+  .header-actions {
+    gap: 0.5rem !important;
+  }
+  
+  .cart-button {
+    padding-left: 0.75rem !important;
+    padding-right: 0.75rem !important;
+  }
+}
+
+/* Fix collision at 1024-1279px resolution with mobile-style layout */
+@media (min-width: 1024px) and (max-width: 1279.98px) {
+  /* Adjust the user display at this specific breakpoint */
+  .user-name-display {
+    display: none !important;
+  }
+  
+  /* Add more spacing between header items */
+  .header-actions {
+    gap: 0.75rem !important;
+  }
+  
+  /* Make cart button more compact */
+  .cart-button {
+    padding-left: 0.5rem !important;
+    padding-right: 0.5rem !important;
+  }
+
+  /* Reduce padding for account menu trigger */
+  .account-menu-trigger {
+    padding-left: 0.5rem !important;
+    padding-right: 0.5rem !important;
+  }
+  
+  /* Adjust search bar width for this breakpoint */
+  .mid-desktop-search {
+    max-width: 45% !important;
+  }
+  
+  /* Keep some spacing between elements */
+  .mid-desktop-spacing {
+    gap: 0.75rem !important;
+  }
+  
+  /* Increase mobile header icon size slightly */
+  .mobile-header-icons svg {
+    width: 24px !important;
+    height: 24px !important;
+  }
+  
+  /* Adjust avatar size in mid-desktop */
+  .mobile-header-icons img {
+    width: 28px !important;
+    height: 28px !important;
+  }
+  
+  /* Show more of the username */
+  .mobile-username {
+    max-width: 120px !important;
+    display: inline-block !important;
+  }
+  
+  /* Layout adjustments */
+  .header-container {
+    padding-left: 1.5rem !important;
+    padding-right: 1.5rem !important;
+  }
+}
+
+/* User name display in header */
+@media (min-width: 768px) and (max-width: 1023px) {
+  .user-name-display {
+    max-width: 60px !important;
+  }
+}
+
+@media (min-width: 1024px) and (max-width: 1280px) {
+  .user-name-display {
+    max-width: 80px !important;
+  }
+}
+
+@media (min-width: 1281px) {
+  .user-name-display {
+    max-width: 120px !important;
+  }
+}
+
+/* More granular breakpoints for desktop resolutions */
+@media (min-width: 1280px) and (max-width: 1439px) {
+  .header-actions {
+    gap: 1rem !important;
+  }
+  
+  .cart-button {
+    padding-left: 0.75rem !important;
+    padding-right: 0.75rem !important;
+  }
+  
+  .user-name-display {
+    max-width: 100px !important;
+  }
+}
+
+@media (min-width: 1440px) {
+  .header-actions {
+    gap: 2rem !important;
+  }
+  
+  .user-name-display {
+    max-width: 150px !important;
+  }
+}
+
+/* Mobile responsive improvements */
+@media (max-width: 767px) {
+  .header-container {
+    padding-left: 0.5rem;
+    padding-right: 0.5rem;
+  }
+  
+  .mobile-username {
+    max-width: 0;
+    opacity: 0;
+  }
+}
+
+@media (min-width: 576px) and (max-width: 767px) {
+  .mobile-username {
+    max-width: 70px;
+    opacity: 1;
+  }
+}
+
+@media (min-width: 768px) and (max-width: 1023px) {
+  .mobile-username {
+    max-width: 100px;
+    opacity: 1;
+  }
+}
+
+/* Better spacing for mobile header elements */
+@media (max-width: 640px) {
+  .mobile-header-spacing {
+    gap: 0.5rem !important;
+  }
+  
+  .header-logo-text {
+    font-size: 0.875rem !important;
+  }
+  
+  .header-logo-subtitle {
+    font-size: 0.65rem !important;
+  }
+}
+
+/* Mobile cart icon specific styles */
+.mobile-cart-icon {
+  position: relative;
+}
+
+.mobile-cart-count {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  background: #e53e3e;
+  border-radius: 50%;
+  width: 16px;
+  height: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: bold;
+  color: white;
+}
+
+/* Checkout page specific cart button styles */
+@media (max-width: 767px) {
+  .checkout-cart-button {
+    transform: scale(0.85);
+    transition: all 0.2s ease;
+  }
+  
+  .checkout-cart-button:hover {
+    transform: scale(0.9);
+  }
+}
+
+/* Further responsive tweaks */
+@media (max-width: 360px) {
+  .header-logo-text {
+    font-size: 0.7rem !important;
+    letter-spacing: 0.01rem;
+  }
+  
+  .header-logo-subtitle {
+    font-size: 0.55rem !important;
+  }
+  
+  .mobile-header-icons button,
+  .mobile-header-icons a {
+    padding: 0.25rem !important;
+  }
+}
+
+/* Special handling for exactly 1024px */
+@media (width: 1024px) {
+  .mobile-header-icons {
+    gap: 0.75rem !important; 
+  }
+  
+  .mobile-username {
+    max-width: 100px !important;
+    opacity: 1;
+  }
+  
+  /* Make all buttons a bit larger at this exact breakpoint */
+  .mobile-header-icons svg {
+    width: 26px !important;
+    height: 26px !important;
+  }
+  
+  .mobile-header-icons img {
+    width: 30px !important;
+    height: 30px !important;
+  }
+}
